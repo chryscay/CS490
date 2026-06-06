@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This document defines the UI/UX standards that should be followed throughout the project to ensure a consistent, accessible, and user-friendly experience. These guidelines will help maintain a uniform design language across all pages and features.
+This document defines the UI/UX standards that should be followed throughout the project to ensure a consistent, accessible, and user-friendly experience. These guidelines help maintain a uniform design language across all pages and features.
 
 ## Design Principles
 
@@ -57,16 +57,27 @@ This document defines the UI/UX standards that should be followed throughout the
 ### Status Colors
 
 * Green: Success states
-* Yellow/Orange: Warnings
-* Red: Errors or critical actions
+* Yellow/Orange: Warning states
+* Red: Error states and critical actions
 * Blue: Informational messages
 
 ## Navigation Standards
 
-* Navigation menus should remain consistent throughout the application.
-* Clearly indicate the current page or active section.
-* Keep navigation labels concise and descriptive.
-* Ensure users can return to the home page from any location.
+The application will use a consistent navigation structure consisting of the following primary sections:
+
+* Dashboard
+* Profile
+* Settings
+
+Public pages include:
+
+* Login
+* Register
+* Password Reset
+
+All other application areas require authentication and are only accessible after a user has logged in.
+
+The Dashboard, Profile, and Settings navigation options should remain visible and consistent throughout the authenticated experience. The active page should be clearly indicated so users always know where they are within the application. Navigation labels should remain concise, descriptive, and easy to understand.
 
 ## Form Design Standards
 
@@ -88,6 +99,18 @@ This document defines the UI/UX standards that should be followed throughout the
 * Group related content together.
 * Use visual hierarchy to guide user attention.
 * Keep important information visible without excessive scrolling.
+
+## Dashboard Interaction Model
+
+The Dashboard serves as the primary workspace and central hub of the application. After logging in, users will be directed to the Dashboard where they can access the job board, view important information, monitor activity, and perform common actions.
+
+Information should be organized into logical sections such as summaries, recent activity, notifications, and available actions.
+
+Users should be able to interact with dashboard components in a simple and predictable way. Buttons, cards, links, and navigation elements should clearly indicate their purpose and provide immediate feedback when selected.
+
+Any user action performed from the dashboard should display appropriate feedback, such as confirmation messages, loading indicators, or updated content. The dashboard should also support easy navigation to detailed pages and allow users to return to the main dashboard without confusion.
+
+The layout should remain responsive across desktop, tablet, and mobile devices to ensure a consistent experience for all users.
 
 ## Error Handling
 
