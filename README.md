@@ -14,6 +14,38 @@ Sprint 1 will focus on:
 
 We are not building job tracking, document management, AI features, metrics, or deployment in Sprint 1 unless approved.
 
+## Getting Started
+
+### Prerequisites
+- Node.js >= 20
+- npm >= 10
+
+### Install dependencies
+```bash
+npm install
+```
+
+### Run frontend only
+```bash
+npm run frontend
+```
+Starts the Vite dev server at **http://localhost:5173**
+
+### Run backend only
+```bash
+npm run backend
+```
+Starts the Express server at **http://localhost:3001**
+Health check: **http://localhost:3001/api/health** → `{ "status": "ok" }`
+
+### Run both (recommended)
+```bash
+npm run dev
+```
+Runs frontend and backend concurrently with labeled output.
+
+---
+
 ## Team Workflow
 
 ### Branching Rules

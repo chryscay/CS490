@@ -1,0 +1,17 @@
+{
+  "name": "cs490-ats-for-candidates",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
+  "scripts": {
+    "frontend": "npm run dev --workspace=frontend",
+    "backend": "npm run dev --workspace=backend",
+    "dev": "concurrently --names \"frontend,backend\" --prefix-colors \"cyan,yellow\" \"npm run frontend\" \"npm run backend\""
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
