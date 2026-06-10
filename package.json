@@ -12,9 +12,15 @@
     "dev": "concurrently --names \"frontend,backend\" --prefix-colors \"cyan,yellow\" \"npm run frontend\" \"npm run backend\"",
     "test": "npm run test --workspaces",
     "test:frontend": "npm run test --workspace=frontend",
-    "test:backend": "npm run test --workspace=backend"
+    "test:backend": "npm run test --workspace=backend",
+    "lint": "npm run lint --workspace=frontend && npm run lint --workspace=backend",
+    "lint:fix": "npm run lint:fix --workspace=frontend && npm run lint:fix --workspace=backend",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "devDependencies": {
-    "concurrently": "^8.2.2"
+    "concurrently": "^8.2.2",
+    "eslint-config-prettier": "^10.1.8",
+    "prettier": "^3.8.4"
   }
 }
