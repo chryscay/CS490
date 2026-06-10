@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node from .nvmrc
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies (clean install from lockfile)
+        run: npm ci
+
+      # Lints every workspace that has a "lint" script (frontend now; backend
+      # after S1-006). --if-present skips workspaces without one.
+      # continue-on-error keeps CI green until S1-006 lands and lint is confirmed
+      # clean. Delete this one line then so lint failures block the merge.
+      - name: Lint
+        run: npm run lint --workspaces --if-present
+        continue-on-error: true
+
+      # Builds every workspace that has a "build" script (frontend now;
+      # backend has none yet, so it's skipped).
+      - name: Build
+        run: npm run build --workspaces --if-present
+
+      - name: Run unit tests
+        run: npm test
