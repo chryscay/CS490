@@ -20,7 +20,7 @@ We are not building job tracking, document management, AI features, metrics, or 
 
 ### Prerequisites
 
-- Node.js >= 20
+- Node 22 and nvm use
 - npm >= 10
 
 ### Install dependencies
