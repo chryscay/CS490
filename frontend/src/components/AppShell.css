@@ -5,7 +5,7 @@
 
 .sidebar {
   width: 240px;
-  background-color: #1e1e2e;
+  background-color: var(--color-sidebar-bg);
   display: flex;
   flex-direction: column;
   padding: 16px 0;
@@ -83,8 +83,8 @@
 }
 
 .nav-link.active {
-  background-color: rgba(100, 108, 255, 0.2);
-  color: #646cff;
+  background-color: var(--color-primary-muted);
+  color: var(--color-primary);
   font-weight: 600;
 }
 
@@ -109,7 +109,7 @@
   left: calc(100% + 8px);
   top: 50%;
   transform: translateY(-50%);
-  background-color: #1e1e2e;
+  background-color: var(--color-sidebar-bg);
   color: #fff;
   padding: 4px 10px;
   border-radius: 4px;
@@ -128,5 +128,5 @@
   flex: 1;
   padding: 32px;
   overflow-y: auto;
-  background-color: #1e1e2e;
+  background-color: var(--color-sidebar-bg);
 }
