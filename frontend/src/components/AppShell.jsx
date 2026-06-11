@@ -1,6 +1,14 @@
 import { useState } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
-import { LayoutDashboard, User, Settings, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import {
+  LayoutDashboard,
+  LogIn,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Settings,
+  User,
+  UserPlus,
+} from "lucide-react";
 import './AppShell.css';
 
 export default function AppShell() {
@@ -36,6 +44,18 @@ export default function AppShell() {
             <NavLink to="/settings" className="nav-link" aria-label="Settings" data-label="Settings">
               <Settings size={20} className="nav-icon" aria-hidden="true" />
               <span className="nav-text">Settings</span>
+            </NavLink>
+          </li>
+                    <li>
+            <NavLink to="/login" className="nav-link" aria-label="Login" data-label="Login">
+              <LogIn size={20} className="nav-icon" aria-hidden="true" />
+              <span className="nav-text">Login</span>
+            </NavLink>
+          </li>
+          <li>
+            <NavLink to="/register" className="nav-link" aria-label="Register" data-label="Register">
+              <UserPlus size={20} className="nav-icon" aria-hidden="true" />
+              <span className="nav-text">Register</span>
             </NavLink>
           </li>
         </ul>
