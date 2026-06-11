@@ -3,7 +3,7 @@ import { getAuth } from "firebase-admin/auth";
 import "../lib/firebase-admin.js";
 
 export default class AuthController {
-  static async apiAddUser(req, res, next) {
+  static async apiAddUser(req, res) {
     try {
       const authHeader = req.headers.authorization;
 
@@ -41,7 +41,7 @@ export default class AuthController {
         });
       }
 
-      const userResponse = await UsersDAO.addUser(userInfo);
+      await UsersDAO.addUser(userInfo);
 
       return res.status(201).json({ message: "User created" });
     } catch (error) {

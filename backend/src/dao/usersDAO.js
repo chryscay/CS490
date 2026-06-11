@@ -1,6 +1,3 @@
-import mongodb from "mongodb";
-import { ObjectId } from "mongodb";
-
 let users;
 
 export default class UsersDAO {
