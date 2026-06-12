@@ -23,13 +23,10 @@ jobs:
       - name: Install dependencies (clean install from lockfile)
         run: npm ci
 
-      # Lints every workspace that has a "lint" script (frontend now; backend
-      # after S1-006). --if-present skips workspaces without one.
-      # continue-on-error keeps CI green until S1-006 lands and lint is confirmed
-      # clean. Delete this one line then so lint failures block the merge.
+      # Lints every workspace that has a "lint" script. --if-present skips
+      # workspaces without one. Lint failures block the merge.
       - name: Lint
         run: npm run lint --workspaces --if-present
-        continue-on-error: true
 
       # Builds every workspace that has a "build" script (frontend now;
       # backend has none yet, so it's skipped).
