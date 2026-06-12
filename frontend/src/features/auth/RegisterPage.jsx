@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { createUserWithEmailAndPassword } from "firebase/auth";
-import { auth } from "../../lib/firebase-client.js";
+import { useAuth } from "./useAuth.js";
 
 function RegisterPage() {
+  const { register } = useAuth();
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -11,42 +11,14 @@ function RegisterPage() {
   const handleRegister = async (e) => {
     e.preventDefault();
 
-    if (!displayName.trim()) {
-      setMessage("Display name is required");
-      return;
-    }
-
     try {
-      const credential = await createUserWithEmailAndPassword(
-        auth,
+      await register({
+        displayName,
         email,
         password,
-      );
-
-      const token = await credential.user.getIdToken();
-
-      const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/api/auth/register`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            displayName,
-          }),
-        },
-      );
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Registration failed");
-      }
+      });
 
       setMessage("User created successfully!");
-      console.log(data);
     } catch (error) {
       console.error(error);
       setMessage(error.message);
