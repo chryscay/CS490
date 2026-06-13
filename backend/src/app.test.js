@@ -5,13 +5,11 @@ import { vi, describe, it, expect, beforeEach } from 'vitest';
 import app from './app.js';
 import UsersDAO from './dao/usersDAO.js';
 
+const mockVerifyIdToken = vi.fn();
+
 vi.mock('firebase-admin/auth', () => ({
   getAuth: () => ({
-    verifyIdToken: vi.fn().mockResolvedValue({
-      uid: 'test-uid',
-      email: 'test@test.com',
-      name: 'Chris',
-    }),
+    verifyIdToken: mockVerifyIdToken,
   }),
 }));
 
@@ -49,6 +47,11 @@ describe('health endpoint', () => {
 describe('POST /api/auth/register', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+
+    mockVerifyIdToken.mockResolvedValue({
+      uid: 'test-uid',
+      email: 'test@test.com',
+    });
   });
 
   it('creates a user (happy path + persistence)', async () => {
@@ -103,10 +106,24 @@ describe('POST /api/auth/register', () => {
 describe('auth middleware (S1-014)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+
+    mockVerifyIdToken.mockResolvedValue({
+      uid: 'test-uid',
+      email: 'test@test.com',
+    });
   });
 
   it('blocks requests with no Authorization header (401)', async () => {
     const res = await request(testApp).get('/protected');
+    expect(res.status).toBe(401);
+  });
+
+  it('rejects invalid or expired token (401)', async () => {
+    mockVerifyIdToken.mockRejectedValueOnce(new Error('Expired Token'));
+
+    const res = await request(testApp)
+      .get('/protected')
+      .set('Authorization', 'Bearer badtoken');
     expect(res.status).toBe(401);
   });
 
