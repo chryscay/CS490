@@ -1,6 +1,6 @@
-import UsersDAO from "../dao/usersDAO.js";
-import { getAuth } from "firebase-admin/auth";
-import "../lib/firebase-admin.js";
+import UsersDAO from '../dao/usersDAO.js';
+import { getAuth } from 'firebase-admin/auth';
+import '../lib/firebase-admin.js';
 
 export default class AuthController {
   static async apiAddUser(req, res) {
@@ -9,22 +9,22 @@ export default class AuthController {
 
       if (!authHeader) {
         return res.status(401).json({
-          error: "Authorization token required",
+          error: 'Authorization token required',
         });
       }
 
-      const token = authHeader.replace("Bearer ", "");
+      const token = authHeader.replace('Bearer ', '');
       const decoded = await getAuth().verifyIdToken(token);
 
       if (!req.body.displayName?.trim()) {
         return res.status(400).json({
-          error: "Display name is required",
+          error: 'Display name is required',
         });
       }
 
       if (!decoded.email) {
         return res.status(400).json({
-          error: "Email is required",
+          error: 'Email is required',
         });
       }
 
@@ -37,16 +37,16 @@ export default class AuthController {
       const existingUser = await UsersDAO.findByFirebaseUid(decoded.uid);
       if (existingUser) {
         return res.status(409).json({
-          message: "User already exists",
+          message: 'User already exists',
         });
       }
 
       await UsersDAO.addUser(userInfo);
 
-      return res.status(201).json({ message: "User created" });
+      return res.status(201).json({ message: 'User created' });
     } catch (error) {
-      console.error("apiAddUser error: ", error);
-      return res.status(500).json({ error: "Failed to sync user" });
+      console.error('apiAddUser error: ', error);
+      return res.status(500).json({ error: 'Failed to sync user' });
     }
   }
 }

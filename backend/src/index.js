@@ -1,7 +1,8 @@
-import app from "./app.js";
-import mongodb from "mongodb";
-import dotenv from "dotenv";
-import UsersDAO from "./dao/usersDAO.js";
+import app from './app.js';
+import mongodb from 'mongodb';
+import dotenv from 'dotenv';
+import UsersDAO from './dao/usersDAO.js';
+import JobsDAO from './dao/jobsDAO.js';
 
 async function main() {
   dotenv.config();
@@ -12,6 +13,7 @@ async function main() {
   try {
     await client.connect();
     await UsersDAO.injectDB(client);
+    await JobsDAO.injectDB(client);
 
     await app.listen(port, () => {
       console.log(`Listening on port ${port}`);
@@ -23,3 +25,4 @@ async function main() {
 }
 
 main().catch(console.error);
+
