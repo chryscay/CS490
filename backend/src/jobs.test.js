@@ -102,7 +102,8 @@ describe('GET /api/jobs', () => {
     expect(res.body.jobs).toHaveLength(1);
   });
 
-  it('blocks protected job access when the session token is invalid', async () => {
+  it('blocks protected job access when no valid token is provided', async () => {
+    // Covers the protected API no-valid-token path after logout removes the client token.
     mockVerifyIdToken.mockRejectedValue(new Error('expired token'));
 
     const res = await request(app)
