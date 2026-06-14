@@ -101,6 +101,19 @@ describe('GET /api/jobs', () => {
     expect(JobsDAO.findByOwner).toHaveBeenCalledWith('user-a');
     expect(res.body.jobs).toHaveLength(1);
   });
+
+  it('blocks protected job access when no valid token is provided', async () => {
+    // Covers the protected API no-valid-token path after logout removes the client token.
+    mockVerifyIdToken.mockRejectedValue(new Error('expired token'));
+
+    const res = await request(app)
+      .get('/api/jobs')
+      .set('Authorization', 'Bearer expiredtoken');
+
+    expect(res.status).toBe(401);
+    expect(res.body.error).toMatch(/invalid or expired token/i);
+    expect(JobsDAO.findByOwner).not.toHaveBeenCalled();
+  });
 });
 
 describe('GET /api/jobs/:id', () => {
@@ -143,5 +156,3 @@ describe('GET /api/jobs/:id', () => {
     expect(res.body.job.company).toBe('Acme');
   });
 });
-
-

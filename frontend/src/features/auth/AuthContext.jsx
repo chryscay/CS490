@@ -65,6 +65,7 @@ export function AuthProvider({ children }) {
 
   const logout = async () => {
     await signOut(auth);
+    setCurrentUser(null);
   };
 
   const value = useMemo(
