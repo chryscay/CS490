@@ -102,7 +102,11 @@ describe("AuthProvider", () => {
     );
   });
 
-  it("logs out the current user", async () => {
+  it("logs out and clears the current user", async () => {
+    mockOnAuthStateChanged.mockImplementation((auth, callback) => {
+      callback({ email: "test@test.com" });
+      return vi.fn();
+    });
     mockSignOut.mockResolvedValue();
 
     render(
@@ -111,10 +115,13 @@ describe("AuthProvider", () => {
       </AuthProvider>,
     );
 
+    expect(screen.getByText("test@test.com")).toBeInTheDocument();
+
     await act(async () => {
       screen.getByRole("button", { name: /logout/i }).click();
     });
 
     expect(mockSignOut).toHaveBeenCalledWith({});
+    expect(screen.getByText("No user")).toBeInTheDocument();
   });
 });
