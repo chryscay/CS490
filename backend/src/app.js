@@ -1,6 +1,7 @@
-import cors from "cors";
-import express from "express";
-import auth from "./routes/auth/auth.route.js";
+import cors from 'cors';
+import express from 'express';
+import auth from './routes/auth/auth.route.js';
+import jobs from './routes/jobs/jobs.route.js';
 
 const app = express();
 
@@ -9,10 +10,11 @@ app.use(express.json());
 app.use(cors());
 
 // Health check — used to verify backend is running
-app.get("/api/health", (req, res) => {
-  res.json({ status: "ok" });
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok' });
 });
 
-app.use("/api/auth", auth);
+app.use('/api/auth', auth);
+app.use('/api/jobs', jobs);
 
 export default app;
