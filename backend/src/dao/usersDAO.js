@@ -38,4 +38,33 @@ export default class UsersDAO {
       console.error("findByFirebaseUid error:", error);
     }
   }
+
+  static async getProfile(uid) {
+    try {
+      const result = await users.findOne(
+        { firebaseUid: uid },
+        { projection: { _id: 0 } }
+      );
+
+      return result;
+    } catch (error) {
+      console.error("getProfile error:", error);
+    }
+  }
+
+  static async updateProfile(uid, fields) {
+    try {
+      const result = await users.updateOne(
+        { firebaseUid: uid },
+        { $set: { ...fields, profileUpdatedAt: new Date() } },
+        { upsert: true }
+        
+      );
+
+      return result;
+    } catch (error) {
+      console.error("updateProfile error:", error);
+    }
+  }
 }
+
