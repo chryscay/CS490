@@ -53,12 +53,11 @@ describe('ProfilePage', () => {
 
     render(<ProfilePage />);
 
-    // Loaded with only fullName filled (email isn't a baseline field) → 1 of 4
-    expect(await screen.findByText('1 of 4 fields complete')).toBeInTheDocument();
+    // Loaded with fullName filled, summary empty → 1 of 2 required complete
+    expect(await screen.findByText('1 of 2 fields complete')).toBeInTheDocument();
 
-    // Filling summary bumps it to 2 of 4
     fireEvent.change(screen.getByLabelText(/summary/i), { target: { value: 'Mathematician' } });
-    expect(screen.getByText('2 of 4 fields complete')).toBeInTheDocument();
+    expect(screen.getByText('2 of 2 fields complete')).toBeInTheDocument();
   });
 
   it('shows field-level errors when required fields are empty (validation)', async () => {

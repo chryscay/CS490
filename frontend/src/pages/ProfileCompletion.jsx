@@ -1,17 +1,17 @@
 import PropTypes from 'prop-types';
 
-// Baseline profile fields counted toward completion (S1-BR-009).
-// To count required fields only, change this to ['fullName', 'summary'].
-const BASELINE_FIELDS = ['fullName', 'phone', 'location', 'summary'];
+// Profile completion reflects the baseline REQUIRED fields only (S1-BR-011).
+// These match the form's validation: fullName + summary.
+const REQUIRED_FIELDS = ['fullName', 'summary'];
 
 export default function ProfileCompletion({ profile }) {
-  const completed = BASELINE_FIELDS.filter(
+  const completed = REQUIRED_FIELDS.filter(
     (field) => (profile[field] ?? '').trim().length > 0
   ).length;
 
   return (
     <p className="profile-completion">
-      {completed} of {BASELINE_FIELDS.length} fields complete
+      {completed} of {REQUIRED_FIELDS.length} fields complete
     </p>
   );
 }
