@@ -11,7 +11,12 @@ router
   .post(JobsController.apiCreateJob)
   .get(JobsController.apiGetJobs);
 
-router.route('/:id').get(JobsController.apiGetJobById);
+router
+  .route('/:id')
+  .get(JobsController.apiGetJobById)
+  .put(JobsController.apiUpdateJob);
 
 export default router;
+
+
 

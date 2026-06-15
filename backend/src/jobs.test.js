@@ -21,6 +21,7 @@ vi.mock('./dao/jobsDAO.js', () => ({
     addJob: vi.fn(),
     findByOwner: vi.fn(),
     findByIdForOwner: vi.fn(),
+    updateJob: vi.fn(),
   },
 }));
 
@@ -155,4 +156,81 @@ describe('GET /api/jobs/:id', () => {
     expect(res.status).toBe(200);
     expect(res.body.job.company).toBe('Acme');
   });
+
 });
+
+describe('PUT /api/jobs/:id', () => {
+  const validBody = {
+    company: 'Acme',
+    title: 'Engineer',
+    jobPostingBody: 'Body text here',
+    stage: 'Applied',
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockVerifyIdToken.mockResolvedValue({
+      uid: 'user-a',
+      email: 'a@test.com',
+    });
+  });
+
+  it('updates an owned job (happy path + persistence)', async () => {
+    JobsDAO.updateJob.mockResolvedValue({
+      _id: '507f1f77bcf86cd799439011',
+      firebaseUid: 'user-a',
+      ...validBody,
+    });
+
+    const res = await request(app)
+      .put('/api/jobs/507f1f77bcf86cd799439011')
+      .set('Authorization', 'Bearer faketoken')
+      .send(validBody);
+
+    expect(res.status).toBe(200);
+    expect(JobsDAO.updateJob).toHaveBeenCalledWith(
+      '507f1f77bcf86cd799439011',
+      'user-a',
+      expect.objectContaining({ company: 'Acme', stage: 'Applied' })
+    );
+  });
+
+  it('denies cross-user update: user B cannot update user A job (404)', async () => {
+    mockVerifyIdToken.mockResolvedValue({ uid: 'user-b', email: 'b@test.com' });
+    JobsDAO.updateJob.mockResolvedValue(null);
+
+    const res = await request(app)
+      .put('/api/jobs/507f1f77bcf86cd799439011')
+      .set('Authorization', 'Bearer faketoken')
+      .send(validBody);
+
+    expect(res.status).toBe(404);
+    expect(JobsDAO.updateJob).toHaveBeenCalledWith(
+      '507f1f77bcf86cd799439011',
+      'user-b',
+      expect.any(Object)
+    );
+  });
+
+  it('rejects missing required fields (400)', async () => {
+    const res = await request(app)
+      .put('/api/jobs/507f1f77bcf86cd799439011')
+      .set('Authorization', 'Bearer faketoken')
+      .send({ company: 'Acme' });
+
+    expect(res.status).toBe(400);
+    expect(JobsDAO.updateJob).not.toHaveBeenCalled();
+  });
+
+  it('rejects an invalid stage (400)', async () => {
+    const res = await request(app)
+      .put('/api/jobs/507f1f77bcf86cd799439011')
+      .set('Authorization', 'Bearer faketoken')
+      .send({ ...validBody, stage: 'Hired' });
+
+    expect(res.status).toBe(400);
+    expect(JobsDAO.updateJob).not.toHaveBeenCalled();
+  });
+});
+
+

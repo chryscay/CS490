@@ -49,5 +49,27 @@ export default class JobsDAO {
 
     return result;
   }
+
+   static async updateJob(id, uid, fields) {
+    if (!ObjectId.isValid(id)) {
+      return null;
+    }
+
+    const result = await jobs.findOneAndUpdate(
+      { _id: new ObjectId(id), firebaseUid: uid },
+      {
+        $set: {
+          ...fields,
+          lastActivityAt: new Date(),
+        },
+      },
+      { returnDocument: 'after' }
+    );
+
+    return result;
+  }
+  
+
+
 }
 

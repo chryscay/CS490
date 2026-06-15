@@ -12,14 +12,26 @@ function formatDate(dateStr) {
   });
 }
 
-function JobCard({ job }) {
+function JobCard({ job, onEdit }) {
   const stageClass = `job-stage stage--${job.stage.toLowerCase().replace(/\s+/g, '-')}`;
 
   return (
     <li className="job-card">
       <div className="job-card-header">
         <span className="job-title">{job.title}</span>
-        <span className={stageClass}>{job.stage}</span>
+        <div className="job-card-header-right">
+          <span className={stageClass}>{job.stage}</span>
+          {onEdit && (
+            <button
+              type="button"
+              className="job-edit-btn"
+              onClick={() => onEdit(job)}
+              aria-label={`Edit ${job.title}`}
+            >
+              Edit
+            </button>
+          )}
+        </div>
       </div>
       <span className="job-company">{job.company}</span>
       <div className="job-card-footer">
@@ -36,6 +48,10 @@ JobCard.propTypes = {
     stage: PropTypes.string.isRequired,
     lastActivityAt: PropTypes.string.isRequired,
   }).isRequired,
+  onEdit: PropTypes.func,
 };
 
 export default JobCard;
+
+
+
