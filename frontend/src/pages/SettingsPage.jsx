@@ -1,35 +1,69 @@
-import { useAuth } from "../features/auth/useAuth.js";
+import { useAuth } from '../features/auth/useAuth.js';
 
 export default function SettingsPage() {
   const { currentUser } = useAuth();
 
-  const displayName = currentUser?.displayName || "Not set";
-  const email = currentUser?.email || "Not set";
+  const displayName = currentUser?.displayName || 'Not set';
+  const email = currentUser?.email || 'Not set';
 
   return (
-    <div className="settings-page max-w-2xl p-6">
-      <h1>Settings</h1>
+    <div className="max-w-4xl">
+      <div className="mb-8">
+        <h1 className="text-4xl font-semibold text-white">Settings</h1>
 
-      <section className="mt-6" aria-labelledby="account-heading">
-        <h2 id="account-heading">Account</h2>
-        <dl className="mt-2 space-y-3">
-          <div>
-            <dt className="font-semibold">Display name</dt>
-            <dd className="m-0">{displayName}</dd>
-          </div>
-          <div>
-            <dt className="font-semibold">Email</dt>
-            <dd className="m-0">{email}</dd>
-          </div>
-        </dl>
-      </section>
-
-      <section className="mt-6" aria-labelledby="preferences-heading">
-        <h2 id="preferences-heading">Preferences</h2>
-        <p className="mt-2">
-          Notification and display preferences are coming in a later sprint.
+        <p className="mt-2 text-white/50">
+          Manage your account settings and preferences.
         </p>
-      </section>
+      </div>
+
+      <div className="space-y-6">
+        <section
+          aria-labelledby="account-heading"
+          className="rounded-3xl border border-white/10 bg-white/[0.03] p-6 md:p-8"
+        >
+          <h2
+            id="account-heading"
+            className="text-xl font-semibold text-white mb-6"
+          >
+            Account
+          </h2>
+
+          <div className="grid gap-6 md:grid-cols-2">
+            <div>
+              <p className="text-sm text-white/50 mb-2">Display Name</p>
+
+              <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-4 text-white">
+                {displayName}
+              </div>
+            </div>
+
+            <div>
+              <p className="text-sm text-white/50 mb-2">Email</p>
+
+              <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-4 text-white">
+                {email}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section
+          aria-labelledby="preferences-heading"
+          className="rounded-3xl border border-white/10 bg-white/[0.03] p-6 md:p-8"
+        >
+          <h2
+            id="preferences-heading"
+            className="text-xl font-semibold text-white mb-4"
+          >
+            Preferences
+          </h2>
+
+          <p className="text-white/50">
+            Notification settings, appearance controls, and account preferences
+            will be available in a future sprint.
+          </p>
+        </section>
+      </div>
     </div>
   );
 }

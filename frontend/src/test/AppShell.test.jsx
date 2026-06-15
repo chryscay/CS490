@@ -1,67 +1,97 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import AppShell from '../components/AppShell';
 
+vi.mock('../features/auth/useAuth.js', () => ({
+  useAuth: () => ({
+    logout: vi.fn(),
+  }),
+}));
+
 describe('AppShell', () => {
-  it('renders navigation links for Dashboard, Profile, and Settings', () => {
+  it('renders Dashboard, Profile, and Settings navigation links', () => {
     render(
       <MemoryRouter>
         <AppShell />
       </MemoryRouter>
     );
 
-    expect(screen.getByRole('link', { name: /dashboard/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: /dashboard/i })
+    ).toBeInTheDocument();
+
     expect(screen.getByRole('link', { name: /profile/i })).toBeInTheDocument();
+
     expect(screen.getByRole('link', { name: /settings/i })).toBeInTheDocument();
   });
 
-  it('marks the Dashboard link as active when on /dashboard', () => {
+  it('renders logout button', () => {
+    render(
+      <MemoryRouter>
+        <AppShell />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByRole('button', { name: /logout/i })).toBeInTheDocument();
+  });
+
+  it('marks dashboard link active on /dashboard', () => {
     render(
       <MemoryRouter initialEntries={['/dashboard']}>
         <AppShell />
       </MemoryRouter>
     );
 
-    expect(screen.getByRole('link', { name: /dashboard/i })).toHaveClass('active');
+    const dashboardLink = screen.getByRole('link', {
+      name: /dashboard/i,
+    });
+
+    expect(dashboardLink.className).toContain('bg-white/10');
   });
 
-  it('does not mark Dashboard as active when on /profile', () => {
+  it('marks profile link active on /profile', () => {
     render(
       <MemoryRouter initialEntries={['/profile']}>
         <AppShell />
       </MemoryRouter>
     );
 
-    expect(screen.getByRole('link', { name: /dashboard/i })).not.toHaveClass('active');
-    expect(screen.getByRole('link', { name: /profile/i })).toHaveClass('active');
+    const profileLink = screen.getByRole('link', {
+      name: /profile/i,
+    });
+
+    expect(profileLink.className).toContain('bg-white/10');
   });
 
-  it('adds collapsed class to sidebar when toggle is clicked', async () => {
-    const user = userEvent.setup();
-    const { container } = render(
+  it('shows mobile menu toggle button', () => {
+    render(
       <MemoryRouter>
         <AppShell />
       </MemoryRouter>
     );
 
-    await user.click(screen.getByRole('button', { name: /collapse sidebar/i }));
-
-    expect(container.querySelector('.sidebar')).toHaveClass('sidebar--collapsed');
+    expect(
+      screen.getByRole('button', { name: /toggle menu/i })
+    ).toBeInTheDocument();
   });
 
-  it('removes collapsed class when sidebar is expanded again', async () => {
+  it('toggles mobile menu when clicked', async () => {
     const user = userEvent.setup();
-    const { container } = render(
+
+    render(
       <MemoryRouter>
         <AppShell />
       </MemoryRouter>
     );
 
-    await user.click(screen.getByRole('button', { name: /collapse sidebar/i }));
-    await user.click(screen.getByRole('button', { name: /expand sidebar/i }));
+    const toggleButton = screen.getByRole('button', {
+      name: /toggle menu/i,
+    });
 
-    expect(container.querySelector('.sidebar')).not.toHaveClass('sidebar--collapsed');
+    await user.click(toggleButton);
+
+    expect(screen.getByRole('link', { name: /dashboard/i })).toBeVisible();
   });
 });

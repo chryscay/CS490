@@ -27,6 +27,7 @@ export default function AppShell() {
         <h1 className="text-lg font-semibold">Claude Scholars</h1>
 
         <button
+          aria-label="Toggle menu"
           onClick={() => setMobileOpen(!mobileOpen)}
           className="p-2 rounded-lg hover:bg-white/5"
         >

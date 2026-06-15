@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   createUserWithEmailAndPassword,
   onAuthStateChanged,
+  sendPasswordResetEmail,
   signInWithEmailAndPassword,
   signOut,
 } from "firebase/auth";
@@ -63,6 +64,10 @@ export function AuthProvider({ children }) {
     return credential.user;
   };
 
+  const resetPassword = async ({ email }) => {
+    await sendPasswordResetEmail(auth, email);
+  };
+
   const logout = async () => {
     await signOut(auth);
     setCurrentUser(null);
@@ -74,6 +79,7 @@ export function AuthProvider({ children }) {
       loading,
       register,
       login,
+      resetPassword,
       logout,
     }),
     [currentUser, loading],

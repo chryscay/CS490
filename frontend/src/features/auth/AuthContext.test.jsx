@@ -7,11 +7,13 @@ const mockOnAuthStateChanged = vi.fn();
 const mockSignInWithEmailAndPassword = vi.fn();
 const mockSignOut = vi.fn();
 const mockCreateUserWithEmailAndPassword = vi.fn();
+const mockSendPasswordResetEmail = vi.fn();
 
 vi.mock("firebase/auth", () => ({
   createUserWithEmailAndPassword: (...args) =>
     mockCreateUserWithEmailAndPassword(...args),
   onAuthStateChanged: (...args) => mockOnAuthStateChanged(...args),
+  sendPasswordResetEmail: (...args) => mockSendPasswordResetEmail(...args),
   signInWithEmailAndPassword: (...args) =>
     mockSignInWithEmailAndPassword(...args),
   signOut: (...args) => mockSignOut(...args),
@@ -27,7 +29,7 @@ afterEach(() => {
 });
 
 function AuthConsumer() {
-  const { currentUser, login, logout } = useAuth();
+  const { currentUser, login, resetPassword, logout } = useAuth();
 
   return (
     <div>
@@ -37,6 +39,12 @@ function AuthConsumer() {
         onClick={() => login({ email: "test@test.com", password: "password" })}
       >
         Login
+      </button>
+            <button
+        type="button"
+        onClick={() => resetPassword({ email: "test@test.com" })}
+      >
+        Reset password
       </button>
       <button type="button" onClick={logout}>
         Logout
@@ -102,6 +110,25 @@ describe("AuthProvider", () => {
     );
   });
 
+    it("sends a password reset email through Firebase", async () => {
+    mockSendPasswordResetEmail.mockResolvedValue();
+
+    render(
+      <AuthProvider>
+        <AuthConsumer />
+      </AuthProvider>,
+    );
+
+    await act(async () => {
+      screen.getByRole("button", { name: /reset password/i }).click();
+    });
+
+    expect(mockSendPasswordResetEmail).toHaveBeenCalledWith(
+      {},
+      "test@test.com",
+    );
+  });
+  
   it("logs out and clears the current user", async () => {
     mockOnAuthStateChanged.mockImplementation((auth, callback) => {
       callback({ email: "test@test.com" });
