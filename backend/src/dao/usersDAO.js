@@ -56,7 +56,9 @@ export default class UsersDAO {
     try {
       const result = await users.updateOne(
         { firebaseUid: uid },
-        { $set: { ...fields, profileUpdatedAt: new Date() } }
+        { $set: { ...fields, profileUpdatedAt: new Date() } },
+        { upsert: true }
+        
       );
 
       return result;
