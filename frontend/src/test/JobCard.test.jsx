@@ -26,9 +26,19 @@ describe('JobCard', () => {
     expect(screen.getByText('Applied')).toBeInTheDocument();
   });
 
-  it('renders the last activity date', () => {
+  it('renders the formatted last activity date', () => {
+    const expectedDate = new Date(mockJob.lastActivityAt).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
     render(<ul><JobCard job={mockJob} /></ul>);
-    expect(screen.getByText(/last activity/i)).toBeInTheDocument();
+    expect(screen.getByText(`Last activity: ${expectedDate}`)).toBeInTheDocument();
+  });
+
+  it('renders a fallback when lastActivityAt is missing', () => {
+    render(<ul><JobCard job={{ ...mockJob, lastActivityAt: undefined }} /></ul>);
+    expect(screen.getByText('Last activity: -')).toBeInTheDocument();
   });
 
   it('does not render other jobs data', () => {

@@ -2,7 +2,10 @@ import PropTypes from 'prop-types';
 import './JobCard.css';
 
 function formatDate(dateStr) {
-  return new Date(dateStr).toLocaleDateString('en-US', {
+  if (!dateStr) return '-';
+  const date = new Date(dateStr);
+  if (isNaN(date.getTime())) return '-';
+  return date.toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
