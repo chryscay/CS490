@@ -70,6 +70,21 @@
   gap: 12px;
 }
 
+.loading-state {
+  padding: 64px 32px;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.35);
+  font-size: 0.95rem;
+}
+
+.job-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+}
+
 .empty-state {
   display: flex;
   align-items: center;
