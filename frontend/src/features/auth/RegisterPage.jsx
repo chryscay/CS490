@@ -1,12 +1,13 @@
-import { useState } from "react";
-import { useAuth } from "./useAuth.js";
+import { useState } from 'react';
+import { useAuth } from './useAuth.js';
 
-function RegisterPage() {
+export default function RegisterPage() {
   const { register } = useAuth();
-  const [displayName, setDisplayName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [message, setMessage] = useState("");
+
+  const [displayName, setDisplayName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [message, setMessage] = useState('');
 
   const handleRegister = async (e) => {
     e.preventDefault();
@@ -18,65 +19,141 @@ function RegisterPage() {
         password,
       });
 
-      setMessage("User created successfully!");
-    } catch (error) {
-      console.error(error);
-      setMessage(error.message);
+      setMessage('Account created successfully!');
+    } catch (err) {
+      setMessage(err.message);
     }
   };
 
   return (
-    <div>
-      <h1>Register</h1>
+    <div className="min-h-screen flex items-center justify-center bg-[#0e0e0e] px-4">
+      <div className="w-full max-w-md">
+        <h1 className="text-5xl font-semibold text-white mb-3">Sign up</h1>
 
-      <form onSubmit={handleRegister}>
-        <div>
-          <label>Display Name</label>
-          <br />
-          <input
-            type="text"
-            value={displayName}
-            onChange={(e) => setDisplayName(e.target.value)}
-            required
-          />
+        <p className="text-white/50 text-lg mb-10">
+          Create your Claude Scholars account.
+        </p>
+        <div className="w-full max-w-md rounded-2xl border border-white/10 bg-white/[0.03] p-8">
+          <form onSubmit={handleRegister} className="space-y-6">
+            <div>
+              <label className="block text-sm font-medium text-white/70 mb-2">
+                Display Name*
+              </label>
+
+              <input
+                type="text"
+                placeholder="Enter your display name"
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                required
+                className="
+                w-full
+                rounded-xl
+                border
+                border-white/10
+                bg-white/5
+                px-4
+                py-4
+                text-white
+                placeholder:text-white/40
+                focus:outline-none
+                focus:ring-2
+                focus:ring-blue-500
+                focus:border-transparent
+              "
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-white/70 mb-2">
+                Email*
+              </label>
+
+              <input
+                type="email"
+                placeholder="Enter your email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                className="
+                w-full
+                rounded-xl
+                border
+                border-white/10
+                bg-white/5
+                px-4
+                py-4
+                text-white
+                placeholder:text-white/40
+                focus:outline-none
+                focus:ring-2
+                focus:ring-blue-500
+                focus:border-transparent
+              "
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-white/70 mb-2">
+                Password*
+              </label>
+
+              <input
+                type="password"
+                placeholder="Create a password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                className="
+                w-full
+                rounded-xl
+                border
+                border-white/10
+                bg-white/5
+                px-4
+                py-4
+                text-white
+                placeholder:text-white/40
+                focus:outline-none
+                focus:ring-2
+                focus:ring-blue-500
+                focus:border-transparent
+              "
+              />
+            </div>
+
+            <button
+              type="submit"
+              className="
+              w-full
+              rounded-xl
+              bg-blue-600
+              py-4
+              text-white
+              font-medium
+              hover:bg-blue-500
+              transition
+            "
+            >
+              Get started
+            </button>
+
+            {message && (
+              <p className="text-center text-sm text-red-400">{message}</p>
+            )}
+
+            <p className="text-center text-white/50">
+              Already have an account?{' '}
+              <a
+                href="/login"
+                className="font-medium text-white hover:text-blue-400 transition"
+              >
+                Log in
+              </a>
+            </p>
+          </form>
         </div>
-
-        <br />
-
-        <div>
-          <label>Email</label>
-          <br />
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
-        </div>
-
-        <br />
-
-        <div>
-          <label>Password</label>
-          <br />
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-          />
-        </div>
-
-        <br />
-
-        <button type="submit">Register</button>
-      </form>
-
-      <br />
-
-      {message && <p>{message}</p>}
+      </div>
     </div>
   );
 }
-
-export default RegisterPage;
