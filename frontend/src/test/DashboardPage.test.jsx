@@ -14,9 +14,9 @@ const mockUser = {
 
 beforeEach(() => {
   useAuth.mockReturnValue({ currentUser: mockUser });
-  vi.spyOn(global, 'fetch').mockResolvedValue({
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
     json: vi.fn().mockResolvedValue({ jobs: [] }),
-  });
+  }));
 });
 
 describe('DashboardPage', () => {
@@ -49,13 +49,13 @@ describe('DashboardPage', () => {
   });
 
   it('renders job cards when jobs are returned from the API', async () => {
-    vi.spyOn(global, 'fetch').mockResolvedValue({
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
       json: vi.fn().mockResolvedValue({
         jobs: [
           { _id: '1', title: 'Frontend Engineer', company: 'Acme', stage: 'Applied', lastActivityAt: '2026-06-10T00:00:00.000Z' },
         ],
       }),
-    });
+    }));
 
     render(<DashboardPage />);
     await waitFor(() => expect(screen.getByText('Frontend Engineer')).toBeInTheDocument());
@@ -63,7 +63,7 @@ describe('DashboardPage', () => {
   });
 
   it('shows loading state before jobs are fetched', () => {
-    vi.spyOn(global, 'fetch').mockReturnValue(new Promise(() => {}));
+    vi.stubGlobal('fetch', vi.fn().mockReturnValue(new Promise(() => {})));
     render(<DashboardPage />);
     expect(screen.getByLabelText(/loading jobs/i)).toBeInTheDocument();
   });

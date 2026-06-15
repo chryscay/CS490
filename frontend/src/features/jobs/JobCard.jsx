@@ -1,3 +1,4 @@
+import PropTypes from 'prop-types';
 import './JobCard.css';
 
 function formatDate(dateStr) {
@@ -8,7 +9,7 @@ function formatDate(dateStr) {
   });
 }
 
-export default function JobCard({ job }) {
+function JobCard({ job }) {
   const stageClass = `job-stage stage--${job.stage.toLowerCase().replace(/\s+/g, '-')}`;
 
   return (
@@ -24,3 +25,14 @@ export default function JobCard({ job }) {
     </li>
   );
 }
+
+JobCard.propTypes = {
+  job: PropTypes.shape({
+    title: PropTypes.string.isRequired,
+    company: PropTypes.string.isRequired,
+    stage: PropTypes.string.isRequired,
+    lastActivityAt: PropTypes.string.isRequired,
+  }).isRequired,
+};
+
+export default JobCard;
