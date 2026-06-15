@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { useAuth } from "./useAuth.js";
 
 function LoginPage() {
@@ -61,6 +62,10 @@ function LoginPage() {
             required
           />
         </div>
+        
+        <p>
+          <Link to="/forgot-password">Forgot password?</Link>
+        </p>
 
         <br />
 

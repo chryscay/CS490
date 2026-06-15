@@ -2,6 +2,7 @@ import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import LoginPage from "./LoginPage.jsx";
+import { MemoryRouter } from "react-router-dom";
 
 const mockLogin = vi.fn();
 
@@ -23,7 +24,11 @@ describe("LoginPage", () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     mockLogin.mockRejectedValue(new Error("auth/wrong-password"));
 
-    render(<LoginPage />);
+    render(
+      <MemoryRouter>
+        <LoginPage />
+      </MemoryRouter>,
+    );
 
     await userEvent.type(screen.getByLabelText(/email/i), "test@test.com");
     await userEvent.type(screen.getByLabelText(/password/i), "wrong-pass");
