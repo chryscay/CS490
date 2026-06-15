@@ -41,6 +41,25 @@ describe('ProfilePage', () => {
     expect(await screen.findByDisplayValue('Ada Lovelace')).toBeInTheDocument();
     expect(screen.getByDisplayValue('Mathematician')).toBeInTheDocument();
   });
+  
+  it('shows the completion indicator and updates as baseline fields change (C18)', async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        profile: { email: 'a@test.com', fullName: 'Ada Lovelace', phone: '', location: '', summary: '' },
+      }),
+    });
+
+    render(<ProfilePage />);
+
+    // Loaded with only fullName filled (email isn't a baseline field) → 1 of 4
+    expect(await screen.findByText('1 of 4 fields complete')).toBeInTheDocument();
+
+    // Filling summary bumps it to 2 of 4
+    fireEvent.change(screen.getByLabelText(/summary/i), { target: { value: 'Mathematician' } });
+    expect(screen.getByText('2 of 4 fields complete')).toBeInTheDocument();
+  });
 
   it('shows field-level errors when required fields are empty (validation)', async () => {
     fetchMock.mockResolvedValue({

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../features/auth/useAuth.js';
 import './ProfilePage.css';
+import ProfileCompletion from './ProfileCompletion.jsx';
 
 const API_URL = import.meta.env.VITE_API_URL ?? '';
 
@@ -138,6 +139,8 @@ export default function ProfilePage() {
       {status === 'error' && pageError ? (
         <p className="form-error" role="alert">{pageError}</p>
       ) : null}
+
+      <ProfileCompletion profile={form} />
 
       <form className="profile-form" onSubmit={handleSubmit} noValidate>
         <div className="form-group">
