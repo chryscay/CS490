@@ -41,23 +41,31 @@ describe('ProfilePage', () => {
     expect(await screen.findByDisplayValue('Ada Lovelace')).toBeInTheDocument();
     expect(screen.getByDisplayValue('Mathematician')).toBeInTheDocument();
   });
-  
+
   it('shows the completion indicator and updates as baseline fields change (C18)', async () => {
     fetchMock.mockResolvedValue({
       ok: true,
       status: 200,
       json: async () => ({
-        profile: { email: 'a@test.com', fullName: 'Ada Lovelace', phone: '', location: '', summary: '' },
+        profile: {
+          email: 'a@test.com',
+          fullName: 'Ada Lovelace',
+          phone: '',
+          location: '',
+          summary: '',
+        },
       }),
     });
 
     render(<ProfilePage />);
 
     // Loaded with fullName filled, summary empty → 1 of 2 required complete
-    expect(await screen.findByText('1 of 2 fields complete')).toBeInTheDocument();
+    expect(await screen.findByText('1/2')).toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText(/summary/i), { target: { value: 'Mathematician' } });
-    expect(screen.getByText('2 of 2 fields complete')).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText(/summary/i), {
+      target: { value: 'Mathematician' },
+    });
+    expect(screen.getByText('2/2')).toBeInTheDocument();
   });
 
   it('shows field-level errors when required fields are empty (validation)', async () => {
@@ -74,7 +82,9 @@ describe('ProfilePage', () => {
     await screen.findByLabelText(/full name/i);
     fireEvent.click(screen.getByRole('button', { name: /save profile/i }));
 
-    expect(await screen.findByText(/full name is required/i)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/full name is required/i)
+    ).toBeInTheDocument();
     expect(screen.getByText(/summary is required/i)).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });

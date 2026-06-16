@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../features/auth/useAuth.js';
-import './ProfilePage.css';
 import ProfileCompletion from './ProfileCompletion.jsx';
 
 const API_URL = import.meta.env.VITE_API_URL ?? '';
@@ -133,85 +132,211 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="profile">
-      <h1 className="profile-title">Profile</h1>
+    <div className="max-w-4xl">
+      <div className="mb-6">
+        <h1 className="text-4xl font-semibold text-white">Profile</h1>
 
-      {status === 'error' && pageError ? (
-        <p className="form-error" role="alert">{pageError}</p>
-      ) : null}
+        <p className="mt-2 text-white/50">Manage your profile information.</p>
+      </div>
+
+      {status === 'error' && pageError && (
+        <div className="mb-4 rounded-xl border border-red-500/20 bg-red-500/10 p-4 text-red-300">
+          {pageError}
+        </div>
+      )}
 
       <ProfileCompletion profile={form} />
 
-      <form className="profile-form" onSubmit={handleSubmit} noValidate>
-        <div className="form-group">
-          <label className="form-label" htmlFor="email">Email</label>
-          <input className="form-input" id="email" type="email" value={email} readOnly />
-          <span className="form-hint">Email comes from your account and isn&apos;t edited here.</span>
+      <form
+        onSubmit={handleSubmit}
+        className="rounded-3xl border border-white/10 bg-white/[0.03] p-6 space-y-6"
+        noValidate
+      >
+        <div className="grid md:grid-cols-2 gap-6">
+          <div>
+            <label
+              htmlFor="email"
+              className="block text-sm font-medium text-white/70 mb-2"
+            >
+              Email
+            </label>
+
+            <input
+              id="email"
+              type="email"
+              value={email}
+              readOnly
+              className="
+              w-full
+              rounded-xl
+              border
+              border-white/10
+              bg-white/5
+              px-4
+              py-3
+              text-white/60
+            "
+            />
+          </div>
+
+          <div>
+            <label
+              htmlFor="fullName"
+              className="block text-sm font-medium text-white/70 mb-2"
+            >
+              Full Name
+            </label>
+
+            <input
+              id="fullName"
+              name="fullName"
+              type="text"
+              value={form.fullName}
+              onChange={handleChange}
+              aria-invalid={errors.fullName ? 'true' : 'false'}
+              className="
+              w-full
+              rounded-xl
+              border
+              border-white/10
+              bg-white/5
+              px-4
+              py-3
+              text-white
+              focus:outline-none
+              focus:ring-2
+              focus:ring-blue-500
+            "
+            />
+
+            {errors.fullName && (
+              <p className="mt-2 text-sm text-red-400">{errors.fullName}</p>
+            )}
+          </div>
         </div>
 
-        <div className="form-group">
-          <label className="form-label" htmlFor="fullName">Full name</label>
-          <input
-            className="form-input"
-            id="fullName"
-            name="fullName"
-            type="text"
-            value={form.fullName}
-            onChange={handleChange}
-            aria-invalid={errors.fullName ? 'true' : 'false'}
-          />
-          {errors.fullName ? (
-            <span className="form-error" role="alert">{errors.fullName}</span>
-          ) : null}
+        <div className="grid md:grid-cols-2 gap-6">
+          <div>
+            <label
+              htmlFor="phone"
+              className="block text-sm font-medium text-white/70 mb-2"
+            >
+              Phone
+            </label>
+
+            <input
+              id="phone"
+              name="phone"
+              type="tel"
+              value={form.phone}
+              onChange={handleChange}
+              className="
+              w-full
+              rounded-xl
+              border
+              border-white/10
+              bg-white/5
+              px-4
+              py-3
+              text-white
+              focus:outline-none
+              focus:ring-2
+              focus:ring-blue-500
+            "
+            />
+          </div>
+
+          <div>
+            <label
+              htmlFor="location"
+              className="block text-sm font-medium text-white/70 mb-2"
+            >
+              Location
+            </label>
+
+            <input
+              id="location"
+              name="location"
+              type="text"
+              value={form.location}
+              onChange={handleChange}
+              className="
+              w-full
+              rounded-xl
+              border
+              border-white/10
+              bg-white/5
+              px-4
+              py-3
+              text-white
+              focus:outline-none
+              focus:ring-2
+              focus:ring-blue-500
+            "
+            />
+          </div>
         </div>
 
-        <div className="form-group">
-          <label className="form-label" htmlFor="phone">Phone</label>
-          <input
-            className="form-input"
-            id="phone"
-            name="phone"
-            type="tel"
-            value={form.phone}
-            onChange={handleChange}
-          />
-        </div>
+        <div>
+          <label
+            htmlFor="summary"
+            className="block text-sm font-medium text-white/70 mb-2"
+          >
+            Professional Summary
+          </label>
 
-        <div className="form-group">
-          <label className="form-label" htmlFor="location">Location</label>
-          <input
-            className="form-input"
-            id="location"
-            name="location"
-            type="text"
-            value={form.location}
-            onChange={handleChange}
-          />
-        </div>
-
-        <div className="form-group">
-          <label className="form-label" htmlFor="summary">Summary</label>
           <textarea
-            className="form-textarea"
             id="summary"
             name="summary"
-            rows={4}
+            rows={3}
             value={form.summary}
             onChange={handleChange}
             aria-invalid={errors.summary ? 'true' : 'false'}
+            className="
+            w-full
+            rounded-xl
+            border
+            border-white/10
+            bg-white/5
+            px-4
+            py-3
+            text-white
+            resize-none
+            focus:outline-none
+            focus:ring-2
+            focus:ring-blue-500
+          "
           />
-          {errors.summary ? (
-            <span className="form-error" role="alert">{errors.summary}</span>
-          ) : null}
+
+          {errors.summary && (
+            <p className="mt-2 text-sm text-red-400">{errors.summary}</p>
+          )}
         </div>
 
-        <div className="profile-actions">
-          <button className="btn-primary" type="submit" disabled={status === 'saving'}>
-            {status === 'saving' ? 'Saving...' : 'Save profile'}
+        <div className="flex items-center gap-4">
+          <button
+            type="submit"
+            disabled={status === 'saving'}
+            className="
+            rounded-xl
+            bg-blue-600
+            px-6
+            py-3
+            font-medium
+            text-white
+            hover:bg-blue-500
+            transition
+            disabled:opacity-50
+          "
+          >
+            {status === 'saving' ? 'Saving...' : 'Save Profile'}
           </button>
-          {status === 'saved' ? (
-            <span className="form-success" role="status">Profile saved</span>
-          ) : null}
+
+          {status === 'saved' && (
+            <span role="status" className="text-green-400 text-sm font-medium">
+              Profile saved
+            </span>
+          )}
         </div>
       </form>
     </div>

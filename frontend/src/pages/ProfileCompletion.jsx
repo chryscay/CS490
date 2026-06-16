@@ -1,7 +1,6 @@
 import PropTypes from 'prop-types';
 
 // Profile completion reflects the baseline REQUIRED fields only (S1-BR-011).
-// These match the form's validation: fullName + summary.
 const REQUIRED_FIELDS = ['fullName', 'summary'];
 
 export default function ProfileCompletion({ profile }) {
@@ -9,10 +8,27 @@ export default function ProfileCompletion({ profile }) {
     (field) => (profile[field] ?? '').trim().length > 0
   ).length;
 
+  const percentage = (completed / REQUIRED_FIELDS.length) * 100;
+
   return (
-    <p className="profile-completion">
-      {completed} of {REQUIRED_FIELDS.length} fields complete
-    </p>
+    <div className="mb-4 rounded-xl border border-white/10 bg-white/[0.03] p-4">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-sm font-medium text-white">
+          Profile Completion
+        </span>
+
+        <span className="text-sm font-medium text-blue-400">
+          {completed}/{REQUIRED_FIELDS.length}
+        </span>
+      </div>
+
+      <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/10">
+        <div
+          className="h-full rounded-full bg-blue-500 transition-all"
+          style={{ width: `${percentage}%` }}
+        />
+      </div>
+    </div>
   );
 }
 
