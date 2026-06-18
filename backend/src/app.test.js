@@ -21,6 +21,7 @@ vi.mock('firebase-admin/app', () => ({
 vi.mock('./dao/usersDAO.js', () => ({
   default: {
     findByFirebaseUid: vi.fn(),
+    findByUsername: vi.fn(),
     addUser: vi.fn(),
   },
 }));
@@ -56,19 +57,20 @@ describe('POST /api/auth/register', () => {
 
   it('creates a user (happy path + persistence)', async () => {
     UsersDAO.findByFirebaseUid.mockResolvedValue(null);
+    UsersDAO.findByUsername.mockResolvedValue(null);
     UsersDAO.addUser.mockResolvedValue({ insertedId: 'x' });
 
     const res = await request(app)
       .post('/api/auth/register')
       .set('Authorization', 'Bearer faketoken')
-      .send({ displayName: 'Chris' });
+      .send({ username: 'Chris' });
 
     expect(res.status).toBe(201);
     expect(UsersDAO.addUser).toHaveBeenCalledWith(
       expect.objectContaining({
         firebaseUid: 'test-uid',
         email: 'test@test.com',
-        displayName: 'Chris',
+        username: 'chris',
       })
     );
   });
@@ -76,7 +78,7 @@ describe('POST /api/auth/register', () => {
   it('rejects missing auth header (401)', async () => {
     const res = await request(app)
       .post('/api/auth/register')
-      .send({ displayName: 'Chris' });
+      .send({ username: 'Chris' });
 
     expect(res.status).toBe(401);
   });
@@ -85,10 +87,9 @@ describe('POST /api/auth/register', () => {
     const res = await request(app)
       .post('/api/auth/register')
       .set('Authorization', 'Bearer faketoken')
-      .send({ displayName: '   ' });
-
+      .send({ username: '   ' });
     expect(res.status).toBe(400);
-    expect(res.body.error).toMatch(/display name is required/i);
+    expect(res.body.error).toMatch(/username is required/i);
   });
 
   it('rejects duplicate user (409)', async () => {
@@ -97,7 +98,7 @@ describe('POST /api/auth/register', () => {
     const res = await request(app)
       .post('/api/auth/register')
       .set('Authorization', 'Bearer faketoken')
-      .send({ displayName: 'Chris' });
+      .send({ username: 'Chris' });
 
     expect(res.status).toBe(409);
   });
@@ -137,4 +138,20 @@ describe('auth middleware (S1-014)', () => {
       email: 'test@test.com',
     });
   });
+});
+
+it('rejects duplicate username (409)', async () => {
+  UsersDAO.findByFirebaseUid.mockResolvedValue(null);
+
+  UsersDAO.findByUsername.mockResolvedValue({
+    username: 'chris',
+  });
+
+  const res = await request(app)
+    .post('/api/auth/register')
+    .set('Authorization', 'Bearer faketoken')
+    .send({ username: 'Chris' });
+
+  expect(res.status).toBe(409);
+  expect(res.body.error).toMatch(/username/i);
 });

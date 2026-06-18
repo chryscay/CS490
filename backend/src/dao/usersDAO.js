@@ -6,7 +6,7 @@ export default class UsersDAO {
       return;
     }
     try {
-      users = await conn.db("ats").collection("users");
+      users = await conn.db('ats').collection('users');
     } catch (e) {
       console.error(`Unable to connect in usersDAO: ${e}`);
     }
@@ -17,13 +17,13 @@ export default class UsersDAO {
       const result = await users.insertOne({
         firebaseUid: user.firebaseUid,
         email: user.email,
-        displayName: user.displayName,
+        username: user.username,
         createdAt: new Date(),
       });
 
       return result;
     } catch (error) {
-      console.error("addUser error:", error);
+      console.error('addUser error:', error);
     }
   }
 
@@ -35,7 +35,19 @@ export default class UsersDAO {
 
       return result;
     } catch (error) {
-      console.error("findByFirebaseUid error:", error);
+      console.error('findByFirebaseUid error:', error);
+    }
+  }
+
+  static async findByUsername(username) {
+    try {
+      const result = await users.findOne({
+        username: username,
+      });
+
+      return result;
+    } catch (error) {
+      console.error('findByUsername error:', error);
     }
   }
 
@@ -48,7 +60,7 @@ export default class UsersDAO {
 
       return result;
     } catch (error) {
-      console.error("getProfile error:", error);
+      console.error('getProfile error:', error);
     }
   }
 
@@ -58,13 +70,11 @@ export default class UsersDAO {
         { firebaseUid: uid },
         { $set: { ...fields, profileUpdatedAt: new Date() } },
         { upsert: true }
-        
       );
 
       return result;
     } catch (error) {
-      console.error("updateProfile error:", error);
+      console.error('updateProfile error:', error);
     }
   }
 }
-

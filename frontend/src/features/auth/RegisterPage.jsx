@@ -1,9 +1,12 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from './useAuth.js';
 
 export default function RegisterPage() {
   const { register } = useAuth();
-  const [displayName, setDisplayName] = useState('');
+  const navigate = useNavigate();
+
+  const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [message, setMessage] = useState('');
@@ -13,12 +16,13 @@ export default function RegisterPage() {
 
     try {
       await register({
-        displayName,
+        username,
         email,
         password,
       });
 
       setMessage('Account created successfully!');
+      navigate('/dashboard');
     } catch (err) {
       setMessage(err.message);
     }
@@ -36,14 +40,14 @@ export default function RegisterPage() {
           <form onSubmit={handleRegister} className="space-y-6">
             <div>
               <label className="block text-sm font-medium text-white/70 mb-2">
-                Display Name*
+                Username*
               </label>
 
               <input
                 type="text"
-                placeholder="Enter your display name"
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
+                placeholder="Enter your username"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
                 required
                 className="
                 w-full

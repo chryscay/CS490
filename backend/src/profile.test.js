@@ -63,9 +63,11 @@ describe('PUT /api/profile', () => {
     UsersDAO.updateProfile.mockResolvedValue({ modifiedCount: 1 });
     UsersDAO.getProfile.mockResolvedValue({
       email: 'a@test.com',
-      fullName: 'Ada Lovelace',
-      phone: '555-0100',
-      location: 'London',
+      firstName: 'Ada',
+      lastName: 'Lovelace',
+      phone: '5550100123',
+      city: 'London',
+      state: 'LN',
       summary: 'Mathematician',
     });
 
@@ -73,9 +75,11 @@ describe('PUT /api/profile', () => {
       .put('/api/profile')
       .set('Authorization', 'Bearer faketoken')
       .send({
-        fullName: 'Ada Lovelace',
-        phone: '555-0100',
-        location: 'London',
+        firstName: 'Ada',
+        lastName: 'Lovelace',
+        phone: '5550100123',
+        city: 'London',
+        state: 'LN',
         summary: 'Mathematician',
       });
 
@@ -83,13 +87,15 @@ describe('PUT /api/profile', () => {
     expect(UsersDAO.updateProfile).toHaveBeenCalledWith(
       'user-a',
       expect.objectContaining({
-        fullName: 'Ada Lovelace',
-        phone: '555-0100',
-        location: 'London',
+        firstName: 'Ada',
+        lastName: 'Lovelace',
+        phone: '5550100123',
+        city: 'London',
+        state: 'LN',
         summary: 'Mathematician',
       })
     );
-    expect(res.body.profile.fullName).toBe('Ada Lovelace');
+    expect(res.body.profile.firstName).toBe('Ada');
   });
 
   it('rejects missing required fields with field-level errors (400)', async () => {
@@ -99,20 +105,26 @@ describe('PUT /api/profile', () => {
       .send({ phone: '555-0100' });
 
     expect(res.status).toBe(400);
-    expect(res.body.errors.fullName).toBeDefined();
+    expect(res.body.errors.firstName).toBeDefined();
+    expect(res.body.errors.lastName).toBeDefined();
     expect(res.body.errors.summary).toBeDefined();
     expect(UsersDAO.updateProfile).not.toHaveBeenCalled();
   });
 
   it('does not let the body overwrite identity fields', async () => {
     UsersDAO.updateProfile.mockResolvedValue({ modifiedCount: 1 });
-    UsersDAO.getProfile.mockResolvedValue({ email: 'a@test.com', fullName: 'Ada' });
+    UsersDAO.getProfile.mockResolvedValue({
+      email: 'a@test.com',
+      firstName: 'Ada',
+      lastName: 'Lovelace',
+    });
 
     await request(app)
       .put('/api/profile')
       .set('Authorization', 'Bearer faketoken')
       .send({
-        fullName: 'Ada',
+        firstName: 'Ada',
+        lastName: 'Lovelace',
         summary: 'Mathematician',
         firebaseUid: 'user-evil',
         email: 'evil@test.com',

@@ -1,7 +1,7 @@
-import { act, cleanup, render, screen } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { AuthProvider } from "./AuthContext.jsx";
-import { useAuth } from "./useAuth.js";
+import { act, cleanup, render, screen } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { AuthProvider } from './AuthContext.jsx';
+import { useAuth } from './useAuth.js';
 
 const mockOnAuthStateChanged = vi.fn();
 const mockSignInWithEmailAndPassword = vi.fn();
@@ -9,7 +9,7 @@ const mockSignOut = vi.fn();
 const mockCreateUserWithEmailAndPassword = vi.fn();
 const mockSendPasswordResetEmail = vi.fn();
 
-vi.mock("firebase/auth", () => ({
+vi.mock('firebase/auth', () => ({
   createUserWithEmailAndPassword: (...args) =>
     mockCreateUserWithEmailAndPassword(...args),
   onAuthStateChanged: (...args) => mockOnAuthStateChanged(...args),
@@ -20,7 +20,7 @@ vi.mock("firebase/auth", () => ({
   getAuth: vi.fn(() => ({})),
 }));
 
-vi.mock("../../lib/firebase-client.js", () => ({
+vi.mock('../../lib/firebase-client.js', () => ({
   auth: {},
 }));
 
@@ -33,16 +33,16 @@ function AuthConsumer() {
 
   return (
     <div>
-      <p>{currentUser ? currentUser.email : "No user"}</p>
+      <p>{currentUser ? currentUser.email : 'No user'}</p>
       <button
         type="button"
-        onClick={() => login({ email: "test@test.com", password: "password" })}
+        onClick={() => login({ email: 'test@test.com', password: 'password' })}
       >
         Login
       </button>
-            <button
+      <button
         type="button"
-        onClick={() => resetPassword({ email: "test@test.com" })}
+        onClick={() => resetPassword({ email: 'test@test.com' })}
       >
         Reset password
       </button>
@@ -53,7 +53,7 @@ function AuthConsumer() {
   );
 }
 
-describe("AuthProvider", () => {
+describe('AuthProvider', () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
@@ -63,75 +63,75 @@ describe("AuthProvider", () => {
     });
   });
 
-  it("starts with no current user", () => {
+  it('starts with no current user', () => {
     render(
       <AuthProvider>
         <AuthConsumer />
-      </AuthProvider>,
+      </AuthProvider>
     );
 
-    expect(screen.getByText("No user")).toBeInTheDocument();
+    expect(screen.getByText('No user')).toBeInTheDocument();
   });
 
-  it("tracks the current user from Firebase auth state", () => {
+  it('tracks the current user from Firebase auth state', () => {
     mockOnAuthStateChanged.mockImplementation((auth, callback) => {
-      callback({ email: "test@test.com" });
+      callback({ email: 'test@test.com' });
       return vi.fn();
     });
 
     render(
       <AuthProvider>
         <AuthConsumer />
-      </AuthProvider>,
+      </AuthProvider>
     );
 
-    expect(screen.getByText("test@test.com")).toBeInTheDocument();
+    expect(screen.getByText('test@test.com')).toBeInTheDocument();
   });
 
-  it("logs in with email and password", async () => {
+  it('logs in with email and password', async () => {
     mockSignInWithEmailAndPassword.mockResolvedValue({
-      user: { email: "test@test.com" },
+      user: { email: 'test@test.com' },
     });
 
     render(
       <AuthProvider>
         <AuthConsumer />
-      </AuthProvider>,
+      </AuthProvider>
     );
 
     await act(async () => {
-      screen.getByRole("button", { name: /login/i }).click();
+      screen.getByRole('button', { name: /login/i }).click();
     });
 
     expect(mockSignInWithEmailAndPassword).toHaveBeenCalledWith(
       {},
-      "test@test.com",
-      "password",
+      'test@test.com',
+      'password'
     );
   });
 
-    it("sends a password reset email through Firebase", async () => {
+  it('sends a password reset email through Firebase', async () => {
     mockSendPasswordResetEmail.mockResolvedValue();
 
     render(
       <AuthProvider>
         <AuthConsumer />
-      </AuthProvider>,
+      </AuthProvider>
     );
 
     await act(async () => {
-      screen.getByRole("button", { name: /reset password/i }).click();
+      screen.getByRole('button', { name: /reset password/i }).click();
     });
 
     expect(mockSendPasswordResetEmail).toHaveBeenCalledWith(
       {},
-      "test@test.com",
+      'test@test.com'
     );
   });
-  
-  it("logs out and clears the current user", async () => {
+
+  it('logs out and clears the current user', async () => {
     mockOnAuthStateChanged.mockImplementation((auth, callback) => {
-      callback({ email: "test@test.com" });
+      callback({ email: 'test@test.com' });
       return vi.fn();
     });
     mockSignOut.mockResolvedValue();
@@ -139,16 +139,16 @@ describe("AuthProvider", () => {
     render(
       <AuthProvider>
         <AuthConsumer />
-      </AuthProvider>,
+      </AuthProvider>
     );
 
-    expect(screen.getByText("test@test.com")).toBeInTheDocument();
+    expect(screen.getByText('test@test.com')).toBeInTheDocument();
 
     await act(async () => {
-      screen.getByRole("button", { name: /logout/i }).click();
+      screen.getByRole('button', { name: /logout/i }).click();
     });
 
     expect(mockSignOut).toHaveBeenCalledWith({});
-    expect(screen.getByText("No user")).toBeInTheDocument();
+    expect(screen.getByText('No user')).toBeInTheDocument();
   });
 });

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { LayoutDashboard, User, Settings, LogOut, Menu, X } from 'lucide-react';
 import { useAuth } from '../features/auth/useAuth.js';
@@ -6,8 +6,51 @@ import { useAuth } from '../features/auth/useAuth.js';
 export default function AppShell() {
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  const { logout } = useAuth();
   const navigate = useNavigate();
+
+  const { currentUser, logout } = useAuth();
+  const [username, setUsername] = useState('');
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadUsername() {
+      if (!currentUser) {
+        return;
+      }
+
+      try {
+        const token = await currentUser.getIdToken();
+
+        const res = await fetch(`${import.meta.env.VITE_API_URL}/api/profile`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (!res.ok) {
+          throw new Error('Failed to load profile');
+        }
+
+        const data = await res.json();
+
+        if (!active) {
+          return;
+        }
+
+        setUsername(data.profile?.username ?? 'User');
+      } catch (error) {
+        console.error('Failed to load username:', error);
+        setUsername('User');
+      }
+    }
+
+    loadUsername();
+
+    return () => {
+      active = false;
+    };
+  }, [currentUser]);
 
   const handleLogout = async () => {
     try {
@@ -82,13 +125,46 @@ export default function AppShell() {
         </nav>
 
         <div className="p-4 border-t border-white/10">
-          <button
-            onClick={handleLogout}
-            className="flex w-full items-center gap-3 px-4 py-3 rounded-xl text-white/70 hover:text-white hover:bg-white/5 transition"
-          >
-            <LogOut size={18} />
-            Logout
-          </button>
+          <div className="flex items-center gap-3">
+            <div
+              className="
+        flex-1
+        rounded-xl
+        border
+        border-white/10
+        bg-white/5
+        px-4
+        py-3
+        text-sm
+        font-medium
+        text-white
+        truncate
+      "
+            >
+              {username}
+            </div>
+
+            <button
+              onClick={handleLogout}
+              className="
+        flex
+        items-center
+        justify-center
+        rounded-xl
+        bg-red-500/15
+        border
+        border-red-500/30
+        px-4
+        py-3
+        text-red-400
+        hover:bg-red-500/25
+        transition
+      "
+              title="Logout"
+            >
+              <LogOut size={18} />
+            </button>
+          </div>
         </div>
       </aside>
 
