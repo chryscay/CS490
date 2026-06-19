@@ -55,6 +55,24 @@ function JobCard({ job, onEdit }) {
           <h3 className="text-lg font-semibold text-white">{job.title}</h3>
 
           <p className="mt-1 text-white/60">{job.company}</p>
+
+          {job.deadline && (
+            <p className="mt-2 text-sm text-white/50">
+              Deadline: {formatDate(job.deadline)}
+            </p>
+          )}
+
+          {job.recruiterName && (
+            <p className="mt-2 text-sm text-white/50">
+              Contact: {job.recruiterName}
+            </p>
+          )}
+
+          {job.contactNotes && (
+            <p className="mt-2 text-sm text-white/50">
+              Notes: {job.contactNotes}
+            </p>
+          )}
         </div>
 
         <div className="flex items-center gap-3">
@@ -111,6 +129,9 @@ JobCard.propTypes = {
     company: PropTypes.string.isRequired,
     stage: PropTypes.string.isRequired,
     lastActivityAt: PropTypes.string,
+    deadline: PropTypes.string,
+    recruiterName: PropTypes.string,
+    contactNotes: PropTypes.string,
   }).isRequired,
   onEdit: PropTypes.func,
 };

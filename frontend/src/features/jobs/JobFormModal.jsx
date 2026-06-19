@@ -11,6 +11,29 @@ const STAGES = [
   'Archived',
 ];
 
+function formatDeadlineForInput(value) {
+  if (!value) return '';
+
+  const dateOnlyMatch = /^\d{4}-\d{2}-\d{2}$/;
+  if (dateOnlyMatch.test(value)) {
+    return value;
+  }
+
+  const isoMatch = /^\d{4}-\d{2}-\d{2}T.*Z$/;
+  if (isoMatch.test(value)) {
+    return value.slice(0, 10);
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+
+  return `${year}-${month}-${day}`;
+}
+
 export default function JobFormModal({ job, onClose, onSaved }) {
   const { currentUser } = useAuth();
   const isEdit = Boolean(job);
@@ -20,6 +43,11 @@ export default function JobFormModal({ job, onClose, onSaved }) {
   const [jobPostingBody, setJobPostingBody] = useState(
     job?.jobPostingBody ?? ''
   );
+  const [deadline, setDeadline] = useState(
+    formatDeadlineForInput(job?.deadline ?? '')
+  );
+  const [recruiterName, setRecruiterName] = useState(job?.recruiterName ?? '');
+  const [contactNotes, setContactNotes] = useState(job?.contactNotes ?? '');
   const [stage, setStage] = useState(job?.stage ?? 'Interested');
   const [errors, setErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
@@ -57,6 +85,9 @@ export default function JobFormModal({ job, onClose, onSaved }) {
           company: company.trim(),
           title: title.trim(),
           jobPostingBody: jobPostingBody.trim(),
+          deadline: deadline.trim(),
+          recruiterName: recruiterName.trim(),
+          contactNotes: contactNotes.trim(),
           ...(isEdit ? { stage } : {}),
         }),
       });
@@ -200,6 +231,94 @@ export default function JobFormModal({ job, onClose, onSaved }) {
             )}
           </div>
 
+          <div>
+            <label
+              htmlFor="job-deadline"
+              className="block text-sm font-medium text-white/70 mb-2"
+            >
+              Deadline
+            </label>
+
+            <input
+              id="job-deadline"
+              type="date"
+              value={deadline}
+              onChange={(e) => setDeadline(e.target.value)}
+              className="
+              w-full
+              rounded-xl
+              border
+              border-white/10
+              bg-white/5
+              px-4
+              py-3
+              text-white
+              focus:outline-none
+              focus:ring-2
+              focus:ring-blue-500
+            "
+            />
+          </div>
+
+          <div>
+            <label
+              htmlFor="job-recruiter-name"
+              className="block text-sm font-medium text-white/70 mb-2"
+            >
+              Recruiter / Contact Name
+            </label>
+
+            <input
+              id="job-recruiter-name"
+              type="text"
+              value={recruiterName}
+              onChange={(e) => setRecruiterName(e.target.value)}
+              className="
+              w-full
+              rounded-xl
+              border
+              border-white/10
+              bg-white/5
+              px-4
+              py-3
+              text-white
+              focus:outline-none
+              focus:ring-2
+              focus:ring-blue-500
+            "
+            />
+          </div>
+
+          <div>
+            <label
+              htmlFor="job-contact-notes"
+              className="block text-sm font-medium text-white/70 mb-2"
+            >
+              Recruiter / Contact Notes
+            </label>
+
+            <textarea
+              id="job-contact-notes"
+              rows={4}
+              value={contactNotes}
+              onChange={(e) => setContactNotes(e.target.value)}
+              className="
+              w-full
+              rounded-xl
+              border
+              border-white/10
+              bg-white/5
+              px-4
+              py-3
+              text-white
+              resize-none
+              focus:outline-none
+              focus:ring-2
+              focus:ring-blue-500
+            "
+            />
+          </div>
+
           {isEdit && (
             <div>
               <label
@@ -291,6 +410,9 @@ JobFormModal.propTypes = {
     company: PropTypes.string,
     title: PropTypes.string,
     jobPostingBody: PropTypes.string,
+    deadline: PropTypes.string,
+    recruiterName: PropTypes.string,
+    contactNotes: PropTypes.string,
     stage: PropTypes.string,
   }),
   onClose: PropTypes.func.isRequired,

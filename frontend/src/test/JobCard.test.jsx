@@ -47,4 +47,27 @@ describe('JobCard', () => {
     expect(screen.queryByText('Frontend Engineer')).not.toBeInTheDocument();
     expect(screen.queryByText('Acme Corp')).not.toBeInTheDocument();
   });
+
+  it('renders optional job details when provided', () => {
+    const jobWithOptional = {
+      ...mockJob,
+      deadline: '2026-06-30T00:00:00.000Z',
+      recruiterName: 'Jane Recruiter',
+      contactNotes: 'Email after applying',
+    };
+    const expectedDeadline = new Date(jobWithOptional.deadline).toLocaleDateString(
+      'en-US',
+      {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      }
+    );
+
+    render(<ul><JobCard job={jobWithOptional} /></ul>);
+
+    expect(screen.getByText(`Deadline: ${expectedDeadline}`)).toBeInTheDocument();
+    expect(screen.getByText('Contact: Jane Recruiter')).toBeInTheDocument();
+    expect(screen.getByText('Notes: Email after applying')).toBeInTheDocument();
+  });
 });
