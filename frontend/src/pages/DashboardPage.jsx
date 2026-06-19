@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '../features/auth/useAuth';
 import JobCard from '../features/jobs/JobCard';
 import JobFormModal from '../features/jobs/JobFormModal';
+import JobDetailPanel from '../features/jobs/JobDetailPanel';
 
 export default function DashboardPage() {
   const { currentUser } = useAuth();
@@ -11,6 +12,7 @@ export default function DashboardPage() {
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editingJob, setEditingJob] = useState(null);
+  const [selectedJob, setSelectedJob] = useState(null);
 
   const loadJobs = () => {
     if (!currentUser) {
@@ -42,6 +44,7 @@ export default function DashboardPage() {
   };
 
   const openEdit = (job) => {
+    setSelectedJob(null);
     setEditingJob(job);
     setModalOpen(true);
   };
@@ -158,11 +161,19 @@ export default function DashboardPage() {
         ) : (
           <ul className="space-y-4">
             {jobs.map((job) => (
-              <JobCard key={job._id} job={job} onEdit={openEdit} />
+              <JobCard key={job._id} job={job} onEdit={openEdit} onSelect={setSelectedJob} />
             ))}
           </ul>
         )}
       </section>
+
+      {selectedJob && (
+        <JobDetailPanel
+          job={selectedJob}
+          onClose={() => setSelectedJob(null)}
+          onEdit={openEdit}
+        />
+      )}
 
       {modalOpen && (
         <JobFormModal
