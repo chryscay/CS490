@@ -60,6 +60,6 @@ describe('SettingsPage', () => {
       screen.getByRole('heading', { name: /settings/i })
     ).toBeInTheDocument();
 
-    expect(screen.getByText('Loading...')).toBeInTheDocument();
+    expect(screen.getAllByText('Not set')).toHaveLength(2);
   });
 });
