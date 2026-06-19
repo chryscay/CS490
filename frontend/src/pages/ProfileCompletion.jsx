@@ -1,7 +1,7 @@
 import PropTypes from 'prop-types';
 
-// Profile completion reflects the baseline REQUIRED fields only (S1-BR-011).
-const REQUIRED_FIELDS = ['fullName', 'summary'];
+// Profile completion reflects the baseline REQUIRED fields only.
+const REQUIRED_FIELDS = ['firstName', 'lastName', 'summary'];
 
 export default function ProfileCompletion({ profile }) {
   const completed = REQUIRED_FIELDS.filter(
@@ -34,9 +34,11 @@ export default function ProfileCompletion({ profile }) {
 
 ProfileCompletion.propTypes = {
   profile: PropTypes.shape({
-    fullName: PropTypes.string,
+    firstName: PropTypes.string,
+    lastName: PropTypes.string,
     phone: PropTypes.string,
-    location: PropTypes.string,
+    city: PropTypes.string,
+    state: PropTypes.string,
     summary: PropTypes.string,
   }).isRequired,
 };

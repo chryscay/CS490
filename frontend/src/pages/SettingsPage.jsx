@@ -1,10 +1,45 @@
+import { useEffect, useState } from 'react';
 import { useAuth } from '../features/auth/useAuth.js';
 
 export default function SettingsPage() {
   const { currentUser } = useAuth();
 
-  const displayName = currentUser?.displayName || 'Not set';
-  const email = currentUser?.email || 'Not set';
+  const [username, setUsername] = useState('Not set');
+  const [email, setEmail] = useState('Not set');
+
+  useEffect(() => {
+    async function loadProfile() {
+      if (!currentUser) {
+        return;
+      }
+
+      try {
+        const token = await currentUser.getIdToken();
+
+        const res = await fetch(`${import.meta.env.VITE_API_URL}/api/profile`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (!res.ok) {
+          throw new Error('Failed to load profile');
+        }
+
+        const data = await res.json();
+        const profile = data.profile ?? {};
+
+        setUsername(profile.username ?? 'Not set');
+        setEmail(profile.email ?? currentUser.email ?? 'Not set');
+      } catch (error) {
+        console.error(error);
+        setUsername('Not set');
+        setEmail(currentUser?.email ?? 'Not set');
+      }
+    }
+
+    loadProfile();
+  }, [currentUser]);
 
   return (
     <div className="max-w-4xl">
@@ -30,10 +65,10 @@ export default function SettingsPage() {
 
           <div className="grid gap-6 md:grid-cols-2">
             <div>
-              <p className="text-sm text-white/50 mb-2">Display Name</p>
+              <p className="text-sm text-white/50 mb-2">Username</p>
 
               <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-4 text-white">
-                {displayName}
+                {username}
               </div>
             </div>
 

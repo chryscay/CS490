@@ -7,102 +7,116 @@ describe('ProfileCompletion', () => {
     render(
       <ProfileCompletion
         profile={{
-          fullName: 'Ada',
+          firstName: 'Ada',
+          lastName: '',
           phone: '',
-          location: '',
+          city: '',
+          state: '',
           summary: '',
         }}
       />
     );
 
-    expect(screen.getByText('1/2')).toBeInTheDocument();
+    expect(screen.getByText('1/3')).toBeInTheDocument();
   });
 
-  it('shows both when the required fields are filled', () => {
+  it('shows all required fields when filled', () => {
     render(
       <ProfileCompletion
         profile={{
-          fullName: 'Ada',
+          firstName: 'Ada',
+          lastName: 'Lovelace',
           phone: '',
-          location: '',
+          city: '',
+          state: '',
           summary: 'Math',
         }}
       />
     );
 
-    expect(screen.getByText('2/2')).toBeInTheDocument();
+    expect(screen.getByText('3/3')).toBeInTheDocument();
   });
 
-  it('ignores optional fields (phone, location)', () => {
+  it('ignores optional fields (phone, city, state)', () => {
     render(
       <ProfileCompletion
         profile={{
-          fullName: '',
-          phone: '555',
-          location: 'London',
+          firstName: '',
+          lastName: '',
+          phone: '5551234567',
+          city: 'London',
+          state: 'CA',
           summary: '',
         }}
       />
     );
 
-    expect(screen.getByText('0/2')).toBeInTheDocument();
+    expect(screen.getByText('0/3')).toBeInTheDocument();
   });
 
   it('shows zero for an empty profile', () => {
     render(
       <ProfileCompletion
         profile={{
-          fullName: '',
+          firstName: '',
+          lastName: '',
           phone: '',
-          location: '',
+          city: '',
+          state: '',
           summary: '',
         }}
       />
     );
 
-    expect(screen.getByText('0/2')).toBeInTheDocument();
+    expect(screen.getByText('0/3')).toBeInTheDocument();
   });
 
   it('treats whitespace-only fields as empty', () => {
     render(
       <ProfileCompletion
         profile={{
-          fullName: '   ',
+          firstName: '   ',
+          lastName: '',
           phone: '',
-          location: '',
+          city: '',
+          state: '',
           summary: 'Math',
         }}
       />
     );
 
-    expect(screen.getByText('1/2')).toBeInTheDocument();
+    expect(screen.getByText('1/3')).toBeInTheDocument();
   });
 
   it('updates the count when the profile changes', () => {
     const { rerender } = render(
       <ProfileCompletion
         profile={{
-          fullName: 'Ada',
+          firstName: 'Ada',
+          lastName: '',
           phone: '',
-          location: '',
+          city: '',
+          state: '',
           summary: '',
         }}
       />
     );
 
-    expect(screen.getByText('1/2')).toBeInTheDocument();
+    expect(screen.getByText('1/3')).toBeInTheDocument();
 
     rerender(
       <ProfileCompletion
         profile={{
-          fullName: 'Ada',
+          firstName: 'Ada',
+          lastName: 'Lovelace',
           phone: '',
-          location: '',
+          city: '',
+          state: '',
           summary: 'Math',
         }}
       />
     );
 
-    expect(screen.getByText('2/2')).toBeInTheDocument();
+    expect(screen.getByText('3/3')).toBeInTheDocument();
   });
 });

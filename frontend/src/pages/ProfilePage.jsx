@@ -4,12 +4,18 @@ import ProfileCompletion from './ProfileCompletion.jsx';
 
 const API_URL = import.meta.env.VITE_API_URL ?? '';
 
-const EMPTY_FORM = { fullName: '', phone: '', location: '', summary: '' };
+const EMPTY_FORM = {
+  firstName: '',
+  lastName: '',
+  phone: '',
+  city: '',
+  state: '',
+  summary: '',
+};
 
 export default function ProfilePage() {
   const { currentUser } = useAuth();
   const [form, setForm] = useState(EMPTY_FORM);
-  const [email, setEmail] = useState('');
   const [errors, setErrors] = useState({});
   const [status, setStatus] = useState('loading'); // loading | ready | saving | saved | error
   const [pageError, setPageError] = useState('');
@@ -35,12 +41,13 @@ export default function ProfilePage() {
         }
         const profile = data.profile ?? {};
         setForm({
-          fullName: profile.fullName ?? '',
+          firstName: profile.firstName ?? '',
+          lastName: profile.lastName ?? '',
           phone: profile.phone ?? '',
-          location: profile.location ?? '',
+          city: profile.city ?? '',
+          state: profile.state ?? '',
           summary: profile.summary ?? '',
         });
-        setEmail(profile.email ?? currentUser.email ?? '');
         setStatus('ready');
       } catch {
         if (active) {
@@ -66,15 +73,25 @@ export default function ProfilePage() {
 
   function validate() {
     const next = {};
-    if (!form.fullName.trim()) {
-      next.fullName = 'Full name is required';
+
+    if (!form.firstName.trim()) {
+      next.firstName = 'First name is required';
     }
+
+    if (!form.lastName.trim()) {
+      next.lastName = 'Last name is required';
+    }
+
     if (!form.summary.trim()) {
       next.summary = 'Summary is required';
     }
+
+    if (form.phone && !/^\d{10}$/.test(form.phone)) {
+      next.phone = 'Phone number must be exactly 10 digits';
+    }
+
     return next;
   }
-
   async function handleSubmit(e) {
     e.preventDefault();
 
@@ -109,9 +126,11 @@ export default function ProfilePage() {
       const data = await res.json();
       const profile = data.profile ?? {};
       setForm({
-        fullName: profile.fullName ?? '',
+        firstName: profile.firstName ?? '',
+        lastName: profile.lastName ?? '',
         phone: profile.phone ?? '',
-        location: profile.location ?? '',
+        city: profile.city ?? '',
+        state: profile.state ?? '',
         summary: profile.summary ?? '',
       });
       setErrors({});
@@ -155,67 +174,76 @@ export default function ProfilePage() {
         <div className="grid md:grid-cols-2 gap-6">
           <div>
             <label
-              htmlFor="email"
+              htmlFor="firstName"
               className="block text-sm font-medium text-white/70 mb-2"
             >
-              Email
+              First Name*
             </label>
 
             <input
-              id="email"
-              type="email"
-              value={email}
-              readOnly
+              id="firstName"
+              name="firstName"
+              type="text"
+              value={form.firstName}
+              onChange={handleChange}
+              aria-invalid={errors.firstName ? 'true' : 'false'}
               className="
-              w-full
-              rounded-xl
-              border
-              border-white/10
-              bg-white/5
-              px-4
-              py-3
-              text-white/60
-            "
+        w-full
+        rounded-xl
+        border
+        border-white/10
+        bg-white/5
+        px-4
+        py-3
+        text-white
+        focus:outline-none
+        focus:ring-2
+        focus:ring-blue-500
+      "
             />
+
+            {errors.firstName && (
+              <p className="mt-2 text-sm text-red-400">{errors.firstName}</p>
+            )}
           </div>
 
           <div>
             <label
-              htmlFor="fullName"
+              htmlFor="lastName"
               className="block text-sm font-medium text-white/70 mb-2"
             >
-              Full Name
+              Last Name*
             </label>
 
             <input
-              id="fullName"
-              name="fullName"
+              id="lastName"
+              name="lastName"
               type="text"
-              value={form.fullName}
+              value={form.lastName}
               onChange={handleChange}
-              aria-invalid={errors.fullName ? 'true' : 'false'}
+              aria-invalid={errors.lastName ? 'true' : 'false'}
               className="
-              w-full
-              rounded-xl
-              border
-              border-white/10
-              bg-white/5
-              px-4
-              py-3
-              text-white
-              focus:outline-none
-              focus:ring-2
-              focus:ring-blue-500
-            "
+        w-full
+        rounded-xl
+        border
+        border-white/10
+        bg-white/5
+        px-4
+        py-3
+        text-white
+        focus:outline-none
+        focus:ring-2
+        focus:ring-blue-500
+      "
             />
 
-            {errors.fullName && (
-              <p className="mt-2 text-sm text-red-400">{errors.fullName}</p>
+            {errors.lastName && (
+              <p className="mt-2 text-sm text-red-400">{errors.lastName}</p>
             )}
           </div>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-6">
+        <div className="grid md:grid-cols-3 gap-6">
           <div>
             <label
               htmlFor="phone"
@@ -229,51 +257,146 @@ export default function ProfilePage() {
               name="phone"
               type="tel"
               value={form.phone}
+              onChange={(e) => {
+                const digitsOnly = e.target.value
+                  .replace(/\D/g, '')
+                  .slice(0, 10);
+
+                setForm((prev) => ({
+                  ...prev,
+                  phone: digitsOnly,
+                }));
+              }}
+              maxLength={10}
+              className="
+    w-full
+    rounded-xl
+    border
+    border-white/10
+    bg-white/5
+    px-4
+    py-3
+    text-white
+    focus:outline-none
+    focus:ring-2
+    focus:ring-blue-500
+  "
+            />
+
+            {errors.phone && (
+              <p className="mt-2 text-sm text-red-400">{errors.phone}</p>
+            )}
+          </div>
+
+          <div>
+            <label
+              htmlFor="city"
+              className="block text-sm font-medium text-white/70 mb-2"
+            >
+              City
+            </label>
+
+            <input
+              id="city"
+              name="city"
+              type="text"
+              value={form.city}
               onChange={handleChange}
               className="
-              w-full
-              rounded-xl
-              border
-              border-white/10
-              bg-white/5
-              px-4
-              py-3
-              text-white
-              focus:outline-none
-              focus:ring-2
-              focus:ring-blue-500
-            "
+        w-full
+        rounded-xl
+        border
+        border-white/10
+        bg-white/5
+        px-4
+        py-3
+        text-white
+        focus:outline-none
+        focus:ring-2
+        focus:ring-blue-500
+      "
             />
           </div>
 
           <div>
             <label
-              htmlFor="location"
+              htmlFor="state"
               className="block text-sm font-medium text-white/70 mb-2"
             >
-              Location
+              State
             </label>
 
-            <input
-              id="location"
-              name="location"
-              type="text"
-              value={form.location}
+            <select
+              id="state"
+              name="state"
+              value={form.state}
               onChange={handleChange}
               className="
-              w-full
-              rounded-xl
-              border
-              border-white/10
-              bg-white/5
-              px-4
-              py-3
-              text-white
-              focus:outline-none
-              focus:ring-2
-              focus:ring-blue-500
-            "
-            />
+    w-full
+    rounded-xl
+    border
+    border-white/10
+    bg-[#1a1a1a]
+    text-white
+    px-4
+    py-3
+    focus:outline-none
+    focus:ring-2
+    focus:ring-blue-500
+  "
+            >
+              <option value="">Select State</option>
+              <option value="AL">Alabama</option>
+              <option value="AK">Alaska</option>
+              <option value="AZ">Arizona</option>
+              <option value="AR">Arkansas</option>
+              <option value="CA">California</option>
+              <option value="CO">Colorado</option>
+              <option value="CT">Connecticut</option>
+              <option value="DE">Delaware</option>
+              <option value="FL">Florida</option>
+              <option value="GA">Georgia</option>
+              <option value="HI">Hawaii</option>
+              <option value="ID">Idaho</option>
+              <option value="IL">Illinois</option>
+              <option value="IN">Indiana</option>
+              <option value="IA">Iowa</option>
+              <option value="KS">Kansas</option>
+              <option value="KY">Kentucky</option>
+              <option value="LA">Louisiana</option>
+              <option value="ME">Maine</option>
+              <option value="MD">Maryland</option>
+              <option value="MA">Massachusetts</option>
+              <option value="MI">Michigan</option>
+              <option value="MN">Minnesota</option>
+              <option value="MS">Mississippi</option>
+              <option value="MO">Missouri</option>
+              <option value="MT">Montana</option>
+              <option value="NE">Nebraska</option>
+              <option value="NV">Nevada</option>
+              <option value="NH">New Hampshire</option>
+              <option value="NJ">New Jersey</option>
+              <option value="NM">New Mexico</option>
+              <option value="NY">New York</option>
+              <option value="NC">North Carolina</option>
+              <option value="ND">North Dakota</option>
+              <option value="OH">Ohio</option>
+              <option value="OK">Oklahoma</option>
+              <option value="OR">Oregon</option>
+              <option value="PA">Pennsylvania</option>
+              <option value="RI">Rhode Island</option>
+              <option value="SC">South Carolina</option>
+              <option value="SD">South Dakota</option>
+              <option value="TN">Tennessee</option>
+              <option value="TX">Texas</option>
+              <option value="UT">Utah</option>
+              <option value="VT">Vermont</option>
+              <option value="VA">Virginia</option>
+              <option value="WA">Washington</option>
+              <option value="WV">West Virginia</option>
+              <option value="WI">Wisconsin</option>
+              <option value="WY">Wyoming</option>
+            </select>
           </div>
         </div>
 
@@ -282,52 +405,51 @@ export default function ProfilePage() {
             htmlFor="summary"
             className="block text-sm font-medium text-white/70 mb-2"
           >
-            Professional Summary
+            Professional Summary*
           </label>
 
           <textarea
             id="summary"
             name="summary"
-            rows={3}
+            rows={4}
             value={form.summary}
             onChange={handleChange}
             aria-invalid={errors.summary ? 'true' : 'false'}
             className="
-            w-full
-            rounded-xl
-            border
-            border-white/10
-            bg-white/5
-            px-4
-            py-3
-            text-white
-            resize-none
-            focus:outline-none
-            focus:ring-2
-            focus:ring-blue-500
-          "
+      w-full
+      rounded-xl
+      border
+      border-white/10
+      bg-white/5
+      px-4
+      py-3
+      text-white
+      resize-none
+      focus:outline-none
+      focus:ring-2
+      focus:ring-blue-500
+    "
           />
 
           {errors.summary && (
             <p className="mt-2 text-sm text-red-400">{errors.summary}</p>
           )}
         </div>
-
         <div className="flex items-center gap-4">
           <button
             type="submit"
             disabled={status === 'saving'}
             className="
-            rounded-xl
-            bg-blue-600
-            px-6
-            py-3
-            font-medium
-            text-white
-            hover:bg-blue-500
-            transition
-            disabled:opacity-50
-          "
+      rounded-xl
+      bg-blue-600
+      px-6
+      py-3
+      font-medium
+      text-white
+      hover:bg-blue-500
+      transition
+      disabled:opacity-50
+    "
           >
             {status === 'saving' ? 'Saving...' : 'Save Profile'}
           </button>

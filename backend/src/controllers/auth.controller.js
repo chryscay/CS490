@@ -15,10 +15,18 @@ export default class AuthController {
 
       const token = authHeader.replace('Bearer ', '');
       const decoded = await getAuth().verifyIdToken(token);
+      const username = req.body.username?.trim().toLowerCase();
 
-      if (!req.body.displayName?.trim()) {
+      if (!username) {
         return res.status(400).json({
-          error: 'Display name is required',
+          error: 'Username is required',
+        });
+      }
+
+      if (!/^[a-z0-9]{3,20}$/.test(username)) {
+        return res.status(400).json({
+          error:
+            'Username must be 3-20 characters and contain only letters and numbers',
         });
       }
 
@@ -31,10 +39,19 @@ export default class AuthController {
       const userInfo = {
         firebaseUid: decoded.uid,
         email: decoded.email,
-        displayName: req.body.displayName?.trim(),
+        username: username,
       };
 
+      const existingUsername = await UsersDAO.findByUsername(username);
+
+      if (existingUsername) {
+        return res.status(409).json({
+          error: 'Username already taken',
+        });
+      }
+
       const existingUser = await UsersDAO.findByFirebaseUid(decoded.uid);
+
       if (existingUser) {
         return res.status(409).json({
           message: 'User already exists',
@@ -47,6 +64,30 @@ export default class AuthController {
     } catch (error) {
       console.error('apiAddUser error: ', error);
       return res.status(500).json({ error: 'Failed to sync user' });
+    }
+  }
+
+  static async apiCheckUsername(req, res) {
+    try {
+      const username = req.params.username?.trim().toLowerCase();
+
+      if (!username) {
+        return res.status(400).json({
+          error: 'Username is required',
+        });
+      }
+
+      const existingUser = await UsersDAO.findByUsername(username);
+
+      return res.status(200).json({
+        available: !existingUser,
+      });
+    } catch (error) {
+      console.error('apiCheckUsername error:', error);
+
+      return res.status(500).json({
+        error: 'Failed to check username',
+      });
     }
   }
 }
