@@ -83,7 +83,7 @@ describe('POST /api/auth/register', () => {
     expect(res.status).toBe(401);
   });
 
-  it('rejects blank display name (400, field-level)', async () => {
+  it('rejects blank username (400, field-level)', async () => {
     const res = await request(app)
       .post('/api/auth/register')
       .set('Authorization', 'Bearer faketoken')
@@ -101,6 +101,42 @@ describe('POST /api/auth/register', () => {
       .send({ username: 'Chris' });
 
     expect(res.status).toBe(409);
+  });
+
+  it('rejects duplicate username (409)', async () => {
+    UsersDAO.findByFirebaseUid.mockResolvedValue(null);
+
+    UsersDAO.findByUsername.mockResolvedValue({
+      username: 'chris',
+    });
+
+    const res = await request(app)
+      .post('/api/auth/register')
+      .set('Authorization', 'Bearer faketoken')
+      .send({ username: 'Chris' });
+
+    expect(res.status).toBe(409);
+    expect(res.body.error).toMatch(/username/i);
+  });
+
+  it('rejects a username that is too short (400)', async () => {
+    const res = await request(app)
+      .post('/api/auth/register')
+      .set('Authorization', 'Bearer faketoken')
+      .send({ username: 'ab' });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/3-20 characters/i);
+  });
+
+  it('rejects a username with invalid characters (400)', async () => {
+    const res = await request(app)
+      .post('/api/auth/register')
+      .set('Authorization', 'Bearer faketoken')
+      .send({ username: 'bad name!' });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/3-20 characters/i);
   });
 });
 
@@ -138,20 +174,4 @@ describe('auth middleware (S1-014)', () => {
       email: 'test@test.com',
     });
   });
-});
-
-it('rejects duplicate username (409)', async () => {
-  UsersDAO.findByFirebaseUid.mockResolvedValue(null);
-
-  UsersDAO.findByUsername.mockResolvedValue({
-    username: 'chris',
-  });
-
-  const res = await request(app)
-    .post('/api/auth/register')
-    .set('Authorization', 'Bearer faketoken')
-    .send({ username: 'Chris' });
-
-  expect(res.status).toBe(409);
-  expect(res.body.error).toMatch(/username/i);
 });

@@ -4,7 +4,7 @@ import { useAuth } from '../features/auth/useAuth.js';
 export default function SettingsPage() {
   const { currentUser } = useAuth();
 
-  const [username, setUsername] = useState('Loading...');
+  const [username, setUsername] = useState('Not set');
   const [email, setEmail] = useState('Not set');
 
   useEffect(() => {
