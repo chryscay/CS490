@@ -64,6 +64,16 @@ describe('JobDetailPanel', () => {
     expect(onEdit).toHaveBeenCalledWith(mockJob);
   });
 
+  it('shows empty timeline message when there are no activity events', () => {
+    render(
+      <JobDetailPanel
+        {...defaultProps}
+        job={{ ...mockJob, createdAt: undefined, lastActivityAt: undefined }}
+      />
+    );
+    expect(screen.getByText(/no activity recorded yet/i)).toBeInTheDocument();
+  });
+
   it('shows all six canonical stages correctly', () => {
     const stages = ['Interested', 'Applied', 'Interview', 'Offer', 'Rejected', 'Archived'];
     stages.forEach((stage) => {

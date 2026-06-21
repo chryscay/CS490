@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import userEvent from '@testing-library/user-event';
+import { describe, expect, it, vi } from 'vitest';
 import JobCard from '../features/jobs/JobCard';
 
 const mockJob = {
@@ -39,6 +40,22 @@ describe('JobCard', () => {
   it('renders a fallback when lastActivityAt is missing', () => {
     render(<ul><JobCard job={{ ...mockJob, lastActivityAt: undefined }} /></ul>);
     expect(screen.getByText('Last activity: -')).toBeInTheDocument();
+  });
+
+  it('calls onSelect when the card is clicked', async () => {
+    const onSelect = vi.fn();
+    render(<ul><JobCard job={mockJob} onSelect={onSelect} /></ul>);
+    await userEvent.click(screen.getByRole('listitem', { name: /view details for frontend engineer/i }));
+    expect(onSelect).toHaveBeenCalledWith(mockJob);
+  });
+
+  it('calls onEdit but not onSelect when the Edit button is clicked', async () => {
+    const onSelect = vi.fn();
+    const onEdit = vi.fn();
+    render(<ul><JobCard job={mockJob} onSelect={onSelect} onEdit={onEdit} /></ul>);
+    await userEvent.click(screen.getByRole('button', { name: /edit frontend engineer/i }));
+    expect(onEdit).toHaveBeenCalledWith(mockJob);
+    expect(onSelect).not.toHaveBeenCalled();
   });
 
   it('does not render other jobs data', () => {
