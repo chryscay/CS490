@@ -1,4 +1,5 @@
 import PropTypes from 'prop-types';
+import { getStageStyles } from './stageStyles';
 
 function formatDate(dateStr) {
   if (!dateStr) return '-';
@@ -14,27 +15,7 @@ function formatDate(dateStr) {
   });
 }
 
-function getStageStyles(stage) {
-  switch (stage) {
-    case 'Applied':
-      return 'bg-blue-500/20 text-blue-300 border border-blue-500/20';
 
-    case 'Interview':
-      return 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/20';
-
-    case 'Offer':
-      return 'bg-green-500/20 text-green-300 border border-green-500/20';
-
-    case 'Hired':
-      return 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/20';
-
-    case 'Rejected':
-      return 'bg-red-500/20 text-red-300 border border-red-500/20';
-
-    default:
-      return 'bg-white/10 text-white/70 border border-white/10';
-  }
-}
 
 function JobCard({ job, onEdit, onSelect }) {
   return (
@@ -47,6 +28,7 @@ function JobCard({ job, onEdit, onSelect }) {
         border-white/10
         bg-white/[0.03]
         p-5
+        cursor-pointer
         transition
         hover:border-white/20
         hover:bg-white/[0.05]

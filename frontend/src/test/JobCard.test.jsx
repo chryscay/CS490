@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import JobCard from '../features/jobs/JobCard';
+import { STAGES } from '../features/jobs/stageStyles';
 
 const mockJob = {
   _id: 'abc123',
@@ -14,6 +15,14 @@ describe('JobCard', () => {
   it('renders the job title', () => {
     render(<ul><JobCard job={mockJob} /></ul>);
     expect(screen.getByText('Frontend Engineer')).toBeInTheDocument();
+  });
+
+  it('renders the stage badge for every canonical stage', () => {
+    STAGES.forEach((stage) => {
+      const { unmount } = render(<ul><JobCard job={{ ...mockJob, stage }} /></ul>);
+      expect(screen.getByText(stage)).toBeInTheDocument();
+      unmount();
+    });
   });
 
   it('renders the company name', () => {
