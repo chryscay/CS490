@@ -44,6 +44,9 @@ describe('POST /api/jobs', () => {
         company: 'Acme',
         title: 'Backend Engineer',
         jobPostingBody: 'We are hiring a backend engineer.',
+        deadline: '2026-06-30',
+        recruiterName: 'Jane Recruiter',
+        contactNotes: 'Email after applying',
       });
 
     expect(res.status).toBe(201);
@@ -54,8 +57,26 @@ describe('POST /api/jobs', () => {
         title: 'Backend Engineer',
         jobPostingBody: 'We are hiring a backend engineer.',
         stage: 'Interested',
+        deadline: expect.any(Date),
+        recruiterName: 'Jane Recruiter',
+        contactNotes: 'Email after applying',
       })
     );
+  });
+
+  it('rejects invalid deadline (400)', async () => {
+    const res = await request(app)
+      .post('/api/jobs')
+      .set('Authorization', 'Bearer faketoken')
+      .send({
+        company: 'Acme',
+        title: 'Backend Engineer',
+        jobPostingBody: 'We are hiring a backend engineer.',
+        deadline: 'not-a-date',
+      });
+
+    expect(res.status).toBe(400);
+    expect(JobsDAO.addJob).not.toHaveBeenCalled();
   });
 
   it('rejects missing required fields (400)', async () => {
@@ -165,6 +186,9 @@ describe('PUT /api/jobs/:id', () => {
     title: 'Engineer',
     jobPostingBody: 'Body text here',
     stage: 'Applied',
+    deadline: '2026-06-30',
+    recruiterName: 'Jane Recruiter',
+    contactNotes: 'Email after applying',
   };
 
   beforeEach(() => {
@@ -191,7 +215,13 @@ describe('PUT /api/jobs/:id', () => {
     expect(JobsDAO.updateJob).toHaveBeenCalledWith(
       '507f1f77bcf86cd799439011',
       'user-a',
-      expect.objectContaining({ company: 'Acme', stage: 'Applied' })
+      expect.objectContaining({
+        company: 'Acme',
+        stage: 'Applied',
+        deadline: expect.any(Date),
+        recruiterName: 'Jane Recruiter',
+        contactNotes: 'Email after applying',
+      })
     );
   });
 
@@ -227,6 +257,16 @@ describe('PUT /api/jobs/:id', () => {
       .put('/api/jobs/507f1f77bcf86cd799439011')
       .set('Authorization', 'Bearer faketoken')
       .send({ ...validBody, stage: 'Hired' });
+
+    expect(res.status).toBe(400);
+    expect(JobsDAO.updateJob).not.toHaveBeenCalled();
+  });
+
+  it('rejects invalid deadline (400)', async () => {
+    const res = await request(app)
+      .put('/api/jobs/507f1f77bcf86cd799439011')
+      .set('Authorization', 'Bearer faketoken')
+      .send({ ...validBody, deadline: 'not-a-date' });
 
     expect(res.status).toBe(400);
     expect(JobsDAO.updateJob).not.toHaveBeenCalled();

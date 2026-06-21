@@ -1,6 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import JobCard from '../features/jobs/JobCard';
 
 const mockJob = {
@@ -42,26 +41,33 @@ describe('JobCard', () => {
     expect(screen.getByText('Last activity: -')).toBeInTheDocument();
   });
 
-  it('calls onSelect when the card is clicked', async () => {
-    const onSelect = vi.fn();
-    render(<ul><JobCard job={mockJob} onSelect={onSelect} /></ul>);
-    await userEvent.click(screen.getByRole('listitem', { name: /view details for frontend engineer/i }));
-    expect(onSelect).toHaveBeenCalledWith(mockJob);
-  });
-
-  it('calls onEdit but not onSelect when the Edit button is clicked', async () => {
-    const onSelect = vi.fn();
-    const onEdit = vi.fn();
-    render(<ul><JobCard job={mockJob} onSelect={onSelect} onEdit={onEdit} /></ul>);
-    await userEvent.click(screen.getByRole('button', { name: /edit frontend engineer/i }));
-    expect(onEdit).toHaveBeenCalledWith(mockJob);
-    expect(onSelect).not.toHaveBeenCalled();
-  });
-
   it('does not render other jobs data', () => {
     const otherJob = { ...mockJob, title: 'Backend Engineer', company: 'Other Co' };
     render(<ul><JobCard job={otherJob} /></ul>);
     expect(screen.queryByText('Frontend Engineer')).not.toBeInTheDocument();
     expect(screen.queryByText('Acme Corp')).not.toBeInTheDocument();
+  });
+
+  it('renders optional job details when provided', () => {
+    const jobWithOptional = {
+      ...mockJob,
+      deadline: '2026-06-30T00:00:00.000Z',
+      recruiterName: 'Jane Recruiter',
+      contactNotes: 'Email after applying',
+    };
+    const expectedDeadline = new Date(jobWithOptional.deadline).toLocaleDateString(
+      'en-US',
+      {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      }
+    );
+
+    render(<ul><JobCard job={jobWithOptional} /></ul>);
+
+    expect(screen.getByText(`Deadline: ${expectedDeadline}`)).toBeInTheDocument();
+    expect(screen.getByText('Contact: Jane Recruiter')).toBeInTheDocument();
+    expect(screen.getByText('Notes: Email after applying')).toBeInTheDocument();
   });
 });

@@ -21,6 +21,9 @@ export default class JobsDAO {
       title: job.title,
       jobPostingBody: job.jobPostingBody,
       stage: job.stage,
+      deadline: job.deadline,
+      recruiterName: job.recruiterName,
+      contactNotes: job.contactNotes,
       lastActivityAt: new Date(),
       createdAt: new Date(),
     });

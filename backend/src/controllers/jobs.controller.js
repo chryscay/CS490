@@ -12,7 +12,14 @@ const VALID_STAGES = [
 export default class JobsController {
   static async apiCreateJob(req, res) {
     try {
-      const { company, title, jobPostingBody } = req.body;
+      const {
+        company,
+        title,
+        jobPostingBody,
+        deadline,
+        recruiterName,
+        contactNotes,
+      } = req.body;
 
       if (!company?.trim() || !title?.trim() || !jobPostingBody?.trim()) {
         return res.status(400).json({
@@ -26,7 +33,26 @@ export default class JobsController {
         title: title.trim(),
         jobPostingBody: jobPostingBody.trim(),
         stage: 'Interested',
+        deadline: '',
+        recruiterName: '',
+        contactNotes: '',
       };
+
+      if (deadline !== undefined && deadline !== null && deadline !== '') {
+        const parsedDeadline = new Date(deadline);
+        if (Number.isNaN(parsedDeadline.getTime())) {
+          return res.status(400).json({ error: 'Invalid deadline' });
+        }
+        job.deadline = parsedDeadline;
+      }
+
+      if (recruiterName !== undefined && recruiterName !== null) {
+        job.recruiterName = recruiterName.trim();
+      }
+
+      if (contactNotes !== undefined && contactNotes !== null) {
+        job.contactNotes = contactNotes.trim();
+      }
 
       const result = await JobsDAO.addJob(job);
 
@@ -67,7 +93,15 @@ export default class JobsController {
 
   static async apiUpdateJob(req, res) {
     try {
-      const { company, title, jobPostingBody, stage } = req.body;
+      const {
+        company,
+        title,
+        jobPostingBody,
+        stage,
+        deadline,
+        recruiterName,
+        contactNotes,
+      } = req.body;
 
       if (!company?.trim() || !title?.trim() || !jobPostingBody?.trim()) {
         return res.status(400).json({
@@ -83,10 +117,29 @@ export default class JobsController {
         company: company.trim(),
         title: title.trim(),
         jobPostingBody: jobPostingBody.trim(),
+        deadline: '',
+        recruiterName: '',
+        contactNotes: '',
       };
 
       if (stage) {
         fields.stage = stage;
+      }
+
+      if (deadline !== undefined && deadline !== null && deadline !== '') {
+        const parsedDeadline = new Date(deadline);
+        if (Number.isNaN(parsedDeadline.getTime())) {
+          return res.status(400).json({ error: 'Invalid deadline' });
+        }
+        fields.deadline = parsedDeadline;
+      }
+
+      if (recruiterName !== undefined && recruiterName !== null) {
+        fields.recruiterName = recruiterName.trim();
+      }
+
+      if (contactNotes !== undefined && contactNotes !== null) {
+        fields.contactNotes = contactNotes.trim();
       }
 
       const updated = await JobsDAO.updateJob(

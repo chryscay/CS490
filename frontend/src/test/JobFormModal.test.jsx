@@ -28,6 +28,9 @@ describe("JobFormModal", () => {
     expect(screen.getByLabelText("Company")).toBeInTheDocument();
     expect(screen.getByLabelText("Title")).toBeInTheDocument();
     expect(screen.getByLabelText("Job Posting Body")).toBeInTheDocument();
+    expect(screen.getByLabelText("Deadline")).toBeInTheDocument();
+    expect(screen.getByLabelText("Recruiter / Contact Name")).toBeInTheDocument();
+    expect(screen.getByLabelText("Recruiter / Contact Notes")).toBeInTheDocument();
   });
 
   it("shows validation errors and does not submit when fields are empty", async () => {
@@ -51,6 +54,15 @@ describe("JobFormModal", () => {
     fireEvent.change(screen.getByLabelText("Job Posting Body"), {
       target: { value: "We are hiring." },
     });
+    fireEvent.change(screen.getByLabelText("Deadline"), {
+      target: { value: "2026-06-30" },
+    });
+    fireEvent.change(screen.getByLabelText("Recruiter / Contact Name"), {
+      target: { value: "Jane Recruiter" },
+    });
+    fireEvent.change(screen.getByLabelText("Recruiter / Contact Notes"), {
+      target: { value: "Email after applying" },
+    });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() => expect(onSaved).toHaveBeenCalled());
     expect(fetch).toHaveBeenCalledWith(
@@ -62,6 +74,12 @@ describe("JobFormModal", () => {
         }),
       })
     );
+    const body = JSON.parse(fetch.mock.calls[0][1].body);
+    expect(body).toMatchObject({
+      deadline: "2026-06-30",
+      recruiterName: "Jane Recruiter",
+      contactNotes: "Email after applying",
+    });
   });
 
   it("pre-fills fields and submits a PUT when editing", async () => {
@@ -71,11 +89,21 @@ describe("JobFormModal", () => {
       title: "Engineer",
       jobPostingBody: "Existing body",
       stage: "Applied",
+      deadline: "2026-06-30",
+      recruiterName: "Jane Recruiter",
+      contactNotes: "Email after applying",
     };
     const onSaved = vi.fn();
     render(<JobFormModal job={job} onClose={() => {}} onSaved={onSaved} />);
     expect(screen.getByText("Edit Job")).toBeInTheDocument();
     expect(screen.getByLabelText("Company")).toHaveValue("Acme");
+    expect(screen.getByLabelText("Deadline")).toHaveValue("2026-06-30");
+    expect(screen.getByLabelText("Recruiter / Contact Name")).toHaveValue(
+      "Jane Recruiter"
+    );
+    expect(screen.getByLabelText("Recruiter / Contact Notes")).toHaveValue(
+      "Email after applying"
+    );
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() => expect(onSaved).toHaveBeenCalled());
     expect(fetch).toHaveBeenCalledWith(
