@@ -36,9 +36,11 @@ function getStageStyles(stage) {
   }
 }
 
-function JobCard({ job, onEdit }) {
+function JobCard({ job, onEdit, onSelect }) {
   return (
     <li
+      aria-label={`View details for ${job.title}`}
+      onClick={() => onSelect?.(job)}
       className="
         rounded-2xl
         border
@@ -75,7 +77,10 @@ function JobCard({ job, onEdit }) {
           )}
         </div>
 
-        <div className="flex items-center gap-3">
+        <div
+          className="flex items-center gap-3"
+          onClick={(e) => e.stopPropagation()}
+        >
           <span
             className={`
               rounded-full
@@ -134,6 +139,7 @@ JobCard.propTypes = {
     contactNotes: PropTypes.string,
   }).isRequired,
   onEdit: PropTypes.func,
+  onSelect: PropTypes.func,
 };
 
 export default JobCard;
