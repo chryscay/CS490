@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import ProfilePage from './ProfilePage.jsx';
 
@@ -8,6 +8,14 @@ const fetchMock = vi.fn();
 vi.mock('../features/auth/useAuth.js', () => ({
   useAuth: () => mockUseAuth(),
 }));
+
+// ProfileCompletion renders the count as split text nodes ("1" "/" "3"),
+// so read the span's combined textContent rather than matching one node.
+function completionText() {
+  return screen
+    .getByText('Profile Completion')
+    .nextElementSibling.textContent.replace(/\s+/g, '');
+}
 
 describe('ProfilePage', () => {
   beforeEach(() => {
@@ -21,7 +29,7 @@ describe('ProfilePage', () => {
     });
   });
 
-  it('loads and shows the saved profile (happy path)', async () => {
+  it('loads and shows the saved profile across both sections (happy path)', async () => {
     fetchMock.mockResolvedValue({
       ok: true,
       status: 200,
@@ -41,65 +49,88 @@ describe('ProfilePage', () => {
 
     expect(await screen.findByDisplayValue('Ada')).toBeInTheDocument();
     expect(screen.getByDisplayValue('Lovelace')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('Mathematician')).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: 'Identity & Contact' })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: 'Professional Summary' })
+    ).toBeInTheDocument();
   });
 
-  it('shows the completion indicator and updates as baseline fields change (C18)', async () => {
+  it('completion reflects loaded data and updates after a section save (C18)', async () => {
+    // 1st fetch: initial load — only firstName set => 1/3
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        profile: { firstName: 'Ada', lastName: '', phone: '', city: '', state: '', summary: '' },
+      }),
+    });
+    // 2nd fetch: summary save — server returns firstName + summary => 2/3
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        profile: { firstName: 'Ada', lastName: '', phone: '', city: '', state: '', summary: 'Mathematician' },
+      }),
+    });
+
+    render(<ProfilePage />);
+
+    await screen.findByDisplayValue('Ada');
+    expect(completionText()).toBe('1/3');
+
+    // Completion now reflects persisted state, so it moves on SAVE, not on keystroke.
+    const summaryForm = screen.getByRole('form', { name: 'Professional Summary' });
+    fireEvent.change(within(summaryForm).getByLabelText('Professional Summary*'), {
+      target: { value: 'Mathematician' },
+    });
+    fireEvent.click(within(summaryForm).getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => expect(completionText()).toBe('2/3'));
+  });
+
+  it('each section validates its own required fields independently (validation)', async () => {
     fetchMock.mockResolvedValue({
       ok: true,
       status: 200,
       json: async () => ({
         profile: {
           firstName: 'Ada',
-          lastName: '',
+          lastName: 'Lovelace',
           phone: '',
           city: '',
           state: '',
-          summary: '',
+          summary: 'Mathematician',
         },
       }),
     });
 
     render(<ProfilePage />);
+    await screen.findByDisplayValue('Ada');
 
-    expect(await screen.findByText('1/3')).toBeInTheDocument();
-
-    fireEvent.change(screen.getByLabelText(/summary/i), {
-      target: { value: 'Mathematician' },
+    // Clearing a required field makes the section dirty (enabling Save),
+    // then submitting surfaces that section's field-level error.
+    const identityForm = screen.getByRole('form', { name: 'Identity & Contact' });
+    fireEvent.change(within(identityForm).getByLabelText('First Name*'), {
+      target: { value: '' },
     });
-
-    expect(screen.getByText('2/3')).toBeInTheDocument();
-  });
-
-  it('shows field-level errors when required fields are empty (validation)', async () => {
-    fetchMock.mockResolvedValue({
-      ok: true,
-      status: 200,
-      json: async () => ({
-        profile: {
-          firstName: '',
-          lastName: '',
-          phone: '',
-          city: '',
-          state: '',
-          summary: '',
-        },
-      }),
-    });
-
-    render(<ProfilePage />);
-
-    await screen.findByLabelText(/first name/i);
-
-    fireEvent.click(screen.getByRole('button', { name: /save profile/i }));
-
+    fireEvent.click(within(identityForm).getByRole('button', { name: 'Save' }));
     expect(
-      await screen.findByText(/first name is required/i)
+      within(identityForm).getByText('First name is required')
     ).toBeInTheDocument();
 
-    expect(screen.getByText(/last name is required/i)).toBeInTheDocument();
+    const summaryForm = screen.getByRole('form', { name: 'Professional Summary' });
+    fireEvent.change(within(summaryForm).getByLabelText('Professional Summary*'), {
+      target: { value: '' },
+    });
+    fireEvent.click(within(summaryForm).getByRole('button', { name: 'Save' }));
+    expect(
+      within(summaryForm).getByText('Summary is required')
+    ).toBeInTheDocument();
 
-    expect(screen.getByText(/summary is required/i)).toBeInTheDocument();
-
+    // Both saves blocked by client validation — only the initial load fetch ran.
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });

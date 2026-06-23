@@ -11,4 +11,6 @@ router
   .get(ProfileController.apiGetProfile)
   .put(ProfileController.apiUpdateProfile);
 
+router.route('/:section').put(ProfileController.apiUpdateProfileSection);
+
 export default router;
