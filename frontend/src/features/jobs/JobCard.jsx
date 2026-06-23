@@ -1,5 +1,5 @@
 import PropTypes from 'prop-types';
-import { getStageStyles } from './stageStyles';
+//import { getStageStyles } from './stageStyles';
 import StageControl from './StageControl';
 
 function formatDate(dateStr) {
