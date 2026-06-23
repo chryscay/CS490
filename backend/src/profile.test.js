@@ -69,6 +69,7 @@ describe('PUT /api/profile', () => {
       city: 'London',
       state: 'LN',
       summary: 'Mathematician',
+      education: [],
     });
 
     const res = await request(app)
@@ -81,6 +82,7 @@ describe('PUT /api/profile', () => {
         city: 'London',
         state: 'LN',
         summary: 'Mathematician',
+        education: [],
       });
 
     expect(res.status).toBe(200);
@@ -93,6 +95,7 @@ describe('PUT /api/profile', () => {
         city: 'London',
         state: 'LN',
         summary: 'Mathematician',
+        education: [],
       })
     );
     expect(res.body.profile.firstName).toBe('Ada');
@@ -133,6 +136,174 @@ describe('PUT /api/profile', () => {
     const writtenFields = UsersDAO.updateProfile.mock.calls[0][1];
     expect(writtenFields.firebaseUid).toBeUndefined();
     expect(writtenFields.email).toBeUndefined();
+  });
+
+  it('saves valid education records with required fields', async () => {
+    UsersDAO.updateProfile.mockResolvedValue({ modifiedCount: 1 });
+    UsersDAO.getProfile.mockResolvedValue({
+      email: 'a@test.com',
+      firstName: 'Ada',
+      lastName: 'Lovelace',
+      summary: 'Mathematician',
+      education: [
+        {
+          id: 'edu-1',
+          schoolName: 'University of Oxford',
+          degree: 'Bachelor of Arts',
+          fieldOfStudy: 'Mathematics',
+          startDate: '2018-09-01',
+          endDate: '2021-06-30',
+          description: 'Focused on pure mathematics',
+        },
+      ],
+    });
+
+    const res = await request(app)
+      .put('/api/profile')
+      .set('Authorization', 'Bearer faketoken')
+      .send({
+        firstName: 'Ada',
+        lastName: 'Lovelace',
+        phone: '',
+        city: '',
+        state: '',
+        summary: 'Mathematician',
+        education: [
+          {
+            id: 'edu-1',
+            schoolName: 'University of Oxford',
+            degree: 'Bachelor of Arts',
+            fieldOfStudy: 'Mathematics',
+            startDate: '2018-09-01',
+            endDate: '2021-06-30',
+            description: 'Focused on pure mathematics',
+          },
+        ],
+      });
+
+    expect(res.status).toBe(200);
+    expect(UsersDAO.updateProfile).toHaveBeenCalledWith(
+      'user-a',
+      expect.objectContaining({
+        education: expect.arrayContaining([
+          expect.objectContaining({
+            schoolName: 'University of Oxford',
+            degree: 'Bachelor of Arts',
+            fieldOfStudy: 'Mathematics',
+          }),
+        ]),
+      })
+    );
+  });
+
+  it('rejects education records with missing required fields (400)', async () => {
+    const res = await request(app)
+      .put('/api/profile')
+      .set('Authorization', 'Bearer faketoken')
+      .send({
+        firstName: 'Ada',
+        lastName: 'Lovelace',
+        phone: '',
+        city: '',
+        state: '',
+        summary: 'Mathematician',
+        education: [
+          {
+            id: 'edu-1',
+            schoolName: '',
+            degree: 'Bachelor of Arts',
+            fieldOfStudy: 'Mathematics',
+            startDate: '2018-09-01',
+            endDate: '2021-06-30',
+            description: '',
+          },
+        ],
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body.errors['education[0].schoolName']).toBeDefined();
+    expect(UsersDAO.updateProfile).not.toHaveBeenCalled();
+  });
+
+  it('rejects education records with endDate before startDate (400)', async () => {
+    const res = await request(app)
+      .put('/api/profile')
+      .set('Authorization', 'Bearer faketoken')
+      .send({
+        firstName: 'Ada',
+        lastName: 'Lovelace',
+        phone: '',
+        city: '',
+        state: '',
+        summary: 'Mathematician',
+        education: [
+          {
+            id: 'edu-1',
+            schoolName: 'University of Oxford',
+            degree: 'Bachelor of Arts',
+            fieldOfStudy: 'Mathematics',
+            startDate: '2021-06-30',
+            endDate: '2021-01-01',
+            description: '',
+          },
+        ],
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body.errors['education[0].endDate']).toBe(
+      'End date cannot be earlier than start date'
+    );
+    expect(UsersDAO.updateProfile).not.toHaveBeenCalled();
+  });
+
+  it('trims education string fields before saving', async () => {
+    UsersDAO.updateProfile.mockResolvedValue({ modifiedCount: 1 });
+    UsersDAO.getProfile.mockResolvedValue({
+      email: 'a@test.com',
+      firstName: 'Ada',
+      lastName: 'Lovelace',
+      summary: 'Mathematician',
+      education: [
+        {
+          id: 'edu-1',
+          schoolName: 'University of Oxford',
+          degree: 'Bachelor of Arts',
+          fieldOfStudy: 'Mathematics',
+          startDate: '2018-09-01',
+          endDate: '',
+          description: 'Focused on math',
+        },
+      ],
+    });
+
+    await request(app)
+      .put('/api/profile')
+      .set('Authorization', 'Bearer faketoken')
+      .send({
+        firstName: 'Ada',
+        lastName: 'Lovelace',
+        phone: '',
+        city: '',
+        state: '',
+        summary: 'Mathematician',
+        education: [
+          {
+            id: 'edu-1',
+            schoolName: '  University of Oxford  ',
+            degree: '  Bachelor of Arts  ',
+            fieldOfStudy: '  Mathematics  ',
+            startDate: '2018-09-01',
+            endDate: '',
+            description: '  Focused on math  ',
+          },
+        ],
+      });
+
+    const writtenFields = UsersDAO.updateProfile.mock.calls[0][1];
+    expect(writtenFields.education[0].schoolName).toBe('University of Oxford');
+    expect(writtenFields.education[0].degree).toBe('Bachelor of Arts');
+    expect(writtenFields.education[0].fieldOfStudy).toBe('Mathematics');
+    expect(writtenFields.education[0].description).toBe('Focused on math');
   });
 });
 describe('PUT /api/profile/:section', () => {

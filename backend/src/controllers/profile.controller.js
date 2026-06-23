@@ -6,6 +6,7 @@ import UsersDAO from '../dao/usersDAO.js';
 const SECTION_FIELDS = {
   identity: ['firstName', 'lastName', 'phone', 'city', 'state'],
   summary: ['summary'],
+  education: ['education'],
 };
 
 // Per-section validation. Each returns a field-keyed errors object.
@@ -22,6 +23,30 @@ const SECTION_VALIDATORS = {
   summary: (body) => {
     const errors = {};
     if (!body.summary?.trim()) errors.summary = 'Summary is required';
+    return errors;
+  },
+  education: (body) => {
+    const errors = {};
+    if (!Array.isArray(body.education)) return errors;
+
+    body.education.forEach((edu, idx) => {
+      if (!edu.schoolName?.trim()) {
+        errors[`education[${idx}].schoolName`] = 'School name is required';
+      }
+      if (!edu.degree?.trim()) {
+        errors[`education[${idx}].degree`] = 'Degree is required';
+      }
+      if (!edu.fieldOfStudy?.trim()) {
+        errors[`education[${idx}].fieldOfStudy`] = 'Field of study is required';
+      }
+      if (!edu.startDate) {
+        errors[`education[${idx}].startDate`] = 'Start date is required';
+      }
+      if (edu.endDate && edu.startDate && new Date(edu.endDate) < new Date(edu.startDate)) {
+        errors[`education[${idx}].endDate`] = 'End date cannot be earlier than start date';
+      }
+    });
+
     return errors;
   },
 };
@@ -46,7 +71,7 @@ export default class ProfileController {
   // are untouched. The frontend no longer calls it after this ticket.
   static async apiUpdateProfile(req, res) {
     try {
-      const { firstName, lastName, phone, city, state, summary } = req.body;
+      const { firstName, lastName, phone, city, state, summary, education } = req.body;
 
       const errors = {};
 
@@ -55,6 +80,31 @@ export default class ProfileController {
       if (!summary?.trim()) errors.summary = 'Summary is required';
       if (phone && !/^\d{10}$/.test(phone)) {
         errors.phone = 'Phone number must be exactly 10 digits';
+      }
+
+      // Validate education array
+      if (Array.isArray(education)) {
+        education.forEach((edu, idx) => {
+          if (!edu.schoolName?.trim()) {
+            errors[`education[${idx}].schoolName`] = 'School name is required';
+          }
+
+          if (!edu.degree?.trim()) {
+            errors[`education[${idx}].degree`] = 'Degree is required';
+          }
+
+          if (!edu.fieldOfStudy?.trim()) {
+            errors[`education[${idx}].fieldOfStudy`] = 'Field of study is required';
+          }
+
+          if (!edu.startDate) {
+            errors[`education[${idx}].startDate`] = 'Start date is required';
+          }
+
+          if (edu.endDate && edu.startDate && new Date(edu.endDate) < new Date(edu.startDate)) {
+            errors[`education[${idx}].endDate`] = 'End date cannot be earlier than start date';
+          }
+        });
       }
 
       if (Object.keys(errors).length > 0) {
@@ -69,6 +119,19 @@ export default class ProfileController {
         state: state?.trim() ?? '',
         summary: summary.trim(),
       };
+
+      // Trim education strings and add to updates
+      if (Array.isArray(education)) {
+        updates.education = education.map((edu) => ({
+          id: edu.id,
+          schoolName: edu.schoolName.trim(),
+          degree: edu.degree.trim(),
+          fieldOfStudy: edu.fieldOfStudy.trim(),
+          startDate: edu.startDate,
+          endDate: edu.endDate ?? '',
+          description: edu.description?.trim() ?? '',
+        }));
+      }
 
       await UsersDAO.updateProfile(req.user.uid, updates);
       const profile = await UsersDAO.getProfile(req.user.uid);
@@ -102,7 +165,20 @@ export default class ProfileController {
       const updates = {};
       for (const field of allowedFields) {
         const value = req.body[field];
-        updates[field] = typeof value === 'string' ? value.trim() : value ?? '';
+
+        if (field === 'education' && Array.isArray(value)) {
+          updates.education = value.map((edu) => ({
+            id: edu.id,
+            schoolName: edu.schoolName?.trim() ?? '',
+            degree: edu.degree?.trim() ?? '',
+            fieldOfStudy: edu.fieldOfStudy?.trim() ?? '',
+            startDate: edu.startDate ?? '',
+            endDate: edu.endDate ?? '',
+            description: edu.description?.trim() ?? '',
+          }));
+        } else {
+          updates[field] = typeof value === 'string' ? value.trim() : value ?? '';
+        }
       }
 
       await UsersDAO.updateProfile(req.user.uid, updates);

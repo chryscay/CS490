@@ -1,18 +1,25 @@
-import { useEffect, useState } from 'react';
+﻿import { useEffect, useState } from 'react';
 import { useAuth } from '../features/auth/useAuth.js';
 import ProfileCompletion from './ProfileCompletion.jsx';
 import IdentitySection from '../features/profile/sections/IdentitySection.jsx';
 import SummarySection from '../features/profile/sections/SummarySection.jsx';
+import EducationSection from '../features/profile/sections/EducationSection.jsx';
 import { loadProfile } from '../features/profile/profileApi.js';
 
-const EMPTY = {
-  firstName: '', lastName: '', phone: '', city: '', state: '', summary: '',
+const EMPTY_PROFILE = {
+  firstName: '',
+  lastName: '',
+  phone: '',
+  city: '',
+  state: '',
+  summary: '',
+  education: [],
 };
 
 export default function ProfilePage() {
   const { currentUser } = useAuth();
-  const [profile, setProfile] = useState(EMPTY);
-  const [status, setStatus] = useState('loading'); // loading | ready | error
+  const [profile, setProfile] = useState(EMPTY_PROFILE);
+  const [status, setStatus] = useState('loading');
   const [pageError, setPageError] = useState('');
 
   useEffect(() => {
@@ -20,11 +27,14 @@ export default function ProfilePage() {
 
     async function run() {
       if (!currentUser) return;
+
       try {
         const token = await currentUser.getIdToken();
         const loaded = await loadProfile(token);
+
         if (!active) return;
-        setProfile({ ...EMPTY, ...loaded });
+
+        setProfile({ ...EMPTY_PROFILE, ...loaded });
         setStatus('ready');
       } catch {
         if (active) {
@@ -71,6 +81,7 @@ export default function ProfilePage() {
       <div className="space-y-6">
         <IdentitySection profile={profile} onSaved={handleSectionSaved} />
         <SummarySection profile={profile} onSaved={handleSectionSaved} />
+        <EducationSection profile={profile} onSaved={handleSectionSaved} />
       </div>
     </div>
   );
