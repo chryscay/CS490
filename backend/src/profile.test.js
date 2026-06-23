@@ -135,3 +135,84 @@ describe('PUT /api/profile', () => {
     expect(writtenFields.email).toBeUndefined();
   });
 });
+describe('PUT /api/profile/:section', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockVerifyIdToken.mockResolvedValue({ uid: 'user-a', email: 'a@test.com' });
+  });
+
+  it('saves only the identity section fields (happy path + persistence)', async () => {
+    UsersDAO.updateProfile.mockResolvedValue({ modifiedCount: 1 });
+    UsersDAO.getProfile.mockResolvedValue({
+      email: 'a@test.com',
+      firstName: 'Ada',
+      lastName: 'Lovelace',
+      phone: '5550100123',
+      city: 'London',
+      state: 'NY',
+      summary: 'Mathematician',
+    });
+
+    const res = await request(app)
+      .put('/api/profile/identity')
+      .set('Authorization', 'Bearer faketoken')
+      .send({ firstName: 'Ada', lastName: 'Lovelace', phone: '5550100123', city: 'London', state: 'NY' });
+
+    expect(res.status).toBe(200);
+    const written = UsersDAO.updateProfile.mock.calls[0][1];
+    expect(written).toEqual(
+      expect.objectContaining({
+        firstName: 'Ada', lastName: 'Lovelace', phone: '5550100123', city: 'London', state: 'NY',
+      })
+    );
+    // summary is not part of the identity section, so it must not be written
+    expect(written.summary).toBeUndefined();
+    // response reflects persisted state (re-fetched after write)
+    expect(res.body.profile.firstName).toBe('Ada');
+  });
+
+  it('rejects the identity section with field-level errors (400)', async () => {
+    const res = await request(app)
+      .put('/api/profile/identity')
+      .set('Authorization', 'Bearer faketoken')
+      .send({ firstName: '', lastName: '', phone: '12' });
+
+    expect(res.status).toBe(400);
+    expect(res.body.errors.firstName).toBeDefined();
+    expect(res.body.errors.lastName).toBeDefined();
+    expect(res.body.errors.phone).toBeDefined();
+    expect(UsersDAO.updateProfile).not.toHaveBeenCalled();
+  });
+
+  it('whitelists fields so the body cannot inject ownership keys', async () => {
+    UsersDAO.updateProfile.mockResolvedValue({ modifiedCount: 1 });
+    UsersDAO.getProfile.mockResolvedValue({ email: 'a@test.com', firstName: 'Ada', lastName: 'Lovelace' });
+
+    await request(app)
+      .put('/api/profile/identity')
+      .set('Authorization', 'Bearer faketoken')
+      .send({ firstName: 'Ada', lastName: 'Lovelace', firebaseUid: 'user-evil', email: 'evil@test.com', summary: 'sneaky' });
+
+    const written = UsersDAO.updateProfile.mock.calls[0][1];
+    expect(written.firebaseUid).toBeUndefined();
+    expect(written.email).toBeUndefined();
+    expect(written.summary).toBeUndefined();
+  });
+
+  it('returns 404 for an unknown section', async () => {
+    const res = await request(app)
+      .put('/api/profile/banana')
+      .set('Authorization', 'Bearer faketoken')
+      .send({ anything: 'x' });
+
+    expect(res.status).toBe(404);
+    expect(UsersDAO.updateProfile).not.toHaveBeenCalled();
+  });
+
+  it('blocks unauthenticated section saves (401)', async () => {
+    const res = await request(app).put('/api/profile/identity').send({ firstName: 'Ada' });
+
+    expect(res.status).toBe(401);
+    expect(UsersDAO.updateProfile).not.toHaveBeenCalled();
+  });
+});
