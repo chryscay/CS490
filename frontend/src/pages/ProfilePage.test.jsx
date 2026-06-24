@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import ProfilePage from './ProfilePage.jsx';
 
@@ -8,6 +8,12 @@ const fetchMock = vi.fn();
 vi.mock('../features/auth/useAuth.js', () => ({
   useAuth: () => mockUseAuth(),
 }));
+
+function completionText() {
+  return screen
+    .getByText('Profile Completion')
+    .nextElementSibling.textContent.replace(/\s+/g, '');
+}
 
 describe('ProfilePage', () => {
   beforeEach(() => {
@@ -21,7 +27,7 @@ describe('ProfilePage', () => {
     });
   });
 
-  it('loads and shows the saved profile (happy path)', async () => {
+  it('loads and shows the saved profile across all sections', async () => {
     fetchMock.mockResolvedValue({
       ok: true,
       status: 200,
@@ -33,6 +39,17 @@ describe('ProfilePage', () => {
           city: 'London',
           state: 'CA',
           summary: 'Mathematician',
+          education: [
+            {
+              id: 'edu-1',
+              schoolName: 'University of Oxford',
+              degree: 'Bachelor of Arts',
+              fieldOfStudy: 'Mathematics',
+              startDate: '2018-09-01',
+              endDate: '2021-06-30',
+              description: 'Focused on pure mathematics',
+            },
+          ],
         },
       }),
     });
@@ -41,64 +58,75 @@ describe('ProfilePage', () => {
 
     expect(await screen.findByDisplayValue('Ada')).toBeInTheDocument();
     expect(screen.getByDisplayValue('Lovelace')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('Mathematician')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Identity & Contact' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Professional Summary' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Education' })).toBeInTheDocument();
+    expect(screen.getByDisplayValue('University of Oxford')).toBeInTheDocument();
   });
 
-  it('shows the completion indicator and updates as baseline fields change (C18)', async () => {
+  it('completion reflects loaded data and updates after a section save (C18)', async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        profile: { firstName: 'Ada', lastName: '', phone: '', city: '', state: '', summary: '' },
+      }),
+    });
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        profile: { firstName: 'Ada', lastName: '', phone: '', city: '', state: '', summary: 'Mathematician' },
+      }),
+    });
+
+    render(<ProfilePage />);
+
+    await screen.findByDisplayValue('Ada');
+    expect(completionText()).toBe('1/3');
+
+    const summaryForm = screen.getByRole('form', { name: 'Professional Summary' });
+    fireEvent.change(within(summaryForm).getByLabelText('Professional Summary*'), {
+      target: { value: 'Mathematician' },
+    });
+    fireEvent.click(within(summaryForm).getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => expect(completionText()).toBe('2/3'));
+  });
+
+  it('each section validates its own required fields independently (validation)', async () => {
     fetchMock.mockResolvedValue({
       ok: true,
       status: 200,
       json: async () => ({
         profile: {
           firstName: 'Ada',
-          lastName: '',
+          lastName: 'Lovelace',
           phone: '',
           city: '',
           state: '',
-          summary: '',
+          summary: 'Mathematician',
         },
       }),
     });
 
     render(<ProfilePage />);
+    await screen.findByDisplayValue('Ada');
 
-    expect(await screen.findByText('1/3')).toBeInTheDocument();
-
-    fireEvent.change(screen.getByLabelText(/summary/i), {
-      target: { value: 'Mathematician' },
+    const identityForm = screen.getByRole('form', { name: 'Identity & Contact' });
+    fireEvent.change(within(identityForm).getByLabelText('First Name*'), {
+      target: { value: '' },
     });
+    fireEvent.click(within(identityForm).getByRole('button', { name: 'Save' }));
+    expect(within(identityForm).getByText('First name is required')).toBeInTheDocument();
 
-    expect(screen.getByText('2/3')).toBeInTheDocument();
-  });
-
-  it('shows field-level errors when required fields are empty (validation)', async () => {
-    fetchMock.mockResolvedValue({
-      ok: true,
-      status: 200,
-      json: async () => ({
-        profile: {
-          firstName: '',
-          lastName: '',
-          phone: '',
-          city: '',
-          state: '',
-          summary: '',
-        },
-      }),
+    const summaryForm = screen.getByRole('form', { name: 'Professional Summary' });
+    fireEvent.change(within(summaryForm).getByLabelText('Professional Summary*'), {
+      target: { value: '' },
     });
-
-    render(<ProfilePage />);
-
-    await screen.findByLabelText(/first name/i);
-
-    fireEvent.click(screen.getByRole('button', { name: /save profile/i }));
-
-    expect(
-      await screen.findByText(/first name is required/i)
-    ).toBeInTheDocument();
-
-    expect(screen.getByText(/last name is required/i)).toBeInTheDocument();
-
-    expect(screen.getByText(/summary is required/i)).toBeInTheDocument();
+    fireEvent.click(within(summaryForm).getByRole('button', { name: 'Save' }));
+    expect(within(summaryForm).getByText('Summary is required')).toBeInTheDocument();
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });

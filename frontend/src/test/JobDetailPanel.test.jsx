@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import JobDetailPanel from '../features/jobs/JobDetailPanel';
@@ -11,6 +11,9 @@ const mockJob = {
   jobPostingBody: 'We are looking for a frontend engineer.',
   createdAt: '2026-06-01T00:00:00.000Z',
   lastActivityAt: '2026-06-10T00:00:00.000Z',
+  deadline: '2026-07-15T00:00:00.000Z',
+  recruiterName: 'Jane Smith',
+  contactNotes: 'Follow up next week',
 };
 
 const defaultProps = {
@@ -27,12 +30,12 @@ describe('JobDetailPanel', () => {
 
   it('renders the company name', () => {
     render(<JobDetailPanel {...defaultProps} />);
-    expect(screen.getByText('Acme Corp')).toBeInTheDocument();
+    expect(screen.getAllByText('Acme Corp').length).toBeGreaterThan(0);
   });
 
   it('renders the stage badge', () => {
     render(<JobDetailPanel {...defaultProps} />);
-    expect(screen.getByText('Applied')).toBeInTheDocument();
+    expect(screen.getAllByText('Applied').length).toBeGreaterThan(0);
   });
 
   it('renders the job posting body', () => {
@@ -80,8 +83,61 @@ describe('JobDetailPanel', () => {
       const { unmount } = render(
         <JobDetailPanel {...defaultProps} job={{ ...mockJob, stage }} />
       );
-      expect(screen.getByText(stage)).toBeInTheDocument();
+      expect(screen.getAllByText(stage).length).toBeGreaterThan(0);
       unmount();
     });
+  });
+
+  // Overview section tests
+  it('renders the Overview section', () => {
+    render(<JobDetailPanel {...defaultProps} />);
+    expect(screen.getByText('Overview')).toBeInTheDocument();
+  });
+
+  it('renders core fields in the Overview section', () => {
+    render(<JobDetailPanel {...defaultProps} />);
+    // Find the Overview section and verify core fields within it
+    const overviewHeading = screen.getByText('Overview');
+    const overviewSection = overviewHeading.closest('div');
+    expect(within(overviewSection).getByText('Frontend Engineer')).toBeInTheDocument();
+    expect(within(overviewSection).getByText('Acme Corp')).toBeInTheDocument();
+    expect(within(overviewSection).getByText('Applied')).toBeInTheDocument();
+  });
+
+  it('renders deadline in the Overview section when present', () => {
+    render(<JobDetailPanel {...defaultProps} />);
+    expect(screen.getByText('Jul 15, 2026')).toBeInTheDocument();
+  });
+
+  it('renders recruiter name in the Overview section when present', () => {
+    render(<JobDetailPanel {...defaultProps} />);
+    const overviewHeading = screen.getByText('Overview');
+    const overviewSection = overviewHeading.closest('div');
+    expect(within(overviewSection).getByText('Jane Smith')).toBeInTheDocument();
+  });
+
+  it('renders contact notes in the Overview section when present', () => {
+    render(<JobDetailPanel {...defaultProps} />);
+    const overviewHeading = screen.getByText('Overview');
+    const overviewSection = overviewHeading.closest('div');
+    expect(within(overviewSection).getByText('Follow up next week')).toBeInTheDocument();
+  });
+
+  it('does not render deadline in Overview when not present', () => {
+    const jobWithoutDeadline = { ...mockJob, deadline: undefined };
+    render(<JobDetailPanel {...defaultProps} job={jobWithoutDeadline} />);
+    expect(screen.queryByText('Jul 15, 2026')).not.toBeInTheDocument();
+  });
+
+  it('does not render recruiter name in Overview when not present', () => {
+    const jobWithoutRecruiter = { ...mockJob, recruiterName: undefined };
+    render(<JobDetailPanel {...defaultProps} job={jobWithoutRecruiter} />);
+    expect(screen.queryByText('Jane Smith')).not.toBeInTheDocument();
+  });
+
+  it('does not render contact notes in Overview when not present', () => {
+    const jobWithoutNotes = { ...mockJob, contactNotes: undefined };
+    render(<JobDetailPanel {...defaultProps} job={jobWithoutNotes} />);
+    expect(screen.queryByText('Follow up next week')).not.toBeInTheDocument();
   });
 });

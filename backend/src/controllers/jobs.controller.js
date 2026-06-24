@@ -1,5 +1,6 @@
 import JobsDAO from '../dao/jobsDAO.js';
-
+import { randomUUID } from 'crypto';
+import { isValidStage, isForwardTransition } from '../lib/stageTransitions.js';
 const VALID_STAGES = [
   'Interested',
   'Applied',
@@ -156,6 +157,70 @@ export default class JobsController {
     } catch (error) {
       console.error('apiUpdateJob error:', error);
       return res.status(500).json({ error: 'Failed to update job' });
+    }
+  }
+
+  static async apiTransitionStage(req, res) {
+    try {
+      const { toStage, confirmOverride = false, note = '' } = req.body;
+
+      // S2-BR-004: target must be a canonical stage
+      if (!isValidStage(toStage)) {
+        return res.status(400).json({ error: 'Invalid target stage' });
+      }
+
+      // Load the owned job to read its current stage. null -> 404.
+      const job = await JobsDAO.findByIdForOwner(req.params.id, req.user.uid);
+      if (!job) {
+        return res.status(404).json({ error: 'Job not found' });
+      }
+
+      const fromStage = job.stage;
+
+      if (fromStage === toStage) {
+        return res
+          .status(400)
+          .json({ error: `Job is already in stage ${toStage}` });
+      }
+
+      const forward = isForwardTransition(fromStage, toStage);
+
+      // S2-BR-007: non-forward needs explicit confirmation before proceeding
+      if (!forward && !confirmOverride) {
+        return res.status(409).json({
+          error: 'Non-forward transition requires confirmation',
+          requiresConfirmation: true,
+          fromStage,
+          toStage,
+        });
+      }
+
+      // S2-BR-008/009: server stamps identity + time; single entry-builder
+      const entry = {
+        id: randomUUID(),
+        fromStage,
+        toStage,
+        changedAt: new Date().toISOString(),
+        changedBy: req.user.uid,
+        isOverride: !forward,
+        note: !forward ? String(note || '') : '',
+      };
+
+      // Single writer (SCRUM-46) — sets job.stage + pushes the entry
+      const updated = await JobsDAO.appendStageTransition(
+        req.params.id,
+        req.user.uid,
+        entry
+      );
+
+      if (!updated) {
+        return res.status(404).json({ error: 'Job not found' });
+      }
+
+      return res.status(200).json({ message: 'Stage updated', job: updated });
+    } catch (error) {
+      console.error('apiTransitionStage error:', error);
+      return res.status(500).json({ error: 'Failed to update stage' });
     }
   }
 
