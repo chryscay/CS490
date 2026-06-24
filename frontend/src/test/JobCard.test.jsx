@@ -11,27 +11,37 @@ const mockJob = {
   lastActivityAt: '2026-06-10T00:00:00.000Z',
 };
 
+// JobCard now requires transition + onTransitioned (passed down to StageControl).
+// Helper supplies stubs so every render satisfies the contract.
+function renderCard(job = mockJob) {
+  return render(
+    <ul>
+      <JobCard job={job} transition={() => {}} onTransitioned={() => {}} />
+    </ul>
+  );
+}
+
 describe('JobCard', () => {
   it('renders the job title', () => {
-    render(<ul><JobCard job={mockJob} /></ul>);
+    renderCard();
     expect(screen.getByText('Frontend Engineer')).toBeInTheDocument();
   });
 
-  it('renders the stage badge for every canonical stage', () => {
+  it('renders an option for every canonical stage', () => {
     STAGES.forEach((stage) => {
-      const { unmount } = render(<ul><JobCard job={{ ...mockJob, stage }} /></ul>);
+      const { unmount } = renderCard({ ...mockJob, stage });
       expect(screen.getByText(stage)).toBeInTheDocument();
       unmount();
     });
   });
 
   it('renders the company name', () => {
-    render(<ul><JobCard job={mockJob} /></ul>);
+    renderCard();
     expect(screen.getByText('Acme Corp')).toBeInTheDocument();
   });
 
-  it('renders the stage badge', () => {
-    render(<ul><JobCard job={mockJob} /></ul>);
+  it('renders the current stage', () => {
+    renderCard();
     expect(screen.getByText('Applied')).toBeInTheDocument();
   });
 
@@ -41,18 +51,18 @@ describe('JobCard', () => {
       day: 'numeric',
       year: 'numeric',
     });
-    render(<ul><JobCard job={mockJob} /></ul>);
+    renderCard();
     expect(screen.getByText(`Last activity: ${expectedDate}`)).toBeInTheDocument();
   });
 
   it('renders a fallback when lastActivityAt is missing', () => {
-    render(<ul><JobCard job={{ ...mockJob, lastActivityAt: undefined }} /></ul>);
+    renderCard({ ...mockJob, lastActivityAt: undefined });
     expect(screen.getByText('Last activity: -')).toBeInTheDocument();
   });
 
   it('does not render other jobs data', () => {
     const otherJob = { ...mockJob, title: 'Backend Engineer', company: 'Other Co' };
-    render(<ul><JobCard job={otherJob} /></ul>);
+    renderCard(otherJob);
     expect(screen.queryByText('Frontend Engineer')).not.toBeInTheDocument();
     expect(screen.queryByText('Acme Corp')).not.toBeInTheDocument();
   });
@@ -64,17 +74,12 @@ describe('JobCard', () => {
       recruiterName: 'Jane Recruiter',
       contactNotes: 'Email after applying',
     };
-    const expectedDeadline = new Date(jobWithOptional.deadline).toLocaleDateString(
-      'en-US',
-      {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-      }
-    );
-
-    render(<ul><JobCard job={jobWithOptional} /></ul>);
-
+    const expectedDeadline = new Date(jobWithOptional.deadline).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
+    renderCard(jobWithOptional);
     expect(screen.getByText(`Deadline: ${expectedDeadline}`)).toBeInTheDocument();
     expect(screen.getByText('Contact: Jane Recruiter')).toBeInTheDocument();
     expect(screen.getByText('Notes: Email after applying')).toBeInTheDocument();

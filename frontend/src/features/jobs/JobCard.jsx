@@ -1,5 +1,6 @@
 import PropTypes from 'prop-types';
-import { getStageStyles } from './stageStyles';
+//import { getStageStyles } from './stageStyles';
+import StageControl from './StageControl';
 
 function formatDate(dateStr) {
   if (!dateStr) return '-';
@@ -15,9 +16,7 @@ function formatDate(dateStr) {
   });
 }
 
-
-
-function JobCard({ job, onEdit, onSelect }) {
+function JobCard({ job, onEdit, onSelect, transition, onTransitioned }) {
   return (
     <li
       aria-label={`View details for ${job.title}`}
@@ -63,18 +62,11 @@ function JobCard({ job, onEdit, onSelect }) {
           className="flex items-center gap-3"
           onClick={(e) => e.stopPropagation()}
         >
-          <span
-            className={`
-              rounded-full
-              px-3
-              py-1
-              text-xs
-              font-medium
-              ${getStageStyles(job.stage)}
-            `}
-          >
-            {job.stage}
-          </span>
+          <StageControl
+            job={job}
+            transition={transition}
+            onTransitioned={onTransitioned}
+          />
 
           {onEdit && (
             <button
@@ -122,6 +114,8 @@ JobCard.propTypes = {
   }).isRequired,
   onEdit: PropTypes.func,
   onSelect: PropTypes.func,
+  transition: PropTypes.func.isRequired,
+  onTransitioned: PropTypes.func.isRequired,
 };
 
 export default JobCard;
