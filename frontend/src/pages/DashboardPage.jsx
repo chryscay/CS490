@@ -3,6 +3,7 @@ import { useAuth } from '../features/auth/useAuth';
 import JobCard from '../features/jobs/JobCard';
 import JobFormModal from '../features/jobs/JobFormModal';
 import JobDetailPanel from '../features/jobs/JobDetailPanel';
+import { transitionStage } from '../features/jobs/jobsApi';
 
 export default function DashboardPage() {
   const { currentUser } = useAuth();
@@ -54,6 +55,23 @@ export default function DashboardPage() {
     setEditingJob(null);
     setLoading(true);
     loadJobs();
+  };
+  // Builds the injected transition fn for a given job — grabs a fresh token,
+  // then calls the API. The 409 (needs-confirm) signal is handled in the hook.
+  const makeTransition = (jobId) => async (toStage, options) => {
+    const token = await currentUser.getIdToken();
+    return transitionStage(jobId, toStage, token, options);
+  };
+
+  // Server returns the full updated job; merge it into the list and, if it's
+  // the one open in the panel, into the selected job too. Same idea as onSaved.
+  const handleTransitioned = (updatedJob) => {
+    setJobs((prev) =>
+      prev.map((j) => (j._id === updatedJob._id ? updatedJob : j))
+    );
+    setSelectedJob((prev) =>
+      prev && prev._id === updatedJob._id ? updatedJob : prev
+    );
   };
 
   const stats = [
@@ -161,7 +179,9 @@ export default function DashboardPage() {
         ) : (
           <ul className="space-y-4">
             {jobs.map((job) => (
-              <JobCard key={job._id} job={job} onEdit={openEdit} onSelect={setSelectedJob} />
+              <JobCard key={job._id} job={job} onEdit={openEdit} onSelect={setSelectedJob} transition={makeTransition(job._id)}
+              onTransitioned={handleTransitioned}/>
+              
             ))}
           </ul>
         )}
@@ -172,6 +192,8 @@ export default function DashboardPage() {
           job={selectedJob}
           onClose={() => setSelectedJob(null)}
           onEdit={openEdit}
+          transition={makeTransition(selectedJob._id)}
+          onTransitioned={handleTransitioned}
         />
       )}
 

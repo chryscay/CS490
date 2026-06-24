@@ -15,6 +15,8 @@ router
   .route('/:id')
   .get(JobsController.apiGetJobById)
   .put(JobsController.apiUpdateJob);
+  
+router.post('/:id/transition', JobsController.apiTransitionStage); // SCRUM-45
 
 export default router;
 

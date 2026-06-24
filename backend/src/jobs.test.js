@@ -22,9 +22,152 @@ vi.mock('./dao/jobsDAO.js', () => ({
     findByOwner: vi.fn(),
     findByIdForOwner: vi.fn(),
     updateJob: vi.fn(),
+    appendStageTransition: vi.fn(),
   },
 }));
+describe('POST /api/jobs/:id/transition', () => {
+  const ID = '507f1f77bcf86cd799439011';
 
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockVerifyIdToken.mockResolvedValue({ uid: 'user-a', email: 'a@test.com' });
+  });
+
+  it('performs a forward transition without confirmation (happy path)', async () => {
+    JobsDAO.findByIdForOwner.mockResolvedValue({
+      _id: ID, firebaseUid: 'user-a', stage: 'Interested',
+    });
+    JobsDAO.appendStageTransition.mockResolvedValue({
+      _id: ID, firebaseUid: 'user-a', stage: 'Applied', stageHistory: [{}],
+    });
+
+    const res = await request(app)
+      .post(`/api/jobs/${ID}/transition`)
+      .set('Authorization', 'Bearer faketoken')
+      .send({ toStage: 'Applied' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.job.stage).toBe('Applied');
+    expect(JobsDAO.appendStageTransition).toHaveBeenCalledWith(
+      ID,
+      'user-a',
+      expect.objectContaining({
+        fromStage: 'Interested',
+        toStage: 'Applied',
+        isOverride: false,
+        changedBy: 'user-a',
+        note: '',
+        id: expect.any(String),
+        changedAt: expect.any(String),
+      })
+    );
+  });
+
+  it('blocks a non-forward transition until confirmed (409)', async () => {
+    JobsDAO.findByIdForOwner.mockResolvedValue({
+      _id: ID, firebaseUid: 'user-a', stage: 'Applied',
+    });
+
+    const res = await request(app)
+      .post(`/api/jobs/${ID}/transition`)
+      .set('Authorization', 'Bearer faketoken')
+      .send({ toStage: 'Interested' });
+
+    expect(res.status).toBe(409);
+    expect(res.body.requiresConfirmation).toBe(true);
+    expect(JobsDAO.appendStageTransition).not.toHaveBeenCalled();
+  });
+
+  it('writes an override entry when confirmed (logs identity + note)', async () => {
+    JobsDAO.findByIdForOwner.mockResolvedValue({
+      _id: ID, firebaseUid: 'user-a', stage: 'Applied',
+    });
+    JobsDAO.appendStageTransition.mockResolvedValue({
+      _id: ID, firebaseUid: 'user-a', stage: 'Interested', stageHistory: [{}],
+    });
+
+    const res = await request(app)
+      .post(`/api/jobs/${ID}/transition`)
+      .set('Authorization', 'Bearer faketoken')
+      .send({ toStage: 'Interested', confirmOverride: true, note: 'reopening' });
+
+    expect(res.status).toBe(200);
+    expect(JobsDAO.appendStageTransition).toHaveBeenCalledWith(
+      ID,
+      'user-a',
+      expect.objectContaining({
+        fromStage: 'Applied',
+        toStage: 'Interested',
+        isOverride: true,
+        note: 'reopening',
+        changedBy: 'user-a',
+      })
+    );
+  });
+
+  it('treats leaving Archived as an override (terminal stage, S2-BR-006)', async () => {
+    JobsDAO.findByIdForOwner.mockResolvedValue({
+      _id: ID, firebaseUid: 'user-a', stage: 'Archived',
+    });
+
+    const res = await request(app)
+      .post(`/api/jobs/${ID}/transition`)
+      .set('Authorization', 'Bearer faketoken')
+      .send({ toStage: 'Applied' });
+
+    expect(res.status).toBe(409);
+    expect(res.body.requiresConfirmation).toBe(true);
+    expect(JobsDAO.appendStageTransition).not.toHaveBeenCalled();
+  });
+
+  it('rejects an invalid target stage (400)', async () => {
+    const res = await request(app)
+      .post(`/api/jobs/${ID}/transition`)
+      .set('Authorization', 'Bearer faketoken')
+      .send({ toStage: 'Hired' });
+
+    expect(res.status).toBe(400);
+    expect(JobsDAO.findByIdForOwner).not.toHaveBeenCalled();
+    expect(JobsDAO.appendStageTransition).not.toHaveBeenCalled();
+  });
+
+  it('rejects a no-op transition to the same stage (400)', async () => {
+    JobsDAO.findByIdForOwner.mockResolvedValue({
+      _id: ID, firebaseUid: 'user-a', stage: 'Interested',
+    });
+
+    const res = await request(app)
+      .post(`/api/jobs/${ID}/transition`)
+      .set('Authorization', 'Bearer faketoken')
+      .send({ toStage: 'Interested' });
+
+    expect(res.status).toBe(400);
+    expect(JobsDAO.appendStageTransition).not.toHaveBeenCalled();
+  });
+
+  it('denies a cross-user transition (404)', async () => {
+    mockVerifyIdToken.mockResolvedValue({ uid: 'user-b', email: 'b@test.com' });
+    JobsDAO.findByIdForOwner.mockResolvedValue(null);
+
+    const res = await request(app)
+      .post(`/api/jobs/${ID}/transition`)
+      .set('Authorization', 'Bearer faketoken')
+      .send({ toStage: 'Applied' });
+
+    expect(res.status).toBe(404);
+    expect(JobsDAO.findByIdForOwner).toHaveBeenCalledWith(ID, 'user-b');
+    expect(JobsDAO.appendStageTransition).not.toHaveBeenCalled();
+  });
+
+  it('blocks unauthenticated requests (401)', async () => {
+    const res = await request(app)
+      .post(`/api/jobs/${ID}/transition`)
+      .send({ toStage: 'Applied' });
+
+    expect(res.status).toBe(401);
+    expect(JobsDAO.appendStageTransition).not.toHaveBeenCalled();
+  });
+});
 describe('POST /api/jobs', () => {
   beforeEach(() => {
     vi.clearAllMocks();
