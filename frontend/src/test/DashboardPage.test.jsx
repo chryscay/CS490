@@ -1,4 +1,5 @@
 import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import DashboardPage from '../pages/DashboardPage';
 
@@ -66,5 +67,55 @@ describe('DashboardPage', () => {
     vi.stubGlobal('fetch', vi.fn().mockReturnValue(new Promise(() => {})));
     render(<DashboardPage />);
     expect(screen.getByLabelText(/loading jobs/i)).toBeInTheDocument();
+  });
+
+  it('renders a search input for jobs', () => {
+    render(<DashboardPage />);
+    expect(screen.getByRole('textbox', { name: /search jobs/i })).toBeInTheDocument();
+  });
+
+  it('filters jobs by title or company as the user types', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      json: vi.fn().mockResolvedValue({
+        jobs: [
+          { _id: '1', title: 'Frontend Engineer', company: 'Acme', stage: 'Applied', lastActivityAt: '2026-06-10T00:00:00.000Z' },
+          { _id: '2', title: 'Backend Engineer', company: 'Globex', stage: 'Interview', lastActivityAt: '2026-06-09T00:00:00.000Z' },
+          { _id: '3', title: 'Product Manager', company: 'Acme', stage: 'Hired', lastActivityAt: '2026-06-08T00:00:00.000Z' },
+        ],
+      }),
+    }));
+
+    const user = userEvent.setup();
+    render(<DashboardPage />);
+
+    await waitFor(() => expect(screen.getByText('Frontend Engineer')).toBeInTheDocument());
+
+    await user.type(screen.getByRole('textbox', { name: /search jobs/i }), 'acme');
+
+    expect(screen.getByText('Frontend Engineer')).toBeInTheDocument();
+    expect(screen.getByText('Product Manager')).toBeInTheDocument();
+    expect(screen.queryByText('Backend Engineer')).not.toBeInTheDocument();
+  });
+
+  it('shows the empty search state when no jobs match', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      json: vi.fn().mockResolvedValue({
+        jobs: [
+          { _id: '1', title: 'Frontend Engineer', company: 'Acme', stage: 'Applied', lastActivityAt: '2026-06-10T00:00:00.000Z' },
+          { _id: '2', title: 'Backend Engineer', company: 'Globex', stage: 'Interview', lastActivityAt: '2026-06-09T00:00:00.000Z' },
+        ],
+      }),
+    }));
+
+    const user = userEvent.setup();
+    render(<DashboardPage />);
+
+    await waitFor(() => expect(screen.getByText('Frontend Engineer')).toBeInTheDocument());
+
+    await user.type(screen.getByRole('textbox', { name: /search jobs/i }), 'designer');
+
+    expect(screen.getByText(/no jobs match your search/i)).toBeInTheDocument();
+    expect(screen.queryByText('Frontend Engineer')).not.toBeInTheDocument();
+    expect(screen.queryByText('Backend Engineer')).not.toBeInTheDocument();
   });
 });

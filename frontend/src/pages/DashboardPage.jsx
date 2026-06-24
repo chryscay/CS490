@@ -13,6 +13,7 @@ export default function DashboardPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingJob, setEditingJob] = useState(null);
   const [selectedJob, setSelectedJob] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
 
   const loadJobs = () => {
     if (!currentUser) {
@@ -75,6 +76,17 @@ export default function DashboardPage() {
     },
   ];
 
+  const filteredJobs = jobs.filter((job) => {
+    const q = searchTerm.trim().toLowerCase();
+
+    if (!q) return true;
+
+    return (
+      (job.title || '').toLowerCase().includes(q) ||
+      (job.company || '').toLowerCase().includes(q)
+    );
+  });
+
   return (
     <div className="w-full">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-8">
@@ -84,6 +96,27 @@ export default function DashboardPage() {
           <p className="mt-2 text-white/50">
             Track your applications and job opportunities.
           </p>
+        </div>
+
+        <div className="w-full sm:w-1/2 md:w-1/3 lg:w-1/4">
+          <input
+            aria-label="Search jobs"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Search by title or company"
+            className="
+              w-full
+              rounded-xl
+              bg-white/5
+              border
+              border-white/10
+              px-4
+              py-3
+              text-white
+              placeholder-white/40
+              focus:outline-none
+            "
+          />
         </div>
 
         <button
@@ -158,9 +191,15 @@ export default function DashboardPage() {
               No jobs yet. Add your first job to get started.
             </p>
           </div>
+        ) : filteredJobs.length === 0 ? (
+          <div className="flex items-center justify-center py-20">
+            <p className="text-white/40 text-center">
+              No jobs match your search.
+            </p>
+          </div>
         ) : (
           <ul className="space-y-4">
-            {jobs.map((job) => (
+            {filteredJobs.map((job) => (
               <JobCard key={job._id} job={job} onEdit={openEdit} onSelect={setSelectedJob} />
             ))}
           </ul>
