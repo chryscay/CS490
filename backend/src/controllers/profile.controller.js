@@ -7,6 +7,7 @@ const SECTION_FIELDS = {
   identity: ['firstName', 'lastName', 'phone', 'city', 'state'],
   summary: ['summary'],
   education: ['education'],
+  skills: ['skills'],
 };
 
 // Per-section validation. Each returns a field-keyed errors object.
@@ -44,6 +45,18 @@ const SECTION_VALIDATORS = {
       }
       if (edu.endDate && edu.startDate && new Date(edu.endDate) < new Date(edu.startDate)) {
         errors[`education[${idx}].endDate`] = 'End date cannot be earlier than start date';
+      }
+    });
+
+    return errors;
+  },
+  skills: (body) => {
+    const errors = {};
+    if (!Array.isArray(body.skills)) return errors;
+
+    body.skills.forEach((skill, idx) => {
+      if (!skill.name?.trim()) {
+        errors[`skills[${idx}].name`] = 'Skill name is required';
       }
     });
 
@@ -175,6 +188,13 @@ export default class ProfileController {
             startDate: edu.startDate ?? '',
             endDate: edu.endDate ?? '',
             description: edu.description?.trim() ?? '',
+          }));
+        } else if (field === 'skills' && Array.isArray(value)) {
+          updates.skills = value.map((skill) => ({
+            id: skill.id,
+            name: skill.name?.trim() ?? '',
+            category: skill.category?.trim() ?? '',
+            proficiency: skill.proficiency?.trim() ?? '',
           }));
         } else {
           updates[field] = typeof value === 'string' ? value.trim() : value ?? '';
