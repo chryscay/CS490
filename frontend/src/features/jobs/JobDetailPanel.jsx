@@ -10,6 +10,7 @@ function formatDate(dateStr) {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
+    timeZone: 'UTC',
   });
 }
 
@@ -97,6 +98,50 @@ export default function JobDetailPanel({ job, onClose, onEdit }) {
           </button>
         </div>
 
+        {/* Overview */}
+        <div className="px-6 py-5 border-b border-white/10">
+          <h3 className="text-sm font-medium text-white/50 uppercase tracking-wider mb-4">
+            Overview
+          </h3>
+          <dl className="space-y-3">
+            <div>
+              <dt className="text-xs text-white/40 uppercase tracking-wider">Title</dt>
+              <dd className="text-sm text-white/80 mt-1">{job.title}</dd>
+            </div>
+
+            <div>
+              <dt className="text-xs text-white/40 uppercase tracking-wider">Company</dt>
+              <dd className="text-sm text-white/80 mt-1">{job.company}</dd>
+            </div>
+
+            <div>
+              <dt className="text-xs text-white/40 uppercase tracking-wider">Stage</dt>
+              <dd className="text-sm text-white/80 mt-1">{job.stage}</dd>
+            </div>
+
+            {job.deadline && (
+              <div>
+                <dt className="text-xs text-white/40 uppercase tracking-wider">Deadline</dt>
+                <dd className="text-sm text-white/80 mt-1">{formatDate(job.deadline)}</dd>
+              </div>
+            )}
+
+            {job.recruiterName && (
+              <div>
+                <dt className="text-xs text-white/40 uppercase tracking-wider">Recruiter / Contact</dt>
+                <dd className="text-sm text-white/80 mt-1">{job.recruiterName}</dd>
+              </div>
+            )}
+
+            {job.contactNotes && (
+              <div>
+                <dt className="text-xs text-white/40 uppercase tracking-wider">Contact Notes</dt>
+                <dd className="text-sm text-white/80 mt-1">{job.contactNotes}</dd>
+              </div>
+            )}
+          </dl>
+        </div>
+
         {/* Job Posting Body */}
         {job.jobPostingBody && (
           <div className="px-6 py-5 border-b border-white/10">
@@ -143,6 +188,9 @@ JobDetailPanel.propTypes = {
     jobPostingBody: PropTypes.string,
     createdAt: PropTypes.string,
     lastActivityAt: PropTypes.string,
+    deadline: PropTypes.string,
+    recruiterName: PropTypes.string,
+    contactNotes: PropTypes.string,
   }).isRequired,
   onClose: PropTypes.func.isRequired,
   onEdit: PropTypes.func.isRequired,
