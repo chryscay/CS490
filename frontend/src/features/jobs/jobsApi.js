@@ -32,3 +32,18 @@ export async function transitionStage(
   const data = await res.json();
   return { job: data.job };
 }
+
+// SCRUM-52: hard delete (not archive — that's S2-014). 200 -> { id }, 404 -> throws.
+export async function deleteJob(id, token) {
+    const res = await fetch(`${API_URL}/api/jobs/${id}`, {
+      method: 'DELETE',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+  
+    if (!res.ok) throw new Error('delete failed');
+  
+    const data = await res.json();
+    return { id: data.id };
+  }

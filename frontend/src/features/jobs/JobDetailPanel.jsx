@@ -1,5 +1,7 @@
+import { useState } from 'react';
 import PropTypes from 'prop-types';
 import { getStageStyles } from './stageStyles';
+import DeleteJobDialog from './DeleteJobDialog';
 
 
 function formatDate(dateStr) {
@@ -38,9 +40,26 @@ function buildTimeline(job) {
   return events;
 }
 
-export default function JobDetailPanel({ job, onClose, onEdit }) {
+export default function JobDetailPanel({ job, onClose, onEdit, onDelete }) {
   const stageStyle = getStageStyles(job.stage);
   const timeline = buildTimeline(job);
+
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
+
+  // Confirm -> call parent's async onDelete. On success the parent clears
+  // selectedJob and this panel unmounts, so no need to reset local state.
+  const handleConfirmDelete = async () => {
+    setDeleting(true);
+    setDeleteError('');
+    try {
+      await onDelete(job);
+    } catch {
+      setDeleting(false);
+      setDeleteError('Could not delete this job. Please try again.');
+    }
+  };
 
   return (
     <>
@@ -78,24 +97,39 @@ export default function JobDetailPanel({ job, onClose, onEdit }) {
           </button>
         </div>
 
-        {/* Stage + Edit */}
+        {/* Stage + actions */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-white/10">
           <span className={`rounded-full px-3 py-1 text-xs font-medium ${stageStyle}`}>
             {job.stage}
           </span>
 
-          <button
-            onClick={() => onEdit(job)}
-            aria-label={`Edit ${job.title}`}
-            className="
-              rounded-lg border border-white/10 px-4 py-2
-              text-sm text-white/70
-              hover:text-white hover:border-white/20 hover:bg-white/5
-              transition
-            "
-          >
-            Edit
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => onEdit(job)}
+              aria-label={`Edit ${job.title}`}
+              className="
+                rounded-lg border border-white/10 px-4 py-2
+                text-sm text-white/70
+                hover:text-white hover:border-white/20 hover:bg-white/5
+                transition
+              "
+            >
+              Edit
+            </button>
+
+            <button
+              onClick={() => setConfirmOpen(true)}
+              aria-label={`Delete ${job.title}`}
+              className="
+                rounded-lg border border-red-500/30 px-4 py-2
+                text-sm text-red-300
+                hover:text-red-200 hover:border-red-500/40 hover:bg-red-500/10
+                transition
+              "
+            >
+              Delete
+            </button>
+          </div>
         </div>
 
         {/* Overview */}
@@ -175,6 +209,19 @@ export default function JobDetailPanel({ job, onClose, onEdit }) {
           )}
         </div>
       </div>
+
+      {confirmOpen && (
+        <DeleteJobDialog
+          jobTitle={job.title}
+          isSubmitting={deleting}
+          error={deleteError}
+          onConfirm={handleConfirmDelete}
+          onCancel={() => {
+            setConfirmOpen(false);
+            setDeleteError('');
+          }}
+        />
+      )}
     </>
   );
 }
@@ -194,4 +241,5 @@ JobDetailPanel.propTypes = {
   }).isRequired,
   onClose: PropTypes.func.isRequired,
   onEdit: PropTypes.func.isRequired,
+  onDelete: PropTypes.func.isRequired,
 };

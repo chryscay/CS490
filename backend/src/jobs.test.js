@@ -22,6 +22,7 @@ vi.mock('./dao/jobsDAO.js', () => ({
     findByOwner: vi.fn(),
     findByIdForOwner: vi.fn(),
     updateJob: vi.fn(),
+    deleteJob: vi.fn(),
     appendStageTransition: vi.fn(),
   },
 }));
@@ -416,4 +417,44 @@ describe('PUT /api/jobs/:id', () => {
   });
 });
 
+describe('DELETE /api/jobs/:id', () => {
+  const ID = '507f1f77bcf86cd799439011';
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockVerifyIdToken.mockResolvedValue({ uid: 'user-a', email: 'a@test.com' });
+  });
+
+  it('deletes an owned job (happy path + ownership scoping)', async () => {
+    JobsDAO.deleteJob.mockResolvedValue({
+      _id: ID, firebaseUid: 'user-a', company: 'Acme',
+    });
+
+    const res = await request(app)
+      .delete(`/api/jobs/${ID}`)
+      .set('Authorization', 'Bearer faketoken');
+
+    expect(res.status).toBe(200);
+    expect(JobsDAO.deleteJob).toHaveBeenCalledWith(ID, 'user-a');
+  });
+
+  it('denies a cross-user delete: user B cannot delete user A job (404)', async () => {
+    mockVerifyIdToken.mockResolvedValue({ uid: 'user-b', email: 'b@test.com' });
+    JobsDAO.deleteJob.mockResolvedValue(null);
+
+    const res = await request(app)
+      .delete(`/api/jobs/${ID}`)
+      .set('Authorization', 'Bearer faketoken');
+
+    expect(res.status).toBe(404);
+    expect(JobsDAO.deleteJob).toHaveBeenCalledWith(ID, 'user-b');
+  });
+
+  it('blocks unauthenticated requests (401)', async () => {
+    const res = await request(app).delete(`/api/jobs/${ID}`);
+
+    expect(res.status).toBe(401);
+    expect(JobsDAO.deleteJob).not.toHaveBeenCalled();
+  });
+});
 

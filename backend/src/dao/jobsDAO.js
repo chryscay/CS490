@@ -71,6 +71,19 @@ export default class JobsDAO {
 
     return result;
   }
+
+  static async deleteJob(id, uid) {
+    if (!ObjectId.isValid(id)) {
+      return null;
+    }
+
+    const result = await jobs.findOneAndDelete({
+      _id: new ObjectId(id),
+      firebaseUid: uid,
+    });
+
+    return result;
+  }
   
 
 
