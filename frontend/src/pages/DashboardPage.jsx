@@ -3,7 +3,7 @@ import { useAuth } from '../features/auth/useAuth';
 import JobCard from '../features/jobs/JobCard';
 import JobFormModal from '../features/jobs/JobFormModal';
 import JobDetailPanel from '../features/jobs/JobDetailPanel';
-import { transitionStage } from '../features/jobs/jobsApi';
+import { transitionStage, deleteJob } from '../features/jobs/jobsApi';
 
 export default function DashboardPage() {
   const { currentUser } = useAuth();
@@ -72,6 +72,15 @@ export default function DashboardPage() {
     setSelectedJob((prev) =>
       prev && prev._id === updatedJob._id ? updatedJob : prev
     );
+  };
+
+  // SCRUM-52: delete an owned job, drop it from the list, close the panel.
+  // Throws on failure so the panel can surface an error and stay open.
+  const handleDelete = async (job) => {
+    const token = await currentUser.getIdToken();
+    await deleteJob(job._id, token);
+    setJobs((prev) => prev.filter((j) => j._id !== job._id));
+    setSelectedJob(null);
   };
 
   const stats = [
@@ -192,6 +201,7 @@ export default function DashboardPage() {
           job={selectedJob}
           onClose={() => setSelectedJob(null)}
           onEdit={openEdit}
+          onDelete={handleDelete}
           transition={makeTransition(selectedJob._id)}
           onTransitioned={handleTransitioned}
         />

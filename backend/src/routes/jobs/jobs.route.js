@@ -14,7 +14,8 @@ router
 router
   .route('/:id')
   .get(JobsController.apiGetJobById)
-  .put(JobsController.apiUpdateJob);
+  .put(JobsController.apiUpdateJob)
+  .delete(JobsController.apiDeleteJob);
   
 router.post('/:id/transition', JobsController.apiTransitionStage); // SCRUM-45
 

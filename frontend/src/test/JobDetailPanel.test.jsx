@@ -20,6 +20,7 @@ const defaultProps = {
   job: mockJob,
   onClose: vi.fn(),
   onEdit: vi.fn(),
+  onDelete: vi.fn(),
 };
 
 describe('JobDetailPanel', () => {
@@ -139,5 +140,44 @@ describe('JobDetailPanel', () => {
     const jobWithoutNotes = { ...mockJob, contactNotes: undefined };
     render(<JobDetailPanel {...defaultProps} job={jobWithoutNotes} />);
     expect(screen.queryByText('Follow up next week')).not.toBeInTheDocument();
+  });
+
+  // Delete workflow (SCRUM-52) — guarded by confirmation
+  it('renders a Delete button', () => {
+    render(<JobDetailPanel {...defaultProps} />);
+    expect(
+      screen.getByRole('button', { name: /delete frontend engineer/i })
+    ).toBeInTheDocument();
+  });
+
+  it('does not call onDelete until the action is confirmed', async () => {
+    const onDelete = vi.fn();
+    render(<JobDetailPanel {...defaultProps} onDelete={onDelete} />);
+    await userEvent.click(
+      screen.getByRole('button', { name: /delete frontend engineer/i })
+    );
+    expect(screen.getByRole('alertdialog')).toBeInTheDocument();
+    expect(onDelete).not.toHaveBeenCalled();
+  });
+
+  it('calls onDelete with the job when confirmed', async () => {
+    const onDelete = vi.fn();
+    render(<JobDetailPanel {...defaultProps} onDelete={onDelete} />);
+    await userEvent.click(
+      screen.getByRole('button', { name: /delete frontend engineer/i })
+    );
+    await userEvent.click(screen.getByRole('button', { name: /^delete job$/i }));
+    expect(onDelete).toHaveBeenCalledWith(mockJob);
+  });
+
+  it('does not call onDelete when the confirmation is cancelled', async () => {
+    const onDelete = vi.fn();
+    render(<JobDetailPanel {...defaultProps} onDelete={onDelete} />);
+    await userEvent.click(
+      screen.getByRole('button', { name: /delete frontend engineer/i })
+    );
+    await userEvent.click(screen.getByRole('button', { name: /cancel/i }));
+    expect(onDelete).not.toHaveBeenCalled();
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
   });
 });
