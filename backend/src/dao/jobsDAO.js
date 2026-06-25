@@ -53,7 +53,7 @@ export default class JobsDAO {
     return result;
   }
 
-   static async updateJob(id, uid, fields) {
+  static async updateJob(id, uid, fields) {
     if (!ObjectId.isValid(id)) {
       return null;
     }
@@ -84,8 +84,29 @@ export default class JobsDAO {
 
     return result;
   }
-  
 
+  static async appendStageTransition(id, uid, entry) {
+    if (!ObjectId.isValid(id)) {
+      return null;
+    }
 
+    return await jobs.findOneAndUpdate(
+      {
+        _id: new ObjectId(id),
+        firebaseUid: uid,
+      },
+      {
+        $set: {
+          stage: entry.toStage,
+          lastActivityAt: new Date(),
+        },
+        $push: {
+          stageHistory: entry,
+        },
+      },
+      {
+        returnDocument: 'after',
+      }
+    );
+  }
 }
-
