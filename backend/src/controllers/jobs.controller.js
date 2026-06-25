@@ -1,6 +1,6 @@
 import JobsDAO from '../dao/jobsDAO.js';
 import { randomUUID } from 'crypto';
-import { isValidStage, isForwardTransition } from '../lib/stageTransitions.js';
+import { isValidStage, isForwardTransition, isOutcomeStage } from '../lib/stageTransitions.js';
 const VALID_STAGES = [
   'Interested',
   'Applied',
@@ -195,15 +195,20 @@ export default class JobsController {
         });
       }
 
-      // S2-BR-008/009: server stamps identity + time; single entry-builder
+      const isOverride = !forward;
+      // S2-013: keep the note when overriding (existing) OR when landing in an
+      // outcome stage on the forward path (new). Otherwise it's not an outcome
+      // reason and is dropped.
+      const keepNote = isOverride || isOutcomeStage(toStage);
+  
       const entry = {
         id: randomUUID(),
         fromStage,
         toStage,
         changedAt: new Date().toISOString(),
         changedBy: req.user.uid,
-        isOverride: !forward,
-        note: !forward ? String(note || '') : '',
+        isOverride,
+        note: keepNote ? String(note || '') : '',
       };
 
       // Single writer (SCRUM-46) — sets job.stage + pushes the entry

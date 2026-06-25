@@ -29,6 +29,37 @@ describe('JobDetailPanel', () => {
     expect(screen.getByRole('heading', { name: /frontend engineer/i })).toBeInTheDocument();
   });
 
+  // Outcome surfacing (S2-013)
+  const outcomeJob = {
+    ...mockJob,
+    stage: 'Offer',
+    stageHistory: [
+      { toStage: 'Applied', note: '', changedAt: '2026-06-05T00:00:00.000Z' },
+      { toStage: 'Offer', note: 'Signed offer letter', changedAt: '2026-06-12T00:00:00.000Z' },
+    ],
+  };
+
+  it('renders the Outcome section with the note for a job in an outcome stage', () => {
+    render(<JobDetailPanel {...defaultProps} job={outcomeJob} />);
+    const section = screen.getByText('Outcome').closest('div');
+    expect(within(section).getByText('Signed offer letter')).toBeInTheDocument();
+  });
+
+  it('shows an empty outcome message when no note was recorded', () => {
+    const noNote = {
+      ...mockJob,
+      stage: 'Rejected',
+      stageHistory: [{ toStage: 'Rejected', note: '', changedAt: '2026-06-12T00:00:00.000Z' }],
+    };
+    render(<JobDetailPanel {...defaultProps} job={noNote} />);
+    expect(screen.getByText(/no outcome note recorded/i)).toBeInTheDocument();
+  });
+
+  it('does not render the Outcome section for a non-outcome stage', () => {
+    render(<JobDetailPanel {...defaultProps} />); // mockJob is 'Applied'
+    expect(screen.queryByText('Outcome')).not.toBeInTheDocument();
+  });
+
   it('renders the company name', () => {
     render(<JobDetailPanel {...defaultProps} />);
     expect(screen.getAllByText('Acme Corp').length).toBeGreaterThan(0);

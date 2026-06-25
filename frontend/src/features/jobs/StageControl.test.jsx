@@ -92,4 +92,82 @@ describe('StageControl', () => {
     );
     expect(onTransitioned).not.toHaveBeenCalled();
   });
+
+  it('opens the outcome note dialog when an outcome stage is picked (S2-013)', async () => {
+    const transition = vi.fn().mockResolvedValue({ job: { _id: 'job-1', stage: 'Offer' } });
+    const onTransitioned = vi.fn();
+
+    render(
+      <StageControl
+        job={{ _id: 'job-1', stage: 'Interview' }}
+        transition={transition}
+        onTransitioned={onTransitioned}
+      />
+    );
+
+    fireEvent.change(screen.getByLabelText('Change stage'), {
+      target: { value: 'Offer' },
+    });
+
+    await screen.findByRole('alertdialog', { name: /record outcome note/i });
+    // dialog gates the call — nothing fired yet
+    expect(transition).not.toHaveBeenCalled();
+  });
+
+  it('sends the typed note on a forward outcome transition (S2-013)', async () => {
+    const updated = { _id: 'job-1', stage: 'Offer' };
+    const transition = vi.fn().mockResolvedValue({ job: updated });
+    const onTransitioned = vi.fn();
+
+    render(
+      <StageControl
+        job={{ _id: 'job-1', stage: 'Interview' }}
+        transition={transition}
+        onTransitioned={onTransitioned}
+      />
+    );
+
+    fireEvent.change(screen.getByLabelText('Change stage'), {
+      target: { value: 'Offer' },
+    });
+
+    await screen.findByRole('alertdialog', { name: /record outcome note/i });
+    fireEvent.change(screen.getByLabelText('Outcome note (optional)'), {
+      target: { value: 'Signed offer letter' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /save outcome/i }));
+
+    await waitFor(() => {
+      expect(transition).toHaveBeenCalledWith('Offer', {
+        confirmOverride: false,
+        note: 'Signed offer letter',
+      });
+      expect(onTransitioned).toHaveBeenCalledWith(updated);
+    });
+  });
+
+  it('fires directly without a dialog for a non-outcome stage (S2-013)', async () => {
+    const transition = vi.fn().mockResolvedValue({ job: { _id: 'job-1', stage: 'Applied' } });
+    const onTransitioned = vi.fn();
+
+    render(
+      <StageControl
+        job={{ _id: 'job-1', stage: 'Interested' }}
+        transition={transition}
+        onTransitioned={onTransitioned}
+      />
+    );
+
+    fireEvent.change(screen.getByLabelText('Change stage'), {
+      target: { value: 'Applied' },
+    });
+
+    await waitFor(() => {
+      expect(transition).toHaveBeenCalledWith('Applied', {
+        confirmOverride: false,
+        note: '',
+      });
+    });
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+  });
 });
