@@ -380,6 +380,64 @@ describe('PUT /api/profile/:section', () => {
     expect(UsersDAO.updateProfile).not.toHaveBeenCalled();
   });
 
+  it('saves skills section and trims skill values', async () => {
+    UsersDAO.updateProfile.mockResolvedValue({ modifiedCount: 1 });
+    UsersDAO.getProfile.mockResolvedValue({
+      email: 'a@test.com',
+      skills: [
+        { id: 'skill-1', name: 'React', category: 'Frontend', proficiency: 'Advanced' },
+      ],
+    });
+
+    const res = await request(app)
+      .put('/api/profile/skills')
+      .set('Authorization', 'Bearer faketoken')
+      .send({
+        skills: [
+          {
+            id: 'skill-1',
+            name: '  React  ',
+            category: '  Frontend  ',
+            proficiency: '  Advanced  ',
+          },
+        ],
+      });
+
+    expect(res.status).toBe(200);
+    const written = UsersDAO.updateProfile.mock.calls[0][1];
+    expect(written.skills).toEqual([
+      { id: 'skill-1', name: 'React', category: 'Frontend', proficiency: 'Advanced' },
+    ]);
+    expect(res.body.profile.skills[0].name).toBe('React');
+  });
+
+  it('rejects skill save when name is missing', async () => {
+    const res = await request(app)
+      .put('/api/profile/skills')
+      .set('Authorization', 'Bearer faketoken')
+      .send({ skills: [{ id: 'skill-1', name: ' ', category: 'Frontend', proficiency: 'Advanced' }] });
+
+    expect(res.status).toBe(400);
+    expect(res.body.errors['skills[0].name']).toBe('Skill name is required');
+    expect(UsersDAO.updateProfile).not.toHaveBeenCalled();
+  });
+
+  it('rejects duplicate skills within a single save', async () => {
+    const res = await request(app)
+      .put('/api/profile/skills')
+      .set('Authorization', 'Bearer faketoken')
+      .send({
+        skills: [
+          { id: 'skill-1', name: 'React', category: 'Frontend', proficiency: 'Advanced' },
+          { id: 'skill-2', name: 'react ', category: 'Frontend', proficiency: 'Intermediate' },
+        ],
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body.errors['skills[1].name']).toBe('Duplicate skill');
+    expect(UsersDAO.updateProfile).not.toHaveBeenCalled();
+  });
+
   it('blocks unauthenticated section saves (401)', async () => {
     const res = await request(app).put('/api/profile/identity').send({ firstName: 'Ada' });
 
