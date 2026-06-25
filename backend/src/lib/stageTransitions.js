@@ -1,6 +1,14 @@
 export const STAGES = [
     'Interested', 'Applied', 'Interview', 'Offer', 'Rejected', 'Archived',
   ];
+
+  // S2-013: the resolution stages. A note captured on a transition INTO one of
+// these is the job's outcome reason and must persist (BR-004 stage canon).
+export const OUTCOME_STAGES = ['Offer', 'Rejected', 'Archived'];
+
+export function isOutcomeStage(stage) {
+  return OUTCOME_STAGES.includes(stage);
+}
   
   // S2-BR-005 forward matrix. Archived/Rejected have no forward moves —
   // leaving either requires an override (restore is the separate SCRUM-51 workflow).

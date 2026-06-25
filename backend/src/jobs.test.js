@@ -64,6 +64,70 @@ describe('POST /api/jobs/:id/transition', () => {
     );
   });
 
+  // S2-013: forward into an outcome stage keeps the note (happy path)
+  it('preserves the note transitioning into an outcome stage', async () => {
+    JobsDAO.findByIdForOwner.mockResolvedValue({
+      _id: ID, firebaseUid: 'user-a', stage: 'Interview',
+    });
+    JobsDAO.appendStageTransition.mockResolvedValue({
+      _id: ID, firebaseUid: 'user-a', stage: 'Offer', stageHistory: [{}],
+    });
+
+    const res = await request(app)
+      .post(`/api/jobs/${ID}/transition`)
+      .set('Authorization', 'Bearer faketoken')
+      .send({ toStage: 'Offer', note: 'Verbal offer, awaiting written' });
+
+    expect(res.status).toBe(200);
+    const entry = JobsDAO.appendStageTransition.mock.calls[0][2];
+    expect(entry.toStage).toBe('Offer');
+    expect(entry.isOverride).toBe(false);
+    expect(entry.note).toBe('Verbal offer, awaiting written');
+  });
+
+  // S2-013: forward into a non-outcome stage drops the note (gating boundary)
+  it('discards the note transitioning into a non-outcome stage', async () => {
+    JobsDAO.findByIdForOwner.mockResolvedValue({
+      _id: ID, firebaseUid: 'user-a', stage: 'Interested',
+    });
+    JobsDAO.appendStageTransition.mockResolvedValue({
+      _id: ID, firebaseUid: 'user-a', stage: 'Applied', stageHistory: [{}],
+    });
+
+    const res = await request(app)
+      .post(`/api/jobs/${ID}/transition`)
+      .set('Authorization', 'Bearer faketoken')
+      .send({ toStage: 'Applied', note: 'should not be saved' });
+
+    expect(res.status).toBe(200);
+    expect(JobsDAO.appendStageTransition.mock.calls[0][2].note).toBe('');
+  });
+
+  // S2-013: the entry handed to the writer carries note + identity (persistence)
+  it('hands the outcome note + identity to the DAO writer', async () => {
+    JobsDAO.findByIdForOwner.mockResolvedValue({
+      _id: ID, firebaseUid: 'user-a', stage: 'Applied',
+    });
+    JobsDAO.appendStageTransition.mockResolvedValue({
+      _id: ID, firebaseUid: 'user-a', stage: 'Rejected', stageHistory: [{}],
+    });
+
+    await request(app)
+      .post(`/api/jobs/${ID}/transition`)
+      .set('Authorization', 'Bearer faketoken')
+      .send({ toStage: 'Rejected', note: 'Position filled internally' });
+
+    expect(JobsDAO.appendStageTransition).toHaveBeenCalledWith(
+      ID,
+      'user-a',
+      expect.objectContaining({
+        toStage: 'Rejected',
+        note: 'Position filled internally',
+        changedBy: 'user-a',
+      })
+    );
+  });
+
   it('blocks a non-forward transition until confirmed (409)', async () => {
     JobsDAO.findByIdForOwner.mockResolvedValue({
       _id: ID, firebaseUid: 'user-a', stage: 'Applied',
@@ -416,6 +480,8 @@ describe('PUT /api/jobs/:id', () => {
     expect(JobsDAO.updateJob).not.toHaveBeenCalled();
   });
 });
+
+
 
 describe('DELETE /api/jobs/:id', () => {
   const ID = '507f1f77bcf86cd799439011';
