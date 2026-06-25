@@ -35,15 +35,34 @@ export async function transitionStage(
 
 // SCRUM-52: hard delete (not archive — that's S2-014). 200 -> { id }, 404 -> throws.
 export async function deleteJob(id, token) {
-    const res = await fetch(`${API_URL}/api/jobs/${id}`, {
-      method: 'DELETE',
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
-  
-    if (!res.ok) throw new Error('delete failed');
-  
-    const data = await res.json();
-    return { id: data.id };
+  const res = await fetch(`${API_URL}/api/jobs/${id}`, {
+    method: 'DELETE',
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!res.ok) throw new Error('delete failed');
+
+  const data = await res.json();
+  return { id: data.id };
+}
+
+export async function generateJobDraft(id, token, { type }) {
+  const res = await fetch(`${API_URL}/api/jobs/${id}/ai/draft`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ type }),
+  });
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || 'Failed to generate draft');
   }
+
+  const data = await res.json();
+  return { draft: data.draft };
+}

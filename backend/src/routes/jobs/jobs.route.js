@@ -18,6 +18,7 @@ router
   .delete(JobsController.apiDeleteJob);
   
 router.post('/:id/transition', JobsController.apiTransitionStage); // SCRUM-45
+router.post('/:id/ai/draft', JobsController.apiDraftJob);
 
 export default router;
 

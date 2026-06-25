@@ -1,6 +1,22 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi, beforeEach } from 'vitest';
+
+const mockGetIdToken = vi.fn().mockResolvedValue('faketoken');
+
+vi.mock('../features/auth/useAuth.js', () => ({
+  useAuth: () => ({
+    currentUser: {
+      getIdToken: mockGetIdToken,
+    },
+  }),
+}));
+
+vi.mock('../features/jobs/jobsApi.js', () => ({
+  generateJobDraft: vi.fn(),
+}));
+
+import * as JobsApi from '../features/jobs/jobsApi.js';
 import JobDetailPanel from '../features/jobs/JobDetailPanel';
 
 const mockJob = {
@@ -24,6 +40,11 @@ const defaultProps = {
 };
 
 describe('JobDetailPanel', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetIdToken.mockResolvedValue('faketoken');
+    JobsApi.generateJobDraft.mockResolvedValue({ draft: 'AI resume draft text' });
+  });
   it('renders the job title', () => {
     render(<JobDetailPanel {...defaultProps} />);
     expect(screen.getByRole('heading', { name: /frontend engineer/i })).toBeInTheDocument();
@@ -179,6 +200,23 @@ describe('JobDetailPanel', () => {
     expect(
       screen.getByRole('button', { name: /delete frontend engineer/i })
     ).toBeInTheDocument();
+  });
+
+  it('renders a Generate resume draft button', () => {
+    render(<JobDetailPanel {...defaultProps} />);
+    expect(
+      screen.getByRole('button', { name: /generate resume draft/i })
+    ).toBeInTheDocument();
+  });
+
+  it('shows editable draft textarea after generating a resume draft', async () => {
+    render(<JobDetailPanel {...defaultProps} />);
+
+    await userEvent.click(screen.getByRole('button', { name: /generate resume draft/i }));
+
+    expect(JobsApi.generateJobDraft).toHaveBeenCalledWith('abc123', 'faketoken', { type: 'resume' });
+    expect(await screen.findByLabelText(/editable resume draft/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/editable resume draft/i)).toHaveValue('AI resume draft text');
   });
 
   it('does not call onDelete until the action is confirmed', async () => {
