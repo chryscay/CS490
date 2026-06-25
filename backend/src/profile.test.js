@@ -444,4 +444,135 @@ describe('PUT /api/profile/:section', () => {
     expect(res.status).toBe(401);
     expect(UsersDAO.updateProfile).not.toHaveBeenCalled();
   });
+
+  it('saves careerPreferences section with target roles, locations, workMode, and salaryPreference', async () => {
+    UsersDAO.updateProfile.mockResolvedValue({ modifiedCount: 1 });
+    UsersDAO.getProfile.mockResolvedValue({
+      email: 'a@test.com',
+      careerPreferences: {
+        targetRoles: [{ id: 'role-1', name: 'Software Engineer' }, { id: 'role-2', name: 'Product Manager' }],
+        locations: [{ id: 'loc-1', name: 'San Francisco, CA' }],
+        workMode: 'Remote',
+        salaryPreference: '$100,000 - $150,000',
+      },
+    });
+
+    const res = await request(app)
+      .put('/api/profile/careerPreferences')
+      .set('Authorization', 'Bearer faketoken')
+      .send({
+        careerPreferences: {
+          targetRoles: [{ id: 'role-1', name: 'Software Engineer' }, { id: 'role-2', name: 'Product Manager' }],
+          locations: [{ id: 'loc-1', name: 'San Francisco, CA' }],
+          workMode: 'Remote',
+          salaryPreference: '$100,000 - $150,000',
+        },
+      });
+
+    expect(res.status).toBe(200);
+    const written = UsersDAO.updateProfile.mock.calls[0][1];
+    expect(written.careerPreferences).toBeDefined();
+    expect(written.careerPreferences.targetRoles).toHaveLength(2);
+    expect(written.careerPreferences.targetRoles[0].name).toBe('Software Engineer');
+    expect(written.careerPreferences.locations).toHaveLength(1);
+    expect(written.careerPreferences.locations[0].name).toBe('San Francisco, CA');
+    expect(written.careerPreferences.workMode).toBe('Remote');
+    expect(written.careerPreferences.salaryPreference).toBe('$100,000 - $150,000');
+  });
+
+  it('trims careerPreferences string fields before saving', async () => {
+    UsersDAO.updateProfile.mockResolvedValue({ modifiedCount: 1 });
+    UsersDAO.getProfile.mockResolvedValue({
+      email: 'a@test.com',
+      careerPreferences: {
+        targetRoles: [{ id: 'role-1', name: 'Engineer' }],
+        locations: [{ id: 'loc-1', name: 'Remote' }],
+        workMode: 'Hybrid',
+        salaryPreference: '$120,000+',
+      },
+    });
+
+    const res = await request(app)
+      .put('/api/profile/careerPreferences')
+      .set('Authorization', 'Bearer faketoken')
+      .send({
+        careerPreferences: {
+          targetRoles: [{ id: 'role-1', name: '  Engineer  ' }],
+          locations: [{ id: 'loc-1', name: '  Remote  ' }],
+          workMode: '  Hybrid  ',
+          salaryPreference: '  $120,000+  ',
+        },
+      });
+
+    expect(res.status).toBe(200);
+    const written = UsersDAO.updateProfile.mock.calls[0][1];
+    expect(written.careerPreferences.targetRoles[0].name).toBe('Engineer');
+    expect(written.careerPreferences.locations[0].name).toBe('Remote');
+    expect(written.careerPreferences.workMode).toBe('Hybrid');
+    expect(written.careerPreferences.salaryPreference).toBe('$120,000+');
+  });
+
+  it('rejects careerPreferences when target role name is blank', async () => {
+    const res = await request(app)
+      .put('/api/profile/careerPreferences')
+      .set('Authorization', 'Bearer faketoken')
+      .send({
+        careerPreferences: {
+          targetRoles: [{ id: 'role-1', name: '  ' }],
+          locations: [],
+          workMode: '',
+          salaryPreference: '',
+        },
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body.errors['careerPreferences.targetRoles[0].name']).toBe('Target role cannot be blank');
+    expect(UsersDAO.updateProfile).not.toHaveBeenCalled();
+  });
+
+  it('rejects careerPreferences when location name is blank', async () => {
+    const res = await request(app)
+      .put('/api/profile/careerPreferences')
+      .set('Authorization', 'Bearer faketoken')
+      .send({
+        careerPreferences: {
+          targetRoles: [{ id: 'role-1', name: 'Engineer' }],
+          locations: [{ id: 'loc-1', name: '' }],
+          workMode: '',
+          salaryPreference: '',
+        },
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body.errors['careerPreferences.locations[0].name']).toBe('Location cannot be blank');
+    expect(UsersDAO.updateProfile).not.toHaveBeenCalled();
+  });
+
+  it('allows optional careerPreferences fields (workMode and salaryPreference can be empty)', async () => {
+    UsersDAO.updateProfile.mockResolvedValue({ modifiedCount: 1 });
+    UsersDAO.getProfile.mockResolvedValue({
+      email: 'a@test.com',
+      careerPreferences: {
+        targetRoles: [{ id: 'role-1', name: 'Engineer' }],
+        locations: [{ id: 'loc-1', name: 'Remote' }],
+        workMode: '',
+        salaryPreference: '',
+      },
+    });
+
+    const res = await request(app)
+      .put('/api/profile/careerPreferences')
+      .set('Authorization', 'Bearer faketoken')
+      .send({
+        careerPreferences: {
+          targetRoles: [{ id: 'role-1', name: 'Engineer' }],
+          locations: [{ id: 'loc-1', name: 'Remote' }],
+          workMode: '',
+          salaryPreference: '',
+        },
+      });
+
+    expect(res.status).toBe(200);
+    expect(UsersDAO.updateProfile).toHaveBeenCalled();
+  });
 });

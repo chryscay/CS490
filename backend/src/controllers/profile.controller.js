@@ -8,6 +8,7 @@ const SECTION_FIELDS = {
   summary: ['summary'],
   education: ['education'],
   skills: ['skills'],
+  careerPreferences: ['careerPreferences'],
 };
 
 // Per-section validation. Each returns a field-keyed errors object.
@@ -70,6 +71,34 @@ const SECTION_VALIDATORS = {
         seenNames.add(normalizedName);
       }
     });
+
+    return errors;
+  },
+  careerPreferences: (body) => {
+    const errors = {};
+    const prefs = body.careerPreferences;
+
+    if (!prefs) return errors;
+
+    // Validate target roles
+    if (Array.isArray(prefs.targetRoles)) {
+      prefs.targetRoles.forEach((role, idx) => {
+        const roleName = typeof role === 'string' ? role : role.name;
+        if (!roleName?.trim()) {
+          errors[`careerPreferences.targetRoles[${idx}].name`] = 'Target role cannot be blank';
+        }
+      });
+    }
+
+    // Validate locations
+    if (Array.isArray(prefs.locations)) {
+      prefs.locations.forEach((loc, idx) => {
+        const locName = typeof loc === 'string' ? loc : loc.name;
+        if (!locName?.trim()) {
+          errors[`careerPreferences.locations[${idx}].name`] = 'Location cannot be blank';
+        }
+      });
+    }
 
     return errors;
   },
@@ -207,6 +236,23 @@ export default class ProfileController {
             category: skill.category?.trim() ?? '',
             proficiency: skill.proficiency?.trim() ?? '',
           }));
+        } else if (field === 'careerPreferences' && value) {
+          updates.careerPreferences = {
+            targetRoles: Array.isArray(value.targetRoles)
+              ? value.targetRoles.map((role) => ({
+                  id: role.id,
+                  name: (typeof role === 'string' ? role : role.name)?.trim() ?? '',
+                }))
+              : [],
+            locations: Array.isArray(value.locations)
+              ? value.locations.map((loc) => ({
+                  id: loc.id,
+                  name: (typeof loc === 'string' ? loc : loc.name)?.trim() ?? '',
+                }))
+              : [],
+            workMode: value.workMode?.trim() ?? '',
+            salaryPreference: value.salaryPreference?.trim() ?? '',
+          };
         } else {
           updates[field] = typeof value === 'string' ? value.trim() : value ?? '';
         }
