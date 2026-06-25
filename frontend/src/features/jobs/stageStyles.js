@@ -19,3 +19,12 @@ export const STAGES = [
   export function getStageStyles(stage) {
     return STAGE_STYLES[stage] ?? STAGE_STYLES.Interested;
   }
+
+  // S2-013: the resolution stages. Mirrors OUTCOME_STAGES in the backend
+// stageTransitions lib. Frontend keys off this set only — never the forward
+// matrix, which stays server-authoritative.
+export const OUTCOME_STAGES = ['Offer', 'Rejected', 'Archived'];
+
+export function isOutcomeStage(stage) {
+  return OUTCOME_STAGES.includes(stage);
+}

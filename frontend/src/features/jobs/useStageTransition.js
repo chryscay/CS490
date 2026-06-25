@@ -1,9 +1,5 @@
 import { useState } from 'react';
 
-// transition(toStage, { confirmOverride, note }) must resolve to either:
-//   { job }                                       -> success, stage changed
-//   { requiresConfirmation, fromStage, toStage }  -> 409, override confirm needed
-// and throw on network/500 so we route to the error state.
 export default function useStageTransition({ transition, onTransitioned }) {
   const [status, setStatus] = useState('idle'); // idle | saving | error
   const [error, setError] = useState('');
@@ -17,7 +13,11 @@ export default function useStageTransition({ transition, onTransitioned }) {
       const result = await transition(toStage, options);
 
       if (result?.requiresConfirmation) {
+        // S2-013: the move into an outcome stage turned out to be non-forward
+        // (e.g. Interested->Offer). Keep the note the user already typed so the
+        // override dialog pre-fills it; the server stays the forward-ness judge.
         setPending({ fromStage: result.fromStage, toStage: result.toStage });
+        setNote(options?.note ?? '');
         setStatus('idle');
         return;
       }
@@ -32,9 +32,9 @@ export default function useStageTransition({ transition, onTransitioned }) {
     }
   }
 
-  // user picked a target stage from the control
-  function requestStage(toStage) {
-    return run(toStage, { confirmOverride: false, note: '' });
+  // user picked a target stage; note is optional (outcome capture passes one)
+  function requestStage(toStage, noteText = '') {
+    return run(toStage, { confirmOverride: false, note: noteText });
   }
 
   // user confirmed the override in the dialog
@@ -51,14 +51,8 @@ export default function useStageTransition({ transition, onTransitioned }) {
   }
 
   return {
-    status,
-    error,
-    pending, // truthy => render the confirm dialog
-    note,
-    setNote,
-    requestStage,
-    confirm,
-    cancel,
+    status, error, pending, note, setNote,
+    requestStage, confirm, cancel,
     isSubmitting: status === 'saving',
   };
 }

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import PropTypes from 'prop-types';
-import { getStageStyles } from './stageStyles';
+import { getStageStyles, isOutcomeStage } from './stageStyles';
 import DeleteJobDialog from './DeleteJobDialog';
 
 
@@ -40,9 +40,21 @@ function buildTimeline(job) {
   return events;
 }
 
+// S2-013: the most recent history entry that landed in the current outcome
+// stage. stageHistory is absent on older jobs and pre-SCRUM-46 — guard it.
+function latestOutcomeEntry(job) {
+  if (!isOutcomeStage(job.stage)) return null;
+  const history = job.stageHistory ?? [];
+  for (let i = history.length - 1; i >= 0; i -= 1) {
+    if (history[i].toStage === job.stage) return history[i];
+  }
+  return null;
+}
+
 export default function JobDetailPanel({ job, onClose, onEdit, onDelete }) {
   const stageStyle = getStageStyles(job.stage);
   const timeline = buildTimeline(job);
+  const outcome = latestOutcomeEntry(job);
 
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -188,6 +200,26 @@ export default function JobDetailPanel({ job, onClose, onEdit, onDelete }) {
           </div>
         )}
 
+        {/* Outcome (S2-013) */}
+        {outcome && (
+          <div className="px-6 py-5 border-b border-white/10">
+            <h3 className="text-sm font-medium text-white/50 uppercase tracking-wider mb-4">
+              Outcome
+            </h3>
+            <div className="flex items-center gap-2">
+              <span className={`rounded-full px-3 py-1 text-xs font-medium ${getStageStyles(outcome.toStage)}`}>
+                {outcome.toStage}
+              </span>
+              <span className="text-xs text-white/35">{formatDate(outcome.changedAt)}</span>
+            </div>
+            {outcome.note ? (
+              <p className="mt-3 text-sm text-white/80 whitespace-pre-wrap">{outcome.note}</p>
+            ) : (
+              <p className="mt-3 text-sm text-white/30">No outcome note recorded.</p>
+            )}
+          </div>
+        )}
+
         {/* Timeline */}
         <div className="px-6 py-5">
           <h3 className="text-sm font-medium text-white/50 uppercase tracking-wider mb-4">
@@ -238,6 +270,13 @@ JobDetailPanel.propTypes = {
     deadline: PropTypes.string,
     recruiterName: PropTypes.string,
     contactNotes: PropTypes.string,
+    stageHistory: PropTypes.arrayOf(
+      PropTypes.shape({
+        toStage: PropTypes.string,
+        note: PropTypes.string,
+        changedAt: PropTypes.string,
+      })
+    ),
   }).isRequired,
   onClose: PropTypes.func.isRequired,
   onEdit: PropTypes.func.isRequired,
