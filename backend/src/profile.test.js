@@ -422,6 +422,22 @@ describe('PUT /api/profile/:section', () => {
     expect(UsersDAO.updateProfile).not.toHaveBeenCalled();
   });
 
+  it('rejects duplicate skills within a single save', async () => {
+    const res = await request(app)
+      .put('/api/profile/skills')
+      .set('Authorization', 'Bearer faketoken')
+      .send({
+        skills: [
+          { id: 'skill-1', name: 'React', category: 'Frontend', proficiency: 'Advanced' },
+          { id: 'skill-2', name: 'react ', category: 'Frontend', proficiency: 'Intermediate' },
+        ],
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body.errors['skills[1].name']).toBe('Duplicate skill');
+    expect(UsersDAO.updateProfile).not.toHaveBeenCalled();
+  });
+
   it('blocks unauthenticated section saves (401)', async () => {
     const res = await request(app).put('/api/profile/identity').send({ firstName: 'Ada' });
 

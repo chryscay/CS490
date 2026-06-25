@@ -54,6 +54,25 @@ describe('SkillsSection', () => {
     expect(await screen.findByText(/skill name is required/i)).toBeInTheDocument();
   });
 
+  it('shows duplicate validation and prevents save for duplicate skills', async () => {
+    const onSaved = vi.fn();
+    mockFetch(async () => ({ ok: true, status: 200, json: async () => ({ profile: { skills: [] } }) }));
+
+    render(<SkillsSection profile={{ skills: [] }} onSaved={onSaved} />);
+
+    fireEvent.click(screen.getByRole('button', { name: /add skill/i }));
+    fireEvent.click(screen.getByRole('button', { name: /add skill/i }));
+
+    const nameInputs = screen.getAllByLabelText(/skill name/i);
+    fireEvent.change(nameInputs[0], { target: { value: 'React' } });
+    fireEvent.change(nameInputs[1], { target: { value: 'react ' } });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    expect(await screen.findByText(/duplicate skill/i)).toBeInTheDocument();
+    expect(onSaved).not.toHaveBeenCalled();
+  });
+
   it('allows skills to be reordered and preserves the new order on save', async () => {
     let requestBody;
     const onSaved = vi.fn();

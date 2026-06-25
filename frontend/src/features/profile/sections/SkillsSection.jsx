@@ -26,9 +26,20 @@ function pick(profile) {
 
 function validate(values) {
   const errors = {};
+  const seenNames = new Set();
+
   values.skills.forEach((skill, idx) => {
-    if (!isRequired(skill.name)) {
+    const trimmedName = skill.name?.trim();
+    if (!isRequired(trimmedName)) {
       errors[`skills[${idx}].name`] = 'Skill name is required';
+      return;
+    }
+
+    const normalizedName = trimmedName.toLowerCase();
+    if (seenNames.has(normalizedName)) {
+      errors[`skills[${idx}].name`] = 'Duplicate skill';
+    } else {
+      seenNames.add(normalizedName);
     }
   });
   return errors;

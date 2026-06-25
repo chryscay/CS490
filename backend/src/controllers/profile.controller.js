@@ -54,9 +54,20 @@ const SECTION_VALIDATORS = {
     const errors = {};
     if (!Array.isArray(body.skills)) return errors;
 
+    const seenNames = new Set();
     body.skills.forEach((skill, idx) => {
-      if (!skill.name?.trim()) {
+      const trimmedName = skill.name?.trim();
+
+      if (!trimmedName) {
         errors[`skills[${idx}].name`] = 'Skill name is required';
+        return;
+      }
+
+      const normalizedName = trimmedName.toLowerCase();
+      if (seenNames.has(normalizedName)) {
+        errors[`skills[${idx}].name`] = 'Duplicate skill';
+      } else {
+        seenNames.add(normalizedName);
       }
     });
 
