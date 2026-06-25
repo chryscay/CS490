@@ -16,13 +16,13 @@ function pick(profile) {
     careerPreferences: {
       targetRoles: Array.isArray(profile.careerPreferences?.targetRoles)
         ? profile.careerPreferences.targetRoles.map((role) => ({
-            id: role.id || role,
+            id: typeof role === 'string' ? makeId() : (role.id || makeId()),
             name: typeof role === 'string' ? role : (role.name ?? ''),
           }))
         : [],
       locations: Array.isArray(profile.careerPreferences?.locations)
         ? profile.careerPreferences.locations.map((loc) => ({
-            id: loc.id || loc,
+            id: typeof loc === 'string' ? makeId() : (loc.id || makeId()),
             name: typeof loc === 'string' ? loc : (loc.name ?? ''),
           }))
         : [],
@@ -54,7 +54,7 @@ function validate(values) {
 function makeId() {
   return typeof globalThis.crypto?.randomUUID === 'function'
     ? globalThis.crypto.randomUUID()
-    : `${Date.now()}`;
+    : `${Date.now()}-${Math.random()}`;
 }
 
 export default function CareerPreferencesSection({ profile, onSaved }) {
@@ -81,85 +81,85 @@ export default function CareerPreferencesSection({ profile, onSaved }) {
   });
 
   function addTargetRole() {
-    setValues({
+    setValues((prev) => ({
       careerPreferences: {
-        ...values.careerPreferences,
+        ...prev.careerPreferences,
         targetRoles: [
-          ...values.careerPreferences.targetRoles,
+          ...prev.careerPreferences.targetRoles,
           { id: makeId(), name: '' },
         ],
       },
-    });
+    }));
   }
 
   function updateTargetRole(idx, value) {
-    setValues({
+    setValues((prev) => ({
       careerPreferences: {
-        ...values.careerPreferences,
-        targetRoles: values.careerPreferences.targetRoles.map((role, index) =>
+        ...prev.careerPreferences,
+        targetRoles: prev.careerPreferences.targetRoles.map((role, index) =>
           index === idx ? { ...role, name: value } : role
         ),
       },
-    });
+    }));
   }
 
   function deleteTargetRole(idx) {
-    setValues({
+    setValues((prev) => ({
       careerPreferences: {
-        ...values.careerPreferences,
-        targetRoles: values.careerPreferences.targetRoles.filter((_, index) => index !== idx),
+        ...prev.careerPreferences,
+        targetRoles: prev.careerPreferences.targetRoles.filter((_, index) => index !== idx),
       },
-    });
+    }));
   }
 
   function addLocation() {
-    setValues({
+    setValues((prev) => ({
       careerPreferences: {
-        ...values.careerPreferences,
+        ...prev.careerPreferences,
         locations: [
-          ...values.careerPreferences.locations,
+          ...prev.careerPreferences.locations,
           { id: makeId(), name: '' },
         ],
       },
-    });
+    }));
   }
 
   function updateLocation(idx, value) {
-    setValues({
+    setValues((prev) => ({
       careerPreferences: {
-        ...values.careerPreferences,
-        locations: values.careerPreferences.locations.map((loc, index) =>
+        ...prev.careerPreferences,
+        locations: prev.careerPreferences.locations.map((loc, index) =>
           index === idx ? { ...loc, name: value } : loc
         ),
       },
-    });
+    }));
   }
 
   function deleteLocation(idx) {
-    setValues({
+    setValues((prev) => ({
       careerPreferences: {
-        ...values.careerPreferences,
-        locations: values.careerPreferences.locations.filter((_, index) => index !== idx),
+        ...prev.careerPreferences,
+        locations: prev.careerPreferences.locations.filter((_, index) => index !== idx),
       },
-    });
+    }));
   }
 
   function updateWorkMode(value) {
-    setValues({
+    setValues((prev) => ({
       careerPreferences: {
-        ...values.careerPreferences,
+        ...prev.careerPreferences,
         workMode: value,
       },
-    });
+    }));
   }
 
   function updateSalaryPreference(value) {
-    setValues({
+    setValues((prev) => ({
       careerPreferences: {
-        ...values.careerPreferences,
+        ...prev.careerPreferences,
         salaryPreference: value,
       },
-    });
+    }));
   }
 
   const prefs = values.careerPreferences;
