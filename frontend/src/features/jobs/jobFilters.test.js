@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
+
 import {
   matchesStage,
   matchesLocation,
   matchesDeadlineState,
+  matchesSearch,
   applyFilters,
 } from './jobFilters';
 
@@ -48,6 +50,28 @@ describe('matchesLocation', () => {
 
   it('returns true when location filter is only whitespace', () => {
     expect(matchesLocation(baseJob, '   ')).toBe(true);
+  });
+});
+
+describe('matchesSearch', () => {
+  it('returns true when search is empty', () => {
+    expect(matchesSearch(baseJob, '')).toBe(true);
+  });
+
+  it('matches on title (case-insensitive)', () => {
+    expect(matchesSearch({ ...baseJob, title: 'Backend Engineer' }, 'backend')).toBe(true);
+  });
+
+  it('matches on company', () => {
+    expect(matchesSearch({ ...baseJob, company: 'Acme Corp' }, 'acme')).toBe(true);
+  });
+
+  it('matches on keyword in the job posting body', () => {
+    expect(matchesSearch({ ...baseJob, jobPostingBody: 'Must know Kubernetes' }, 'kubernetes')).toBe(true);
+  });
+
+  it('returns false when nothing matches', () => {
+    expect(matchesSearch({ ...baseJob, title: 'Engineer', company: 'Acme', jobPostingBody: 'x' }, 'zzz')).toBe(false);
   });
 });
 

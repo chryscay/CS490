@@ -10,6 +10,17 @@ export function matchesLocation(job, location) {
   return (job.location ?? '').toLowerCase().includes(q);
 }
 
+export function matchesSearch(job, search) {
+  if (!search) return true;
+  const q = search.trim().toLowerCase();
+  if (!q) return true;
+  return (
+    (job.title ?? '').toLowerCase().includes(q) ||
+    (job.company ?? '').toLowerCase().includes(q) ||
+    (job.jobPostingBody ?? '').toLowerCase().includes(q)
+  );
+}
+
 export function matchesDeadlineState(job, deadlineState) {
   if (!deadlineState || deadlineState === 'all') return true;
   if (deadlineState === 'has-deadline') return Boolean(job.deadline);
@@ -21,11 +32,13 @@ export function matchesDeadlineState(job, deadlineState) {
   return true;
 }
 
-export function applyFilters(jobs, { stage, location, deadlineState }) {
+export function applyFilters(jobs, { stage, location, deadlineState, search }) {
   return jobs.filter(
     (job) =>
       matchesStage(job, stage) &&
       matchesLocation(job, location) &&
-      matchesDeadlineState(job, deadlineState)
+      matchesDeadlineState(job, deadlineState) &&
+      matchesSearch(job, search)
   );
 }
+
