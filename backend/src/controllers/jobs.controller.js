@@ -228,6 +228,75 @@ export default class JobsController {
       return res.status(500).json({ error: 'Failed to update stage' });
     }
   }
+  static async apiAddInterview(req, res) {
+    try {
+      const { roundType, scheduledAt, notes } = req.body;
+
+      if (!roundType?.trim() || !scheduledAt || !notes?.trim()) {
+        return res.status(400).json({
+          error: 'Round type, date/time, and notes are required',
+        });
+      }
+
+      const parsedDate = new Date(scheduledAt);
+      if (isNaN(parsedDate.getTime())) {
+        return res.status(400).json({ error: 'Invalid scheduledAt date' });
+      }
+
+      const entry = {
+        id: randomUUID(),
+        roundType: roundType.trim(),
+        scheduledAt: parsedDate.toISOString(),
+        notes: notes.trim(),
+        createdAt: new Date().toISOString(),
+      };
+
+      const updated = await JobsDAO.addInterview(req.params.id, req.user.uid, entry);
+      if (!updated) {
+        return res.status(404).json({ error: 'Job not found' });
+      }
+
+      return res.status(201).json({ message: 'Interview added', job: updated });
+    } catch (error) {
+      console.error('apiAddInterview error:', error);
+      return res.status(500).json({ error: 'Failed to add interview' });
+    }
+  }
+
+  static async apiUpdateInterview(req, res) {
+    try {
+      const { roundType, scheduledAt, notes } = req.body;
+      const { id, interviewId } = req.params;
+
+      if (!roundType?.trim() || !scheduledAt || !notes?.trim()) {
+        return res.status(400).json({
+          error: 'Round type, date/time, and notes are required',
+        });
+      }
+
+      const parsedDate = new Date(scheduledAt);
+      if (isNaN(parsedDate.getTime())) {
+        return res.status(400).json({ error: 'Invalid scheduledAt date' });
+      }
+
+      const fields = {
+        roundType: roundType.trim(),
+        scheduledAt: parsedDate.toISOString(),
+        notes: notes.trim(),
+      };
+
+      const updated = await JobsDAO.updateInterview(id, req.user.uid, interviewId, fields);
+      if (!updated) {
+        return res.status(404).json({ error: 'Job or interview not found' });
+      }
+
+      return res.status(200).json({ message: 'Interview updated', job: updated });
+    } catch (error) {
+      console.error('apiUpdateInterview error:', error);
+      return res.status(500).json({ error: 'Failed to update interview' });
+    }
+  }
+
   static async apiDeleteJob(req, res) {
     try {
       const deleted = await JobsDAO.deleteJob(req.params.id, req.user.uid);
