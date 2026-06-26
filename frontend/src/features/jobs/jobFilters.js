@@ -41,4 +41,3 @@ export function applyFilters(jobs, { stage, location, deadlineState, search }) {
       matchesSearch(job, search)
   );
 }
-

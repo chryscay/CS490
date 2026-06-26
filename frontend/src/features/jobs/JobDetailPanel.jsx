@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import PropTypes from 'prop-types';
+import { useAuth } from '../auth/useAuth';
+import { generateJobDraft } from './jobsApi';
 import { getStageStyles, isOutcomeStage } from './stageStyles';
 import DeleteJobDialog from './DeleteJobDialog';
 import InterviewForm from './InterviewForm';
@@ -101,9 +103,29 @@ export default function JobDetailPanel({
   const interviews = job.interviews ?? [];
   const followUps = job.followUps ?? [];
 
+  const { currentUser } = useAuth();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState('');
+  const [draftLoading, setDraftLoading] = useState(false);
+  const [draftError, setDraftError] = useState('');
+  const [draftText, setDraftText] = useState('');
+  const [draftVisible, setDraftVisible] = useState(false);
+
+  const handleGenerateDraft = async () => {
+    setDraftError('');
+    setDraftLoading(true);
+    try {
+      const token = await currentUser.getIdToken();
+      const result = await generateJobDraft(job._id, token, { type: 'resume' });
+      setDraftText(result.draft);
+      setDraftVisible(true);
+    } catch (error) {
+      setDraftError(error.message || 'Could not generate resume draft');
+    } finally {
+      setDraftLoading(false);
+    }
+  };
 
   const [interviewFormOpen, setInterviewFormOpen] = useState(false);
   const [editingInterview, setEditingInterview] = useState(null);
@@ -262,6 +284,21 @@ export default function JobDetailPanel({
               Edit
             </button>
             <button
+              onClick={handleGenerateDraft}
+              disabled={draftLoading}
+              aria-label={`Generate resume draft for ${job.title}`}
+              className="
+                rounded-lg border border-white/10 px-4 py-2
+                text-sm text-white/70
+                hover:text-white hover:border-white/20 hover:bg-white/5
+                transition
+                disabled:cursor-not-allowed disabled:text-white/30
+              "
+            >
+              {draftLoading ? 'Generating...' : 'Generate resume draft'}
+            </button>
+
+            <button
               onClick={() => setConfirmOpen(true)}
               aria-label={`Delete ${job.title}`}
               className="
@@ -344,6 +381,31 @@ export default function JobDetailPanel({
             ) : (
               <p className="mt-3 text-sm text-white/30">No outcome note recorded.</p>
             )}
+          </div>
+        )}
+
+        {/* Generated resume draft */}
+        {draftVisible && (
+          <div className="px-6 py-5 border-b border-white/10">
+            <h3 className="text-sm font-medium text-white/50 uppercase tracking-wider mb-3">
+              Resume Draft
+            </h3>
+            <textarea
+              value={draftText}
+              onChange={(e) => setDraftText(e.target.value)}
+              rows={12}
+              aria-label="Editable resume draft"
+              className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <p className="mt-2 text-xs text-white/40">
+              This draft can be edited before a later save flow is added.
+            </p>
+          </div>
+        )}
+
+        {draftError && (
+          <div className="px-6 py-3 text-sm text-red-300">
+            {draftError}
           </div>
         )}
 

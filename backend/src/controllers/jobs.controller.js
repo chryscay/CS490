@@ -1,6 +1,8 @@
 import JobsDAO from '../dao/jobsDAO.js';
+import UsersDAO from '../dao/usersDAO.js';
 import { randomUUID } from 'crypto';
 import { isValidStage, isForwardTransition, isOutcomeStage } from '../lib/stageTransitions.js';
+import * as AiDraftService from '../services/aiDraft.service.js';
 const VALID_STAGES = [
   'Interested',
   'Applied',
@@ -382,7 +384,32 @@ export default class JobsController {
     }
   }
 
+  static async apiDraftJob(req, res) {
+    try {
+      const { type } = req.body;
 
+      if (type !== 'resume') {
+        return res.status(400).json({ error: 'Unsupported draft type' });
+      }
+
+      const job = await JobsDAO.findByIdForOwner(req.params.id, req.user.uid);
+      if (!job) {
+        return res.status(404).json({ error: 'Job not found' });
+      }
+
+      const profile = await UsersDAO.getProfile(req.user.uid);
+      const draftText = await AiDraftService.generateAiDraft({
+        profile: profile || {},
+        job,
+        type,
+      });
+
+      return res.status(200).json({ draft: draftText });
+    } catch (error) {
+      console.error('apiDraftJob error:', error);
+      return res.status(502).json({ error: 'Failed to generate draft' });
+    }
+  }
 }
 
 export { VALID_STAGES };

@@ -2,6 +2,8 @@ import request from 'supertest';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import app from './app.js';
 import JobsDAO from './dao/jobsDAO.js';
+import UsersDAO from './dao/usersDAO.js';
+import * as AiDraftService from './services/aiDraft.service.js';
 
 const mockVerifyIdToken = vi.fn();
 
@@ -29,6 +31,14 @@ vi.mock('./dao/jobsDAO.js', () => ({
     addFollowUp: vi.fn(),
     updateFollowUp: vi.fn(),
   },
+}));
+vi.mock('./dao/usersDAO.js', () => ({
+  default: {
+    getProfile: vi.fn(),
+  },
+}));
+vi.mock('./services/aiDraft.service.js', () => ({
+  generateAiDraft: vi.fn(),
 }));
 describe('POST /api/jobs/:id/transition', () => {
   const ID = '507f1f77bcf86cd799439011';
@@ -235,6 +245,93 @@ describe('POST /api/jobs/:id/transition', () => {
 
     expect(res.status).toBe(401);
     expect(JobsDAO.appendStageTransition).not.toHaveBeenCalled();
+  });
+});
+describe('POST /api/jobs/:id/ai/draft', () => {
+  const ID = '507f1f77bcf86cd799439011';
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockVerifyIdToken.mockResolvedValue({ uid: 'user-a', email: 'a@test.com' });
+  });
+
+  it('returns a resume draft for an owned job', async () => {
+    JobsDAO.findByIdForOwner.mockResolvedValue({
+      _id: ID,
+      firebaseUid: 'user-a',
+      company: 'Acme',
+      title: 'Backend Engineer',
+      jobPostingBody: 'Build services',
+    });
+    UsersDAO.getProfile.mockResolvedValue({
+      firstName: 'Alice',
+      lastName: 'Developer',
+      summary: 'Experienced backend engineer',
+      skills: [{ name: 'Node.js' }],
+    });
+    AiDraftService.generateAiDraft.mockResolvedValue('Generated resume draft');
+
+    const res = await request(app)
+      .post(`/api/jobs/${ID}/ai/draft`)
+      .set('Authorization', 'Bearer faketoken')
+      .send({ type: 'resume' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.draft).toBe('Generated resume draft');
+    expect(JobsDAO.findByIdForOwner).toHaveBeenCalledWith(ID, 'user-a');
+    expect(UsersDAO.getProfile).toHaveBeenCalledWith('user-a');
+  });
+
+  it('denies cross-user access with 404 before profile fetch', async () => {
+    mockVerifyIdToken.mockResolvedValue({ uid: 'user-b', email: 'b@test.com' });
+    JobsDAO.findByIdForOwner.mockResolvedValue(null);
+
+    const res = await request(app)
+      .post(`/api/jobs/${ID}/ai/draft`)
+      .set('Authorization', 'Bearer faketoken')
+      .send({ type: 'resume' });
+
+    expect(res.status).toBe(404);
+    expect(JobsDAO.findByIdForOwner).toHaveBeenCalledWith(ID, 'user-b');
+    expect(UsersDAO.getProfile).not.toHaveBeenCalled();
+  });
+
+  it('returns 502 when AI draft service fails', async () => {
+    JobsDAO.findByIdForOwner.mockResolvedValue({
+      _id: ID,
+      firebaseUid: 'user-a',
+      company: 'Acme',
+      title: 'Backend Engineer',
+      jobPostingBody: 'Build services',
+    });
+    UsersDAO.getProfile.mockResolvedValue({});
+    AiDraftService.generateAiDraft.mockRejectedValue(new Error('OpenAI unreachable'));
+
+    const res = await request(app)
+      .post(`/api/jobs/${ID}/ai/draft`)
+      .set('Authorization', 'Bearer faketoken')
+      .send({ type: 'resume' });
+
+    expect(res.status).toBe(502);
+    expect(res.body.error).toBe('Failed to generate draft');
+  });
+
+  it('rejects unsupported draft types with 400', async () => {
+    JobsDAO.findByIdForOwner.mockResolvedValue({
+      _id: ID,
+      firebaseUid: 'user-a',
+      company: 'Acme',
+      title: 'Backend Engineer',
+      jobPostingBody: 'Build services',
+    });
+
+    const res = await request(app)
+      .post(`/api/jobs/${ID}/ai/draft`)
+      .set('Authorization', 'Bearer faketoken')
+      .send({ type: 'coverLetter' });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('Unsupported draft type');
   });
 });
 describe('POST /api/jobs', () => {
