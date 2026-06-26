@@ -20,6 +20,7 @@ export default function DashboardPage() {
   const [filterStage, setFilterStage] = useState('');
   const [filterDeadlineState, setFilterDeadlineState] = useState('all');
   const [filterLocation, setFilterLocation] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
 
   const loadJobs = () => {
     if (!currentUser) {
@@ -111,6 +112,7 @@ export default function DashboardPage() {
     stage: filterStage,
     location: filterLocation,
     deadlineState: filterDeadlineState,
+    search: searchTerm,
   });
 
   const stats = [
@@ -167,6 +169,27 @@ export default function DashboardPage() {
         aria-label="Job filters"
         className="flex flex-wrap items-center gap-3 mb-8"
       >
+        <input
+          type="text"
+          aria-label="Search jobs"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          placeholder="Search jobs..."
+          className="
+            rounded-xl
+            bg-white/5
+            border
+            border-white/10
+            px-4
+            py-2.5
+            text-sm
+            text-white
+            placeholder-white/40
+            focus:outline-none
+            focus:ring-2
+            focus:ring-blue-500
+          "
+        />
         <select
           aria-label="Filter by stage"
           value={filterStage}
