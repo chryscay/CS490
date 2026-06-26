@@ -11,6 +11,89 @@ const mockConn = {
   }),
 };
 
+describe('JobsDAO.addInterview', () => {
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    await JobsDAO.injectDB(mockConn);
+  });
+
+  it('pushes the interview entry and sets lastActivityAt', async () => {
+    const entry = {
+      id: 'iv-1',
+      roundType: 'Technical Screen',
+      scheduledAt: '2026-08-01T14:00:00.000Z',
+      notes: 'Algorithms focus.',
+      createdAt: '2026-07-01T00:00:00.000Z',
+    };
+
+    mockFindOneAndUpdate.mockResolvedValue({
+      _id: '507f1f77bcf86cd799439011',
+      firebaseUid: 'user-a',
+      interviews: [entry],
+    });
+
+    const result = await JobsDAO.addInterview('507f1f77bcf86cd799439011', 'user-a', entry);
+
+    expect(mockFindOneAndUpdate).toHaveBeenCalledWith(
+      { _id: expect.any(Object), firebaseUid: 'user-a' },
+      {
+        $push: { interviews: entry },
+        $set: { lastActivityAt: expect.any(Date) },
+      },
+      { returnDocument: 'after' }
+    );
+    expect(result.interviews).toHaveLength(1);
+  });
+
+  it('returns null for an invalid job id', async () => {
+    const result = await JobsDAO.addInterview('bad-id', 'user-a', {});
+    expect(result).toBeNull();
+    expect(mockFindOneAndUpdate).not.toHaveBeenCalled();
+  });
+});
+
+describe('JobsDAO.updateInterview', () => {
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    await JobsDAO.injectDB(mockConn);
+  });
+
+  it('updates matching interview fields in place', async () => {
+    const fields = {
+      roundType: 'System Design',
+      scheduledAt: '2026-08-05T10:00:00.000Z',
+      notes: 'Design a URL shortener.',
+    };
+
+    mockFindOneAndUpdate.mockResolvedValue({
+      _id: '507f1f77bcf86cd799439011',
+      firebaseUid: 'user-a',
+      interviews: [{ id: 'iv-1', ...fields }],
+    });
+
+    await JobsDAO.updateInterview('507f1f77bcf86cd799439011', 'user-a', 'iv-1', fields);
+
+    expect(mockFindOneAndUpdate).toHaveBeenCalledWith(
+      { _id: expect.any(Object), firebaseUid: 'user-a', 'interviews.id': 'iv-1' },
+      {
+        $set: {
+          'interviews.$.roundType': fields.roundType,
+          'interviews.$.scheduledAt': fields.scheduledAt,
+          'interviews.$.notes': fields.notes,
+          lastActivityAt: expect.any(Date),
+        },
+      },
+      { returnDocument: 'after' }
+    );
+  });
+
+  it('returns null for an invalid job id', async () => {
+    const result = await JobsDAO.updateInterview('bad-id', 'user-a', 'iv-1', {});
+    expect(result).toBeNull();
+    expect(mockFindOneAndUpdate).not.toHaveBeenCalled();
+  });
+});
+
 describe('JobsDAO.appendStageTransition', () => {
   beforeEach(async () => {
     vi.clearAllMocks();

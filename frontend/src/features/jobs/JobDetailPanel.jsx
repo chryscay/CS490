@@ -4,7 +4,7 @@ import { useAuth } from '../auth/useAuth';
 import { generateJobDraft } from './jobsApi';
 import { getStageStyles, isOutcomeStage } from './stageStyles';
 import DeleteJobDialog from './DeleteJobDialog';
-
+import InterviewForm from './InterviewForm';
 
 function formatDate(dateStr) {
   if (!dateStr) return '-';
@@ -15,6 +15,19 @@ function formatDate(dateStr) {
     day: 'numeric',
     year: 'numeric',
     timeZone: 'UTC',
+  });
+}
+
+function formatDateTime(dateStr) {
+  if (!dateStr) return '-';
+  const date = new Date(dateStr);
+  if (isNaN(date.getTime())) return '-';
+  return date.toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
   });
 }
 
@@ -53,10 +66,18 @@ function latestOutcomeEntry(job) {
   return null;
 }
 
-export default function JobDetailPanel({ job, onClose, onEdit, onDelete }) {
+export default function JobDetailPanel({
+  job,
+  onClose,
+  onEdit,
+  onDelete,
+  onAddInterview,
+  onUpdateInterview,
+}) {
   const stageStyle = getStageStyles(job.stage);
   const timeline = buildTimeline(job);
   const outcome = latestOutcomeEntry(job);
+  const interviews = job.interviews ?? [];
 
   const { currentUser } = useAuth();
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -82,8 +103,11 @@ export default function JobDetailPanel({ job, onClose, onEdit, onDelete }) {
     }
   };
 
-  // Confirm -> call parent's async onDelete. On success the parent clears
-  // selectedJob and this panel unmounts, so no need to reset local state.
+  const [interviewFormOpen, setInterviewFormOpen] = useState(false);
+  const [editingInterview, setEditingInterview] = useState(null);
+  const [interviewSubmitting, setInterviewSubmitting] = useState(false);
+  const [interviewError, setInterviewError] = useState('');
+
   const handleConfirmDelete = async () => {
     setDeleting(true);
     setDeleteError('');
@@ -92,6 +116,36 @@ export default function JobDetailPanel({ job, onClose, onEdit, onDelete }) {
     } catch {
       setDeleting(false);
       setDeleteError('Could not delete this job. Please try again.');
+    }
+  };
+
+  const openAddInterview = () => {
+    setEditingInterview(null);
+    setInterviewError('');
+    setInterviewFormOpen(true);
+  };
+
+  const openEditInterview = (interview) => {
+    setEditingInterview(interview);
+    setInterviewError('');
+    setInterviewFormOpen(true);
+  };
+
+  const handleInterviewSave = async (entry) => {
+    setInterviewSubmitting(true);
+    setInterviewError('');
+    try {
+      if (editingInterview) {
+        await onUpdateInterview(editingInterview.id, entry);
+      } else {
+        await onAddInterview(entry);
+      }
+      setInterviewFormOpen(false);
+      setEditingInterview(null);
+    } catch (err) {
+      setInterviewError(err.message || 'Could not save interview. Please try again.');
+    } finally {
+      setInterviewSubmitting(false);
     }
   };
 
@@ -282,6 +336,64 @@ export default function JobDetailPanel({ job, onClose, onEdit, onDelete }) {
           </div>
         )}
 
+        {/* Interviews (S2-011) — only visible when stage is Interview */}
+        {job.stage === 'Interview' && (
+          <div className="px-6 py-5 border-b border-white/10">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-medium text-white/50 uppercase tracking-wider">
+                Interviews
+              </h3>
+              <button
+                onClick={openAddInterview}
+                aria-label="Add interview"
+                className="
+                  rounded-lg border border-white/10 px-3 py-1.5
+                  text-xs text-white/60
+                  hover:text-white hover:bg-white/5
+                  transition
+                "
+              >
+                + Add
+              </button>
+            </div>
+
+            {interviews.length === 0 ? (
+              <p className="text-sm text-white/30">No interviews recorded yet.</p>
+            ) : (
+              <ul aria-label="Interview list" className="space-y-4">
+                {[...interviews]
+                  .sort((a, b) => new Date(a.scheduledAt) - new Date(b.scheduledAt))
+                  .map((iv) => (
+                    <li
+                      key={iv.id}
+                      className="rounded-xl border border-white/10 bg-white/[0.03] p-4"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-white/80">{iv.roundType}</p>
+                          <p className="text-xs text-white/40 mt-0.5">{formatDateTime(iv.scheduledAt)}</p>
+                          <p className="text-sm text-white/60 mt-2 whitespace-pre-wrap">{iv.notes}</p>
+                        </div>
+                        <button
+                          onClick={() => openEditInterview(iv)}
+                          aria-label={`Edit ${iv.roundType} interview`}
+                          className="
+                            flex-shrink-0 rounded-lg border border-white/10 px-3 py-1.5
+                            text-xs text-white/50
+                            hover:text-white hover:bg-white/5
+                            transition
+                          "
+                        >
+                          Edit
+                        </button>
+                      </div>
+                    </li>
+                  ))}
+              </ul>
+            )}
+          </div>
+        )}
+
         {/* Timeline */}
         <div className="px-6 py-5">
           <h3 className="text-sm font-medium text-white/50 uppercase tracking-wider mb-4">
@@ -316,6 +428,20 @@ export default function JobDetailPanel({ job, onClose, onEdit, onDelete }) {
           }}
         />
       )}
+
+      {interviewFormOpen && (
+        <InterviewForm
+          interview={editingInterview}
+          isSubmitting={interviewSubmitting}
+          error={interviewError}
+          onSave={handleInterviewSave}
+          onClose={() => {
+            setInterviewFormOpen(false);
+            setEditingInterview(null);
+            setInterviewError('');
+          }}
+        />
+      )}
     </>
   );
 }
@@ -339,8 +465,18 @@ JobDetailPanel.propTypes = {
         changedAt: PropTypes.string,
       })
     ),
+    interviews: PropTypes.arrayOf(
+      PropTypes.shape({
+        id: PropTypes.string.isRequired,
+        roundType: PropTypes.string.isRequired,
+        scheduledAt: PropTypes.string.isRequired,
+        notes: PropTypes.string.isRequired,
+      })
+    ),
   }).isRequired,
   onClose: PropTypes.func.isRequired,
   onEdit: PropTypes.func.isRequired,
   onDelete: PropTypes.func.isRequired,
+  onAddInterview: PropTypes.func,
+  onUpdateInterview: PropTypes.func,
 };

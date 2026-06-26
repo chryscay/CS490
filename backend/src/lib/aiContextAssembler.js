@@ -3,7 +3,10 @@ function normalizeText(value) {
 }
 
 function joinValues(values) {
-  return values.filter(Boolean).join(' | ');
+  return values
+    .map((value) => (typeof value === 'string' ? value.trim() : value))
+    .filter((value) => (typeof value === 'string' ? value.length > 0 : Boolean(value)))
+    .join(' | ');
 }
 
 export function buildAiProfileJobContext(profile = {}, job = {}) {

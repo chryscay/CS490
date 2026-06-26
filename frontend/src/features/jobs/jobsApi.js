@@ -33,6 +33,46 @@ export async function transitionStage(
   return { job: data.job };
 }
 
+// S2-011: add an interview entry to a job. 201 -> { job }, 404/400 -> throws.
+export async function addInterview(jobId, entry, token) {
+  const res = await fetch(`${API_URL}/api/jobs/${jobId}/interviews`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(entry),
+  });
+
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || 'Failed to add interview');
+  }
+
+  const data = await res.json();
+  return { job: data.job };
+}
+
+// S2-011: update an existing interview entry. 200 -> { job }, 404/400 -> throws.
+export async function updateInterview(jobId, interviewId, entry, token) {
+  const res = await fetch(`${API_URL}/api/jobs/${jobId}/interviews/${interviewId}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(entry),
+  });
+
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || 'Failed to update interview');
+  }
+
+  const data = await res.json();
+  return { job: data.job };
+}
+
 // SCRUM-52: hard delete (not archive — that's S2-014). 200 -> { id }, 404 -> throws.
 export async function deleteJob(id, token) {
   const res = await fetch(`${API_URL}/api/jobs/${id}`, {
@@ -48,7 +88,7 @@ export async function deleteJob(id, token) {
   return { id: data.id };
 }
 
-export async function generateJobDraft(id, token, { type }) {
+export async function generateJobDraft(id, token, { type } = {}) {
   const res = await fetch(`${API_URL}/api/jobs/${id}/ai/draft`, {
     method: 'POST',
     headers: {

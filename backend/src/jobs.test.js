@@ -26,6 +26,8 @@ vi.mock('./dao/jobsDAO.js', () => ({
     updateJob: vi.fn(),
     deleteJob: vi.fn(),
     appendStageTransition: vi.fn(),
+    addInterview: vi.fn(),
+    updateInterview: vi.fn(),
   },
 }));
 vi.mock('./dao/usersDAO.js', () => ({
@@ -579,6 +581,161 @@ describe('PUT /api/jobs/:id', () => {
 });
 
 
+
+describe('POST /api/jobs/:id/interviews', () => {
+  const ID = '507f1f77bcf86cd799439011';
+  const validBody = {
+    roundType: 'Technical Screen',
+    scheduledAt: '2026-08-01T14:00:00.000Z',
+    notes: 'Focus on algorithms and data structures.',
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockVerifyIdToken.mockResolvedValue({ uid: 'user-a', email: 'a@test.com' });
+  });
+
+  it('adds an interview entry (happy path)', async () => {
+    const updatedJob = { _id: ID, firebaseUid: 'user-a', stage: 'Interview', interviews: [{ id: 'uuid', ...validBody }] };
+    JobsDAO.addInterview.mockResolvedValue(updatedJob);
+
+    const res = await request(app)
+      .post(`/api/jobs/${ID}/interviews`)
+      .set('Authorization', 'Bearer faketoken')
+      .send(validBody);
+
+    expect(res.status).toBe(201);
+    expect(res.body.job.interviews).toHaveLength(1);
+    expect(JobsDAO.addInterview).toHaveBeenCalledWith(
+      ID,
+      'user-a',
+      expect.objectContaining({
+        roundType: 'Technical Screen',
+        scheduledAt: expect.any(String),
+        notes: 'Focus on algorithms and data structures.',
+        id: expect.any(String),
+        createdAt: expect.any(String),
+      })
+    );
+  });
+
+  it('rejects missing required fields (400)', async () => {
+    const res = await request(app)
+      .post(`/api/jobs/${ID}/interviews`)
+      .set('Authorization', 'Bearer faketoken')
+      .send({ roundType: 'Technical Screen' });
+
+    expect(res.status).toBe(400);
+    expect(JobsDAO.addInterview).not.toHaveBeenCalled();
+  });
+
+  it('rejects an invalid scheduledAt date (400)', async () => {
+    const res = await request(app)
+      .post(`/api/jobs/${ID}/interviews`)
+      .set('Authorization', 'Bearer faketoken')
+      .send({ ...validBody, scheduledAt: 'not-a-date' });
+
+    expect(res.status).toBe(400);
+    expect(JobsDAO.addInterview).not.toHaveBeenCalled();
+  });
+
+  it('returns 404 when the job is not found', async () => {
+    JobsDAO.addInterview.mockResolvedValue(null);
+
+    const res = await request(app)
+      .post(`/api/jobs/${ID}/interviews`)
+      .set('Authorization', 'Bearer faketoken')
+      .send(validBody);
+
+    expect(res.status).toBe(404);
+  });
+
+  it('blocks unauthenticated requests (401)', async () => {
+    const res = await request(app)
+      .post(`/api/jobs/${ID}/interviews`)
+      .send(validBody);
+
+    expect(res.status).toBe(401);
+    expect(JobsDAO.addInterview).not.toHaveBeenCalled();
+  });
+});
+
+describe('PUT /api/jobs/:id/interviews/:interviewId', () => {
+  const ID = '507f1f77bcf86cd799439011';
+  const INTERVIEW_ID = 'interview-uuid-1';
+  const validBody = {
+    roundType: 'System Design',
+    scheduledAt: '2026-08-05T10:00:00.000Z',
+    notes: 'Design a URL shortener.',
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockVerifyIdToken.mockResolvedValue({ uid: 'user-a', email: 'a@test.com' });
+  });
+
+  it('updates an interview entry (happy path)', async () => {
+    const updatedJob = { _id: ID, firebaseUid: 'user-a', stage: 'Interview', interviews: [{ id: INTERVIEW_ID, ...validBody }] };
+    JobsDAO.updateInterview.mockResolvedValue(updatedJob);
+
+    const res = await request(app)
+      .put(`/api/jobs/${ID}/interviews/${INTERVIEW_ID}`)
+      .set('Authorization', 'Bearer faketoken')
+      .send(validBody);
+
+    expect(res.status).toBe(200);
+    expect(JobsDAO.updateInterview).toHaveBeenCalledWith(
+      ID,
+      'user-a',
+      INTERVIEW_ID,
+      expect.objectContaining({
+        roundType: 'System Design',
+        scheduledAt: expect.any(String),
+        notes: 'Design a URL shortener.',
+      })
+    );
+  });
+
+  it('rejects missing required fields (400)', async () => {
+    const res = await request(app)
+      .put(`/api/jobs/${ID}/interviews/${INTERVIEW_ID}`)
+      .set('Authorization', 'Bearer faketoken')
+      .send({ roundType: 'System Design' });
+
+    expect(res.status).toBe(400);
+    expect(JobsDAO.updateInterview).not.toHaveBeenCalled();
+  });
+
+  it('rejects an invalid scheduledAt date (400)', async () => {
+    const res = await request(app)
+      .put(`/api/jobs/${ID}/interviews/${INTERVIEW_ID}`)
+      .set('Authorization', 'Bearer faketoken')
+      .send({ ...validBody, scheduledAt: 'not-a-date' });
+
+    expect(res.status).toBe(400);
+    expect(JobsDAO.updateInterview).not.toHaveBeenCalled();
+  });
+
+  it('returns 404 when the job or interview is not found', async () => {
+    JobsDAO.updateInterview.mockResolvedValue(null);
+
+    const res = await request(app)
+      .put(`/api/jobs/${ID}/interviews/${INTERVIEW_ID}`)
+      .set('Authorization', 'Bearer faketoken')
+      .send(validBody);
+
+    expect(res.status).toBe(404);
+  });
+
+  it('blocks unauthenticated requests (401)', async () => {
+    const res = await request(app)
+      .put(`/api/jobs/${ID}/interviews/${INTERVIEW_ID}`)
+      .send(validBody);
+
+    expect(res.status).toBe(401);
+    expect(JobsDAO.updateInterview).not.toHaveBeenCalled();
+  });
+});
 
 describe('DELETE /api/jobs/:id', () => {
   const ID = '507f1f77bcf86cd799439011';
