@@ -21,6 +21,8 @@ const defaultProps = {
   onClose: vi.fn(),
   onEdit: vi.fn(),
   onDelete: vi.fn(),
+  onAddInterview: vi.fn(),
+  onUpdateInterview: vi.fn(),
 };
 
 describe('JobDetailPanel', () => {
@@ -210,5 +212,94 @@ describe('JobDetailPanel', () => {
     await userEvent.click(screen.getByRole('button', { name: /cancel/i }));
     expect(onDelete).not.toHaveBeenCalled();
     expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+  });
+
+  // Interview tracking (S2-011)
+  const interviewJob = {
+    ...mockJob,
+    stage: 'Interview',
+    interviews: [
+      {
+        id: 'iv-1',
+        roundType: 'Technical Screen',
+        scheduledAt: '2026-08-01T14:00:00.000Z',
+        notes: 'Algorithms and data structures.',
+      },
+      {
+        id: 'iv-2',
+        roundType: 'System Design',
+        scheduledAt: '2026-08-05T10:00:00.000Z',
+        notes: 'Design a URL shortener.',
+      },
+    ],
+  };
+
+  it('does not render the Interviews section when stage is not Interview', () => {
+    render(<JobDetailPanel {...defaultProps} />); // mockJob is 'Applied'
+    expect(screen.queryByText('Interviews')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /add interview/i })).not.toBeInTheDocument();
+  });
+
+  it('renders the Interviews section when stage is Interview', () => {
+    render(<JobDetailPanel {...defaultProps} job={{ ...mockJob, stage: 'Interview' }} />);
+    expect(screen.getByText('Interviews')).toBeInTheDocument();
+  });
+
+  it('renders the Add Interview button when stage is Interview', () => {
+    render(<JobDetailPanel {...defaultProps} job={{ ...mockJob, stage: 'Interview' }} />);
+    expect(screen.getByRole('button', { name: /add interview/i })).toBeInTheDocument();
+  });
+
+  it('shows the empty interviews message when there are no entries', () => {
+    render(<JobDetailPanel {...defaultProps} job={{ ...mockJob, stage: 'Interview' }} />);
+    expect(screen.getByText(/no interviews recorded yet/i)).toBeInTheDocument();
+  });
+
+  it('renders existing interview entries', () => {
+    render(<JobDetailPanel {...defaultProps} job={interviewJob} />);
+    expect(screen.getByRole('list', { name: /interview list/i })).toBeInTheDocument();
+    expect(screen.getByText('Technical Screen')).toBeInTheDocument();
+    expect(screen.getByText('System Design')).toBeInTheDocument();
+    expect(screen.getByText('Algorithms and data structures.')).toBeInTheDocument();
+  });
+
+  it('opens the Add Interview form when the Add button is clicked', async () => {
+    render(<JobDetailPanel {...defaultProps} job={{ ...mockJob, stage: 'Interview' }} />);
+    await userEvent.click(screen.getByRole('button', { name: /add interview/i }));
+    expect(screen.getByRole('dialog', { name: /add interview/i })).toBeInTheDocument();
+  });
+
+  it('opens the Edit Interview form when an interview Edit button is clicked', async () => {
+    render(<JobDetailPanel {...defaultProps} job={interviewJob} />);
+    await userEvent.click(screen.getByRole('button', { name: /edit technical screen interview/i }));
+    expect(screen.getByRole('dialog', { name: /edit interview/i })).toBeInTheDocument();
+  });
+
+  it('calls onAddInterview with entry when the form is submitted', async () => {
+    const onAddInterview = vi.fn().mockResolvedValue(undefined);
+    const user = userEvent.setup();
+    render(
+      <JobDetailPanel
+        {...defaultProps}
+        job={{ ...mockJob, stage: 'Interview' }}
+        onAddInterview={onAddInterview}
+      />
+    );
+
+    await user.click(screen.getByRole('button', { name: /add interview/i }));
+
+    const formDialog = screen.getByRole('dialog', { name: /add interview/i });
+    await user.selectOptions(within(formDialog).getByRole('combobox', { name: /round type/i }), 'Behavioral');
+    await user.type(within(formDialog).getByLabelText(/date.*time/i), '2026-08-10T09:00');
+    await user.type(within(formDialog).getByRole('textbox', { name: /notes/i }), 'Star method questions.');
+    await user.click(within(formDialog).getByRole('button', { name: /add interview/i }));
+
+    expect(onAddInterview).toHaveBeenCalledWith(
+      expect.objectContaining({
+        roundType: 'Behavioral',
+        scheduledAt: expect.any(String),
+        notes: 'Star method questions.',
+      })
+    );
   });
 });

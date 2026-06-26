@@ -85,6 +85,34 @@ export default class JobsDAO {
     return result;
   }
 
+  static async addInterview(id, uid, entry) {
+    if (!ObjectId.isValid(id)) return null;
+    return await jobs.findOneAndUpdate(
+      { _id: new ObjectId(id), firebaseUid: uid },
+      {
+        $push: { interviews: entry },
+        $set: { lastActivityAt: new Date() },
+      },
+      { returnDocument: 'after' }
+    );
+  }
+
+  static async updateInterview(id, uid, interviewId, fields) {
+    if (!ObjectId.isValid(id)) return null;
+    return await jobs.findOneAndUpdate(
+      { _id: new ObjectId(id), firebaseUid: uid, 'interviews.id': interviewId },
+      {
+        $set: {
+          'interviews.$.roundType': fields.roundType,
+          'interviews.$.scheduledAt': fields.scheduledAt,
+          'interviews.$.notes': fields.notes,
+          lastActivityAt: new Date(),
+        },
+      },
+      { returnDocument: 'after' }
+    );
+  }
+
   static async appendStageTransition(id, uid, entry) {
     if (!ObjectId.isValid(id)) {
       return null;

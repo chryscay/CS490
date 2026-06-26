@@ -3,7 +3,7 @@ import { useAuth } from '../features/auth/useAuth';
 import JobCard from '../features/jobs/JobCard';
 import JobFormModal from '../features/jobs/JobFormModal';
 import JobDetailPanel from '../features/jobs/JobDetailPanel';
-import { transitionStage, deleteJob } from '../features/jobs/jobsApi';
+import { transitionStage, deleteJob, addInterview, updateInterview } from '../features/jobs/jobsApi';
 import { STAGES } from '../features/jobs/stageStyles';
 import { applyFilters } from '../features/jobs/jobFilters';
 
@@ -76,6 +76,18 @@ export default function DashboardPage() {
     setSelectedJob((prev) =>
       prev && prev._id === updatedJob._id ? updatedJob : prev
     );
+  };
+
+  const handleAddInterview = async (entry) => {
+    const token = await currentUser.getIdToken();
+    const { job } = await addInterview(selectedJob._id, entry, token);
+    handleTransitioned(job);
+  };
+
+  const handleUpdateInterview = async (interviewId, entry) => {
+    const token = await currentUser.getIdToken();
+    const { job } = await updateInterview(selectedJob._id, interviewId, entry, token);
+    handleTransitioned(job);
   };
 
   const handleDelete = async (job) => {
@@ -318,6 +330,8 @@ export default function DashboardPage() {
           onClose={() => setSelectedJob(null)}
           onEdit={openEdit}
           onDelete={handleDelete}
+          onAddInterview={handleAddInterview}
+          onUpdateInterview={handleUpdateInterview}
           transition={makeTransition(selectedJob._id)}
           onTransitioned={handleTransitioned}
         />
