@@ -20,6 +20,8 @@ router
 router.post('/:id/transition', JobsController.apiTransitionStage); // SCRUM-45
 router.post('/:id/interviews', JobsController.apiAddInterview); // S2-011
 router.put('/:id/interviews/:interviewId', JobsController.apiUpdateInterview); // S2-011
+router.post('/:id/followups', JobsController.apiAddFollowUp); // S2-012
+router.put('/:id/followups/:followUpId', JobsController.apiUpdateFollowUp); // S2-012
 
 export default router;
 

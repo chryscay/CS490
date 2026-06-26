@@ -113,6 +113,34 @@ export default class JobsDAO {
     );
   }
 
+  static async addFollowUp(id, uid, entry) {
+    if (!ObjectId.isValid(id)) return null;
+    return await jobs.findOneAndUpdate(
+      { _id: new ObjectId(id), firebaseUid: uid },
+      {
+        $push: { followUps: entry },
+        $set: { lastActivityAt: new Date() },
+      },
+      { returnDocument: 'after' }
+    );
+  }
+
+  static async updateFollowUp(id, uid, followUpId, fields) {
+    if (!ObjectId.isValid(id)) return null;
+    return await jobs.findOneAndUpdate(
+      { _id: new ObjectId(id), firebaseUid: uid, 'followUps.id': followUpId },
+      {
+        $set: {
+          'followUps.$.title': fields.title,
+          'followUps.$.dueAt': fields.dueAt,
+          'followUps.$.completedAt': fields.completedAt ?? null,
+          lastActivityAt: new Date(),
+        },
+      },
+      { returnDocument: 'after' }
+    );
+  }
+
   static async appendStageTransition(id, uid, entry) {
     if (!ObjectId.isValid(id)) {
       return null;

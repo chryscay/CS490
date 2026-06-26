@@ -23,6 +23,8 @@ const defaultProps = {
   onDelete: vi.fn(),
   onAddInterview: vi.fn(),
   onUpdateInterview: vi.fn(),
+  onAddFollowUp: vi.fn(),
+  onUpdateFollowUp: vi.fn(),
 };
 
 describe('JobDetailPanel', () => {
@@ -275,6 +277,29 @@ describe('JobDetailPanel', () => {
     expect(screen.getByRole('dialog', { name: /edit interview/i })).toBeInTheDocument();
   });
 
+  it('calls onUpdateInterview when the edit interview form is submitted', async () => {
+    const onUpdateInterview = vi.fn().mockResolvedValue(undefined);
+    const user = userEvent.setup();
+    render(
+      <JobDetailPanel
+        {...defaultProps}
+        job={interviewJob}
+        onUpdateInterview={onUpdateInterview}
+      />
+    );
+
+    await user.click(screen.getByRole('button', { name: /edit technical screen interview/i }));
+    const formDialog = screen.getByRole('dialog', { name: /edit interview/i });
+    await user.clear(within(formDialog).getByRole('textbox', { name: /notes/i }));
+    await user.type(within(formDialog).getByRole('textbox', { name: /notes/i }), 'Updated notes.');
+    await user.click(within(formDialog).getByRole('button', { name: /save changes/i }));
+
+    expect(onUpdateInterview).toHaveBeenCalledWith(
+      'iv-1',
+      expect.objectContaining({ notes: 'Updated notes.' })
+    );
+  });
+
   it('calls onAddInterview with entry when the form is submitted', async () => {
     const onAddInterview = vi.fn().mockResolvedValue(undefined);
     const user = userEvent.setup();
@@ -301,5 +326,150 @@ describe('JobDetailPanel', () => {
         notes: 'Star method questions.',
       })
     );
+  });
+});
+
+describe('JobDetailPanel — Follow-ups (S2-BR-012)', () => {
+  const followUpJob = {
+    ...mockJob,
+    followUps: [
+      {
+        id: 'fu-1',
+        title: 'Send thank you email',
+        dueAt: '2026-08-03T09:00:00.000Z',
+        completedAt: null,
+        createdAt: '2026-07-20T00:00:00.000Z',
+      },
+      {
+        id: 'fu-2',
+        title: 'Check portal status',
+        dueAt: '2026-08-10T10:00:00.000Z',
+        completedAt: '2026-08-04T12:00:00.000Z',
+        createdAt: '2026-07-21T00:00:00.000Z',
+      },
+    ],
+  };
+
+  it('always renders the Follow-ups section', () => {
+    render(<JobDetailPanel {...defaultProps} />);
+    expect(screen.getByRole('button', { name: /add follow-up/i })).toBeInTheDocument();
+  });
+
+  it('renders the Add Follow-up button', () => {
+    render(<JobDetailPanel {...defaultProps} />);
+    expect(screen.getByRole('button', { name: /add follow-up/i })).toBeInTheDocument();
+  });
+
+  it('shows empty message when there are no follow-ups', () => {
+    render(<JobDetailPanel {...defaultProps} />);
+    expect(screen.getByText(/no follow-ups yet/i)).toBeInTheDocument();
+  });
+
+  it('renders existing follow-up entries', () => {
+    render(<JobDetailPanel {...defaultProps} job={followUpJob} />);
+    expect(screen.getByRole('list', { name: /follow-up list/i })).toBeInTheDocument();
+    expect(screen.getByText('Send thank you email')).toBeInTheDocument();
+    expect(screen.getByText('Check portal status')).toBeInTheDocument();
+  });
+
+  it('opens the Add Follow-up form when Add button is clicked', async () => {
+    const user = userEvent.setup();
+    render(<JobDetailPanel {...defaultProps} />);
+    await user.click(screen.getByRole('button', { name: /add follow-up/i }));
+    expect(screen.getByRole('dialog', { name: /add follow-up/i })).toBeInTheDocument();
+  });
+
+  it('opens the Edit Follow-up form when an edit button is clicked', async () => {
+    const user = userEvent.setup();
+    render(<JobDetailPanel {...defaultProps} job={followUpJob} />);
+    await user.click(screen.getByRole('button', { name: /edit follow-up "send thank you email"/i }));
+    expect(screen.getByRole('dialog', { name: /edit follow-up/i })).toBeInTheDocument();
+  });
+
+  it('calls onAddFollowUp when the form is submitted', async () => {
+    const onAddFollowUp = vi.fn().mockResolvedValue(undefined);
+    const user = userEvent.setup();
+    render(<JobDetailPanel {...defaultProps} onAddFollowUp={onAddFollowUp} />);
+
+    await user.click(screen.getByRole('button', { name: /add follow-up/i }));
+    const dialog = screen.getByRole('dialog', { name: /add follow-up/i });
+
+    await user.type(within(dialog).getByLabelText(/title/i), 'Follow up on application');
+    await user.type(within(dialog).getByLabelText(/due date/i), '2026-08-05T10:00');
+    await user.click(within(dialog).getByRole('button', { name: /add follow-up/i }));
+
+    expect(onAddFollowUp).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: 'Follow up on application',
+        dueAt: expect.any(String),
+      })
+    );
+  });
+
+  it('calls onUpdateFollowUp when the edit form is submitted', async () => {
+    const onUpdateFollowUp = vi.fn().mockResolvedValue(undefined);
+    const user = userEvent.setup();
+    render(<JobDetailPanel {...defaultProps} job={followUpJob} onUpdateFollowUp={onUpdateFollowUp} />);
+
+    await user.click(screen.getByRole('button', { name: /edit follow-up "send thank you email"/i }));
+    const dialog = screen.getByRole('dialog', { name: /edit follow-up/i });
+
+    await user.clear(within(dialog).getByLabelText(/title/i));
+    await user.type(within(dialog).getByLabelText(/title/i), 'Updated title');
+    await user.click(within(dialog).getByRole('button', { name: /save changes/i }));
+
+    expect(onUpdateFollowUp).toHaveBeenCalledWith(
+      'fu-1',
+      expect.objectContaining({ title: 'Updated title' })
+    );
+  });
+});
+
+describe('JobDetailPanel — Timeline (S2-BR-013)', () => {
+  it('includes stage history entries in the timeline', () => {
+    const jobWithHistory = {
+      ...mockJob,
+      stageHistory: [
+        { id: 'sh-1', toStage: 'Applied', changedAt: '2026-06-05T00:00:00.000Z' },
+        { id: 'sh-2', toStage: 'Interview', changedAt: '2026-06-15T00:00:00.000Z' },
+      ],
+    };
+    render(<JobDetailPanel {...defaultProps} job={jobWithHistory} />);
+    expect(screen.getByText(/moved to applied/i)).toBeInTheDocument();
+    expect(screen.getByText(/moved to interview/i)).toBeInTheDocument();
+  });
+
+  it('includes follow-up creation events in the timeline', () => {
+    const jobWithFollowUps = {
+      ...mockJob,
+      followUps: [
+        {
+          id: 'fu-1',
+          title: 'Send thank you email',
+          dueAt: '2026-08-03T09:00:00.000Z',
+          completedAt: null,
+          createdAt: '2026-07-20T00:00:00.000Z',
+        },
+      ],
+    };
+    render(<JobDetailPanel {...defaultProps} job={jobWithFollowUps} />);
+    expect(screen.getByText(/follow-up added: send thank you email/i)).toBeInTheDocument();
+  });
+
+  it('includes follow-up completion events in the timeline', () => {
+    const jobWithCompleted = {
+      ...mockJob,
+      followUps: [
+        {
+          id: 'fu-1',
+          title: 'Send thank you email',
+          dueAt: '2026-08-03T09:00:00.000Z',
+          completedAt: '2026-08-05T12:00:00.000Z',
+          createdAt: '2026-07-20T00:00:00.000Z',
+        },
+      ],
+    };
+    render(<JobDetailPanel {...defaultProps} job={jobWithCompleted} />);
+    expect(screen.getByText(/follow-up completed: send thank you email/i)).toBeInTheDocument();
   });
 });

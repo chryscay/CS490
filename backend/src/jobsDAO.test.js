@@ -94,6 +94,103 @@ describe('JobsDAO.updateInterview', () => {
   });
 });
 
+describe('JobsDAO.addFollowUp', () => {
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    await JobsDAO.injectDB(mockConn);
+  });
+
+  it('pushes the follow-up entry and sets lastActivityAt', async () => {
+    const entry = {
+      id: 'fu-1',
+      title: 'Send thank you email',
+      dueAt: '2026-08-03T09:00:00.000Z',
+      completedAt: null,
+      createdAt: '2026-07-01T00:00:00.000Z',
+    };
+
+    mockFindOneAndUpdate.mockResolvedValue({
+      _id: '507f1f77bcf86cd799439011',
+      firebaseUid: 'user-a',
+      followUps: [entry],
+    });
+
+    const result = await JobsDAO.addFollowUp('507f1f77bcf86cd799439011', 'user-a', entry);
+
+    expect(mockFindOneAndUpdate).toHaveBeenCalledWith(
+      { _id: expect.any(Object), firebaseUid: 'user-a' },
+      {
+        $push: { followUps: entry },
+        $set: { lastActivityAt: expect.any(Date) },
+      },
+      { returnDocument: 'after' }
+    );
+    expect(result.followUps).toHaveLength(1);
+  });
+
+  it('returns null for an invalid job id', async () => {
+    const result = await JobsDAO.addFollowUp('bad-id', 'user-a', {});
+    expect(result).toBeNull();
+    expect(mockFindOneAndUpdate).not.toHaveBeenCalled();
+  });
+});
+
+describe('JobsDAO.updateFollowUp', () => {
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    await JobsDAO.injectDB(mockConn);
+  });
+
+  it('updates matching follow-up fields in place', async () => {
+    const fields = {
+      title: 'Updated title',
+      dueAt: '2026-08-10T10:00:00.000Z',
+      completedAt: '2026-08-05T14:00:00.000Z',
+    };
+
+    mockFindOneAndUpdate.mockResolvedValue({
+      _id: '507f1f77bcf86cd799439011',
+      firebaseUid: 'user-a',
+      followUps: [{ id: 'fu-1', ...fields }],
+    });
+
+    await JobsDAO.updateFollowUp('507f1f77bcf86cd799439011', 'user-a', 'fu-1', fields);
+
+    expect(mockFindOneAndUpdate).toHaveBeenCalledWith(
+      { _id: expect.any(Object), firebaseUid: 'user-a', 'followUps.id': 'fu-1' },
+      {
+        $set: {
+          'followUps.$.title': fields.title,
+          'followUps.$.dueAt': fields.dueAt,
+          'followUps.$.completedAt': fields.completedAt,
+          lastActivityAt: expect.any(Date),
+        },
+      },
+      { returnDocument: 'after' }
+    );
+  });
+
+  it('stores null completedAt when field is absent', async () => {
+    const fields = { title: 'Check in', dueAt: '2026-08-10T10:00:00.000Z' };
+    mockFindOneAndUpdate.mockResolvedValue({
+      _id: '507f1f77bcf86cd799439011',
+      firebaseUid: 'user-a',
+      followUps: [{ id: 'fu-1', completedAt: null }],
+    });
+
+    await JobsDAO.updateFollowUp('507f1f77bcf86cd799439011', 'user-a', 'fu-1', fields);
+
+    const setArg = mockFindOneAndUpdate.mock.calls[0][1].$set;
+    expect(setArg['followUps.$.completedAt']).toBeNull();
+  });
+
+  it('returns null for an invalid job id', async () => {
+    const result = await JobsDAO.updateFollowUp('bad-id', 'user-a', 'fu-1', {});
+    expect(result).toBeNull();
+    expect(mockFindOneAndUpdate).not.toHaveBeenCalled();
+  });
+});
+
 describe('JobsDAO.appendStageTransition', () => {
   beforeEach(async () => {
     vi.clearAllMocks();

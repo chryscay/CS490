@@ -297,6 +297,76 @@ export default class JobsController {
     }
   }
 
+  static async apiAddFollowUp(req, res) {
+    try {
+      const { title, dueAt } = req.body;
+
+      if (!title?.trim() || !dueAt) {
+        return res.status(400).json({ error: 'Title and due date/time are required' });
+      }
+
+      const parsedDue = new Date(dueAt);
+      if (isNaN(parsedDue.getTime())) {
+        return res.status(400).json({ error: 'Invalid dueAt date' });
+      }
+
+      const entry = {
+        id: randomUUID(),
+        title: title.trim(),
+        dueAt: parsedDue.toISOString(),
+        completedAt: null,
+        createdAt: new Date().toISOString(),
+      };
+
+      const updated = await JobsDAO.addFollowUp(req.params.id, req.user.uid, entry);
+      if (!updated) return res.status(404).json({ error: 'Job not found' });
+
+      return res.status(201).json({ message: 'Follow-up added', job: updated });
+    } catch (error) {
+      console.error('apiAddFollowUp error:', error);
+      return res.status(500).json({ error: 'Failed to add follow-up' });
+    }
+  }
+
+  static async apiUpdateFollowUp(req, res) {
+    try {
+      const { title, dueAt, completedAt } = req.body;
+      const { id, followUpId } = req.params;
+
+      if (!title?.trim() || !dueAt) {
+        return res.status(400).json({ error: 'Title and due date/time are required' });
+      }
+
+      const parsedDue = new Date(dueAt);
+      if (isNaN(parsedDue.getTime())) {
+        return res.status(400).json({ error: 'Invalid dueAt date' });
+      }
+
+      let parsedCompletedAt = null;
+      if (completedAt) {
+        parsedCompletedAt = new Date(completedAt);
+        if (isNaN(parsedCompletedAt.getTime())) {
+          return res.status(400).json({ error: 'Invalid completedAt date' });
+        }
+        parsedCompletedAt = parsedCompletedAt.toISOString();
+      }
+
+      const fields = {
+        title: title.trim(),
+        dueAt: parsedDue.toISOString(),
+        completedAt: parsedCompletedAt,
+      };
+
+      const updated = await JobsDAO.updateFollowUp(id, req.user.uid, followUpId, fields);
+      if (!updated) return res.status(404).json({ error: 'Job or follow-up not found' });
+
+      return res.status(200).json({ message: 'Follow-up updated', job: updated });
+    } catch (error) {
+      console.error('apiUpdateFollowUp error:', error);
+      return res.status(500).json({ error: 'Failed to update follow-up' });
+    }
+  }
+
   static async apiDeleteJob(req, res) {
     try {
       const deleted = await JobsDAO.deleteJob(req.params.id, req.user.uid);

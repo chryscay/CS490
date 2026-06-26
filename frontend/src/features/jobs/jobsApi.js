@@ -73,6 +73,36 @@ export async function updateInterview(jobId, interviewId, entry, token) {
   return { job: data.job };
 }
 
+// S2-012: add a follow-up tied to a job. 201 -> { job }, 404/400 -> throws.
+export async function addFollowUp(jobId, entry, token) {
+  const res = await fetch(`${API_URL}/api/jobs/${jobId}/followups`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify(entry),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || 'Failed to add follow-up');
+  }
+  const data = await res.json();
+  return { job: data.job };
+}
+
+// S2-012: update (edit or toggle complete) a follow-up. 200 -> { job }, 404/400 -> throws.
+export async function updateFollowUp(jobId, followUpId, entry, token) {
+  const res = await fetch(`${API_URL}/api/jobs/${jobId}/followups/${followUpId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify(entry),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || 'Failed to update follow-up');
+  }
+  const data = await res.json();
+  return { job: data.job };
+}
+
 // SCRUM-52: hard delete (not archive — that's S2-014). 200 -> { id }, 404 -> throws.
 export async function deleteJob(id, token) {
     const res = await fetch(`${API_URL}/api/jobs/${id}`, {

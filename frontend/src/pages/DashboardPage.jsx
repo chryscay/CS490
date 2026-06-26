@@ -3,7 +3,7 @@ import { useAuth } from '../features/auth/useAuth';
 import JobCard from '../features/jobs/JobCard';
 import JobFormModal from '../features/jobs/JobFormModal';
 import JobDetailPanel from '../features/jobs/JobDetailPanel';
-import { transitionStage, deleteJob, addInterview, updateInterview } from '../features/jobs/jobsApi';
+import { transitionStage, deleteJob, addInterview, updateInterview, addFollowUp, updateFollowUp } from '../features/jobs/jobsApi';
 import { STAGES } from '../features/jobs/stageStyles';
 import { applyFilters } from '../features/jobs/jobFilters';
 
@@ -87,6 +87,18 @@ export default function DashboardPage() {
   const handleUpdateInterview = async (interviewId, entry) => {
     const token = await currentUser.getIdToken();
     const { job } = await updateInterview(selectedJob._id, interviewId, entry, token);
+    handleTransitioned(job);
+  };
+
+  const handleAddFollowUp = async (entry) => {
+    const token = await currentUser.getIdToken();
+    const { job } = await addFollowUp(selectedJob._id, entry, token);
+    handleTransitioned(job);
+  };
+
+  const handleUpdateFollowUp = async (followUpId, entry) => {
+    const token = await currentUser.getIdToken();
+    const { job } = await updateFollowUp(selectedJob._id, followUpId, entry, token);
     handleTransitioned(job);
   };
 
@@ -332,6 +344,8 @@ export default function DashboardPage() {
           onDelete={handleDelete}
           onAddInterview={handleAddInterview}
           onUpdateInterview={handleUpdateInterview}
+          onAddFollowUp={handleAddFollowUp}
+          onUpdateFollowUp={handleUpdateFollowUp}
           transition={makeTransition(selectedJob._id)}
           onTransitioned={handleTransitioned}
         />
