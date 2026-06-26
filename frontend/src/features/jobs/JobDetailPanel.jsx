@@ -3,6 +3,7 @@ import PropTypes from 'prop-types';
 import { getStageStyles, isOutcomeStage } from './stageStyles';
 import DeleteJobDialog from './DeleteJobDialog';
 import InterviewForm from './InterviewForm';
+import FollowUpForm from './FollowUpForm';
 
 function formatDate(dateStr) {
   if (!dateStr) return '-';
@@ -29,32 +30,52 @@ function formatDateTime(dateStr) {
   });
 }
 
+// S2-BR-013: include stage transitions (from stageHistory) and follow-up
+// activity events, all sorted chronologically.
 function buildTimeline(job) {
   const events = [];
 
   if (job.createdAt) {
-    events.push({
-      id: 'created',
-      label: 'Job added',
-      stage: 'Interested',
-      date: job.createdAt,
-    });
+    events.push({ id: 'created', label: 'Job added', date: job.createdAt });
   }
 
-  if (job.lastActivityAt && job.lastActivityAt !== job.createdAt) {
+  const stageHistory = job.stageHistory ?? [];
+  if (stageHistory.length > 0) {
+    stageHistory.forEach((entry) => {
+      events.push({
+        id: `stage-${entry.id}`,
+        label: `Moved to ${entry.toStage}`,
+        date: entry.changedAt,
+      });
+    });
+  } else if (job.lastActivityAt && job.lastActivityAt !== job.createdAt) {
+    // Fallback for jobs created before stageHistory was implemented
     events.push({
       id: 'last-activity',
       label: `Stage updated to ${job.stage}`,
-      stage: job.stage,
       date: job.lastActivityAt,
     });
   }
 
-  return events;
+  (job.followUps ?? []).forEach((fu) => {
+    events.push({
+      id: `followup-created-${fu.id}`,
+      label: `Follow-up added: ${fu.title}`,
+      date: fu.createdAt,
+    });
+    if (fu.completedAt) {
+      events.push({
+        id: `followup-completed-${fu.id}`,
+        label: `Follow-up completed: ${fu.title}`,
+        date: fu.completedAt,
+      });
+    }
+  });
+
+  return events.sort((a, b) => new Date(a.date) - new Date(b.date));
 }
 
-// S2-013: the most recent history entry that landed in the current outcome
-// stage. stageHistory is absent on older jobs and pre-SCRUM-46 — guard it.
+// S2-013: the most recent history entry that landed in the current outcome stage.
 function latestOutcomeEntry(job) {
   if (!isOutcomeStage(job.stage)) return null;
   const history = job.stageHistory ?? [];
@@ -71,11 +92,14 @@ export default function JobDetailPanel({
   onDelete,
   onAddInterview,
   onUpdateInterview,
+  onAddFollowUp,
+  onUpdateFollowUp,
 }) {
   const stageStyle = getStageStyles(job.stage);
   const timeline = buildTimeline(job);
   const outcome = latestOutcomeEntry(job);
   const interviews = job.interviews ?? [];
+  const followUps = job.followUps ?? [];
 
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -85,6 +109,11 @@ export default function JobDetailPanel({
   const [editingInterview, setEditingInterview] = useState(null);
   const [interviewSubmitting, setInterviewSubmitting] = useState(false);
   const [interviewError, setInterviewError] = useState('');
+
+  const [followUpFormOpen, setFollowUpFormOpen] = useState(false);
+  const [editingFollowUp, setEditingFollowUp] = useState(null);
+  const [followUpSubmitting, setFollowUpSubmitting] = useState(false);
+  const [followUpError, setFollowUpError] = useState('');
 
   const handleConfirmDelete = async () => {
     setDeleting(true);
@@ -127,6 +156,58 @@ export default function JobDetailPanel({
     }
   };
 
+  const openAddFollowUp = () => {
+    setEditingFollowUp(null);
+    setFollowUpError('');
+    setFollowUpFormOpen(true);
+  };
+
+  const openEditFollowUp = (fu) => {
+    setEditingFollowUp(fu);
+    setFollowUpError('');
+    setFollowUpFormOpen(true);
+  };
+
+  const handleFollowUpSave = async (entry) => {
+    setFollowUpSubmitting(true);
+    setFollowUpError('');
+    try {
+      if (editingFollowUp) {
+        await onUpdateFollowUp(editingFollowUp.id, {
+          ...entry,
+          completedAt: editingFollowUp.completedAt ?? null,
+        });
+      } else {
+        await onAddFollowUp(entry);
+      }
+      setFollowUpFormOpen(false);
+      setEditingFollowUp(null);
+    } catch (err) {
+      setFollowUpError(err.message || 'Could not save follow-up. Please try again.');
+    } finally {
+      setFollowUpSubmitting(false);
+    }
+  };
+
+  const handleToggleComplete = async (fu) => {
+    try {
+      await onUpdateFollowUp(fu.id, {
+        title: fu.title,
+        dueAt: fu.dueAt,
+        completedAt: fu.completedAt ? null : new Date().toISOString(),
+      });
+    } catch {
+      // toggling is fire-and-forget; parent will surface errors if needed
+    }
+  };
+
+  const sortedFollowUps = [...followUps].sort((a, b) => {
+    // pending first, then sort by dueAt
+    if (!a.completedAt && b.completedAt) return -1;
+    if (a.completedAt && !b.completedAt) return 1;
+    return new Date(a.dueAt) - new Date(b.dueAt);
+  });
+
   return (
     <>
       {/* Backdrop */}
@@ -153,7 +234,6 @@ export default function JobDetailPanel({
             <h2 className="text-xl font-semibold text-white truncate">{job.title}</h2>
             <p className="mt-1 text-white/50">{job.company}</p>
           </div>
-
           <button
             onClick={onClose}
             aria-label="Close job details"
@@ -168,7 +248,6 @@ export default function JobDetailPanel({
           <span className={`rounded-full px-3 py-1 text-xs font-medium ${stageStyle}`}>
             {job.stage}
           </span>
-
           <div className="flex items-center gap-2">
             <button
               onClick={() => onEdit(job)}
@@ -182,7 +261,6 @@ export default function JobDetailPanel({
             >
               Edit
             </button>
-
             <button
               onClick={() => setConfirmOpen(true)}
               aria-label={`Delete ${job.title}`}
@@ -208,31 +286,26 @@ export default function JobDetailPanel({
               <dt className="text-xs text-white/40 uppercase tracking-wider">Title</dt>
               <dd className="text-sm text-white/80 mt-1">{job.title}</dd>
             </div>
-
             <div>
               <dt className="text-xs text-white/40 uppercase tracking-wider">Company</dt>
               <dd className="text-sm text-white/80 mt-1">{job.company}</dd>
             </div>
-
             <div>
               <dt className="text-xs text-white/40 uppercase tracking-wider">Stage</dt>
               <dd className="text-sm text-white/80 mt-1">{job.stage}</dd>
             </div>
-
             {job.deadline && (
               <div>
                 <dt className="text-xs text-white/40 uppercase tracking-wider">Deadline</dt>
                 <dd className="text-sm text-white/80 mt-1">{formatDate(job.deadline)}</dd>
               </div>
             )}
-
             {job.recruiterName && (
               <div>
                 <dt className="text-xs text-white/40 uppercase tracking-wider">Recruiter / Contact</dt>
                 <dd className="text-sm text-white/80 mt-1">{job.recruiterName}</dd>
               </div>
             )}
-
             {job.contactNotes && (
               <div>
                 <dt className="text-xs text-white/40 uppercase tracking-wider">Contact Notes</dt>
@@ -287,8 +360,7 @@ export default function JobDetailPanel({
                 className="
                   rounded-lg border border-white/10 px-3 py-1.5
                   text-xs text-white/60
-                  hover:text-white hover:bg-white/5
-                  transition
+                  hover:text-white hover:bg-white/5 transition
                 "
               >
                 + Add
@@ -302,10 +374,7 @@ export default function JobDetailPanel({
                 {[...interviews]
                   .sort((a, b) => new Date(a.scheduledAt) - new Date(b.scheduledAt))
                   .map((iv) => (
-                    <li
-                      key={iv.id}
-                      className="rounded-xl border border-white/10 bg-white/[0.03] p-4"
-                    >
+                    <li key={iv.id} className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
                           <p className="text-sm font-medium text-white/80">{iv.roundType}</p>
@@ -317,9 +386,7 @@ export default function JobDetailPanel({
                           aria-label={`Edit ${iv.roundType} interview`}
                           className="
                             flex-shrink-0 rounded-lg border border-white/10 px-3 py-1.5
-                            text-xs text-white/50
-                            hover:text-white hover:bg-white/5
-                            transition
+                            text-xs text-white/50 hover:text-white hover:bg-white/5 transition
                           "
                         >
                           Edit
@@ -332,7 +399,78 @@ export default function JobDetailPanel({
           </div>
         )}
 
-        {/* Timeline */}
+        {/* Follow-ups (S2-012) — always visible, tied to the job (S2-BR-012) */}
+        <div className="px-6 py-5 border-b border-white/10">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-medium text-white/50 uppercase tracking-wider">
+              Follow-ups
+            </h3>
+            <button
+              onClick={openAddFollowUp}
+              aria-label="Add follow-up"
+              className="
+                rounded-lg border border-white/10 px-3 py-1.5
+                text-xs text-white/60
+                hover:text-white hover:bg-white/5 transition
+              "
+            >
+              + Add
+            </button>
+          </div>
+
+          {followUps.length === 0 ? (
+            <p className="text-sm text-white/30">No follow-ups yet.</p>
+          ) : (
+            <ul aria-label="Follow-up list" className="space-y-3">
+              {sortedFollowUps.map((fu) => (
+                <li key={fu.id} className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+                  <div className="flex items-start gap-3">
+                    <button
+                      onClick={() => handleToggleComplete(fu)}
+                      aria-label={fu.completedAt ? `Mark "${fu.title}" incomplete` : `Mark "${fu.title}" complete`}
+                      className={`
+                        mt-0.5 flex-shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center
+                        transition
+                        ${fu.completedAt
+                          ? 'border-green-500 bg-green-500/20 text-green-400'
+                          : 'border-white/30 hover:border-white/50'}
+                      `}
+                    >
+                      {fu.completedAt && <span className="text-xs leading-none">✓</span>}
+                    </button>
+
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-sm font-medium ${fu.completedAt ? 'line-through text-white/30' : 'text-white/80'}`}>
+                        {fu.title}
+                      </p>
+                      <p className="text-xs text-white/40 mt-0.5">
+                        Due: {formatDateTime(fu.dueAt)}
+                      </p>
+                      {fu.completedAt && (
+                        <p className="text-xs text-green-400/70 mt-0.5">
+                          Completed: {formatDateTime(fu.completedAt)}
+                        </p>
+                      )}
+                    </div>
+
+                    <button
+                      onClick={() => openEditFollowUp(fu)}
+                      aria-label={`Edit follow-up "${fu.title}"`}
+                      className="
+                        flex-shrink-0 rounded-lg border border-white/10 px-3 py-1.5
+                        text-xs text-white/50 hover:text-white hover:bg-white/5 transition
+                      "
+                    >
+                      Edit
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        {/* Timeline (S2-BR-013) — stage changes + follow-up activity in chronological order */}
         <div className="px-6 py-5">
           <h3 className="text-sm font-medium text-white/50 uppercase tracking-wider mb-4">
             Timeline
@@ -360,10 +498,7 @@ export default function JobDetailPanel({
           isSubmitting={deleting}
           error={deleteError}
           onConfirm={handleConfirmDelete}
-          onCancel={() => {
-            setConfirmOpen(false);
-            setDeleteError('');
-          }}
+          onCancel={() => { setConfirmOpen(false); setDeleteError(''); }}
         />
       )}
 
@@ -377,6 +512,20 @@ export default function JobDetailPanel({
             setInterviewFormOpen(false);
             setEditingInterview(null);
             setInterviewError('');
+          }}
+        />
+      )}
+
+      {followUpFormOpen && (
+        <FollowUpForm
+          followUp={editingFollowUp}
+          isSubmitting={followUpSubmitting}
+          error={followUpError}
+          onSave={handleFollowUpSave}
+          onClose={() => {
+            setFollowUpFormOpen(false);
+            setEditingFollowUp(null);
+            setFollowUpError('');
           }}
         />
       )}
@@ -396,25 +545,31 @@ JobDetailPanel.propTypes = {
     deadline: PropTypes.string,
     recruiterName: PropTypes.string,
     contactNotes: PropTypes.string,
-    stageHistory: PropTypes.arrayOf(
-      PropTypes.shape({
-        toStage: PropTypes.string,
-        note: PropTypes.string,
-        changedAt: PropTypes.string,
-      })
-    ),
-    interviews: PropTypes.arrayOf(
-      PropTypes.shape({
-        id: PropTypes.string.isRequired,
-        roundType: PropTypes.string.isRequired,
-        scheduledAt: PropTypes.string.isRequired,
-        notes: PropTypes.string.isRequired,
-      })
-    ),
+    stageHistory: PropTypes.arrayOf(PropTypes.shape({
+      id: PropTypes.string,
+      toStage: PropTypes.string,
+      note: PropTypes.string,
+      changedAt: PropTypes.string,
+    })),
+    interviews: PropTypes.arrayOf(PropTypes.shape({
+      id: PropTypes.string.isRequired,
+      roundType: PropTypes.string.isRequired,
+      scheduledAt: PropTypes.string.isRequired,
+      notes: PropTypes.string.isRequired,
+    })),
+    followUps: PropTypes.arrayOf(PropTypes.shape({
+      id: PropTypes.string.isRequired,
+      title: PropTypes.string.isRequired,
+      dueAt: PropTypes.string.isRequired,
+      completedAt: PropTypes.string,
+      createdAt: PropTypes.string,
+    })),
   }).isRequired,
   onClose: PropTypes.func.isRequired,
   onEdit: PropTypes.func.isRequired,
   onDelete: PropTypes.func.isRequired,
   onAddInterview: PropTypes.func,
   onUpdateInterview: PropTypes.func,
+  onAddFollowUp: PropTypes.func,
+  onUpdateFollowUp: PropTypes.func,
 };

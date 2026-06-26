@@ -26,6 +26,8 @@ vi.mock('./dao/jobsDAO.js', () => ({
     appendStageTransition: vi.fn(),
     addInterview: vi.fn(),
     updateInterview: vi.fn(),
+    addFollowUp: vi.fn(),
+    updateFollowUp: vi.fn(),
   },
 }));
 describe('POST /api/jobs/:id/transition', () => {
@@ -637,6 +639,151 @@ describe('PUT /api/jobs/:id/interviews/:interviewId', () => {
 
     expect(res.status).toBe(401);
     expect(JobsDAO.updateInterview).not.toHaveBeenCalled();
+  });
+});
+
+describe('POST /api/jobs/:id/followups', () => {
+  const ID = '507f1f77bcf86cd799439011';
+  const validBody = { title: 'Send thank you email', dueAt: '2026-08-03T09:00:00.000Z' };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockVerifyIdToken.mockResolvedValue({ uid: 'user-a', email: 'a@test.com' });
+  });
+
+  it('adds a follow-up (happy path)', async () => {
+    const updatedJob = { _id: ID, followUps: [{ id: 'uuid', ...validBody, completedAt: null }] };
+    JobsDAO.addFollowUp.mockResolvedValue(updatedJob);
+
+    const res = await request(app)
+      .post(`/api/jobs/${ID}/followups`)
+      .set('Authorization', 'Bearer faketoken')
+      .send(validBody);
+
+    expect(res.status).toBe(201);
+    expect(JobsDAO.addFollowUp).toHaveBeenCalledWith(
+      ID,
+      'user-a',
+      expect.objectContaining({
+        title: 'Send thank you email',
+        dueAt: expect.any(String),
+        completedAt: null,
+        id: expect.any(String),
+        createdAt: expect.any(String),
+      })
+    );
+  });
+
+  it('rejects missing title (400)', async () => {
+    const res = await request(app)
+      .post(`/api/jobs/${ID}/followups`)
+      .set('Authorization', 'Bearer faketoken')
+      .send({ dueAt: '2026-08-03T09:00:00.000Z' });
+
+    expect(res.status).toBe(400);
+    expect(JobsDAO.addFollowUp).not.toHaveBeenCalled();
+  });
+
+  it('rejects missing dueAt (400)', async () => {
+    const res = await request(app)
+      .post(`/api/jobs/${ID}/followups`)
+      .set('Authorization', 'Bearer faketoken')
+      .send({ title: 'Send email' });
+
+    expect(res.status).toBe(400);
+    expect(JobsDAO.addFollowUp).not.toHaveBeenCalled();
+  });
+
+  it('rejects invalid dueAt (400)', async () => {
+    const res = await request(app)
+      .post(`/api/jobs/${ID}/followups`)
+      .set('Authorization', 'Bearer faketoken')
+      .send({ ...validBody, dueAt: 'not-a-date' });
+
+    expect(res.status).toBe(400);
+    expect(JobsDAO.addFollowUp).not.toHaveBeenCalled();
+  });
+
+  it('returns 404 when job not found', async () => {
+    JobsDAO.addFollowUp.mockResolvedValue(null);
+    const res = await request(app)
+      .post(`/api/jobs/${ID}/followups`)
+      .set('Authorization', 'Bearer faketoken')
+      .send(validBody);
+
+    expect(res.status).toBe(404);
+  });
+
+  it('blocks unauthenticated requests (401)', async () => {
+    const res = await request(app).post(`/api/jobs/${ID}/followups`).send(validBody);
+    expect(res.status).toBe(401);
+    expect(JobsDAO.addFollowUp).not.toHaveBeenCalled();
+  });
+});
+
+describe('PUT /api/jobs/:id/followups/:followUpId', () => {
+  const ID = '507f1f77bcf86cd799439011';
+  const FU_ID = 'followup-uuid-1';
+  const validBody = { title: 'Follow up on application', dueAt: '2026-08-10T10:00:00.000Z' };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockVerifyIdToken.mockResolvedValue({ uid: 'user-a', email: 'a@test.com' });
+  });
+
+  it('updates a follow-up (happy path)', async () => {
+    const updatedJob = { _id: ID, followUps: [{ id: FU_ID, ...validBody, completedAt: null }] };
+    JobsDAO.updateFollowUp.mockResolvedValue(updatedJob);
+
+    const res = await request(app)
+      .put(`/api/jobs/${ID}/followups/${FU_ID}`)
+      .set('Authorization', 'Bearer faketoken')
+      .send(validBody);
+
+    expect(res.status).toBe(200);
+    expect(JobsDAO.updateFollowUp).toHaveBeenCalledWith(
+      ID, 'user-a', FU_ID,
+      expect.objectContaining({ title: 'Follow up on application', completedAt: null })
+    );
+  });
+
+  it('marks a follow-up complete when completedAt is provided', async () => {
+    const completedAt = '2026-08-05T14:00:00.000Z';
+    JobsDAO.updateFollowUp.mockResolvedValue({ _id: ID, followUps: [{ id: FU_ID, completedAt }] });
+
+    const res = await request(app)
+      .put(`/api/jobs/${ID}/followups/${FU_ID}`)
+      .set('Authorization', 'Bearer faketoken')
+      .send({ ...validBody, completedAt });
+
+    expect(res.status).toBe(200);
+    expect(JobsDAO.updateFollowUp.mock.calls[0][3].completedAt).toBe(completedAt);
+  });
+
+  it('rejects invalid completedAt (400)', async () => {
+    const res = await request(app)
+      .put(`/api/jobs/${ID}/followups/${FU_ID}`)
+      .set('Authorization', 'Bearer faketoken')
+      .send({ ...validBody, completedAt: 'bad-date' });
+
+    expect(res.status).toBe(400);
+    expect(JobsDAO.updateFollowUp).not.toHaveBeenCalled();
+  });
+
+  it('returns 404 when job or follow-up not found', async () => {
+    JobsDAO.updateFollowUp.mockResolvedValue(null);
+    const res = await request(app)
+      .put(`/api/jobs/${ID}/followups/${FU_ID}`)
+      .set('Authorization', 'Bearer faketoken')
+      .send(validBody);
+
+    expect(res.status).toBe(404);
+  });
+
+  it('blocks unauthenticated requests (401)', async () => {
+    const res = await request(app).put(`/api/jobs/${ID}/followups/${FU_ID}`).send(validBody);
+    expect(res.status).toBe(401);
+    expect(JobsDAO.updateFollowUp).not.toHaveBeenCalled();
   });
 });
 
