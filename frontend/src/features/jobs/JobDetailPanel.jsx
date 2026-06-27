@@ -4,6 +4,7 @@ import { useAuth } from '../auth/useAuth';
 import { generateJobDraft } from './jobsApi';
 import { getStageStyles, isOutcomeStage } from './stageStyles';
 import DeleteJobDialog from './DeleteJobDialog';
+import ArchiveJobDialog from './ArchiveJobDialog';
 import InterviewForm from './InterviewForm';
 import FollowUpForm from './FollowUpForm';
 
@@ -96,6 +97,8 @@ export default function JobDetailPanel({
   onUpdateInterview,
   onAddFollowUp,
   onUpdateFollowUp,
+  onArchive,
+  onRestore,
 }) {
   const stageStyle = getStageStyles(job.stage);
   const timeline = buildTimeline(job);
@@ -145,6 +148,18 @@ export default function JobDetailPanel({
   const [followUpSubmitting, setFollowUpSubmitting] = useState(false);
   const [followUpError, setFollowUpError] = useState('');
 
+  const [archiveDialogOpen, setArchiveDialogOpen] = useState(false);
+  const [archiveDialogMode, setArchiveDialogMode] = useState('archive');
+  const [archiveSubmitting, setArchiveSubmitting] = useState(false);
+  const [archiveError, setArchiveError] = useState('');
+
+  // Compute the stage a restore would land on from stageHistory.
+  const restoreTargetStage = (() => {
+    const history = job.stageHistory ?? [];
+    const last = [...history].reverse().find((e) => e.toStage === 'Archived');
+    return last?.fromStage ?? 'Interested';
+  })();
+
   const handleConfirmDelete = async () => {
     setDeleting(true);
     setDeleteError('');
@@ -153,6 +168,23 @@ export default function JobDetailPanel({
     } catch {
       setDeleting(false);
       setDeleteError('Could not delete this job. Please try again.');
+    }
+  };
+
+  const handleArchiveConfirm = async (note) => {
+    setArchiveSubmitting(true);
+    setArchiveError('');
+    try {
+      if (archiveDialogMode === 'archive') {
+        await onArchive(note);
+      } else {
+        await onRestore();
+      }
+      setArchiveDialogOpen(false);
+    } catch (err) {
+      setArchiveError(err.message || `Could not ${archiveDialogMode} job. Please try again.`);
+    } finally {
+      setArchiveSubmitting(false);
     }
   };
 
@@ -306,6 +338,33 @@ export default function JobDetailPanel({
               {draftLoading ? 'Generating...' : 'Generate resume draft'}
             </button>
 
+            {job.stage !== 'Archived' ? (
+              <button
+                onClick={() => { setArchiveDialogMode('archive'); setArchiveError(''); setArchiveDialogOpen(true); }}
+                aria-label={`Archive ${job.title}`}
+                className="
+                  rounded-lg border border-white/10 px-4 py-2
+                  text-sm text-white/60
+                  hover:text-white hover:bg-white/5
+                  transition
+                "
+              >
+                Archive
+              </button>
+            ) : (
+              <button
+                onClick={() => { setArchiveDialogMode('restore'); setArchiveError(''); setArchiveDialogOpen(true); }}
+                aria-label={`Restore ${job.title}`}
+                className="
+                  rounded-lg border border-green-500/30 px-4 py-2
+                  text-sm text-green-300
+                  hover:text-green-200 hover:border-green-500/40 hover:bg-green-500/10
+                  transition
+                "
+              >
+                Restore
+              </button>
+            )}
             <button
               onClick={() => handleGenerateDraft('coverLetter')}
               disabled={draftLoading}
@@ -579,6 +638,18 @@ export default function JobDetailPanel({
         </div>
       </div>
 
+      {archiveDialogOpen && (
+        <ArchiveJobDialog
+          mode={archiveDialogMode}
+          jobTitle={job.title}
+          restoreTargetStage={restoreTargetStage}
+          isSubmitting={archiveSubmitting}
+          error={archiveError}
+          onConfirm={handleArchiveConfirm}
+          onCancel={() => { setArchiveDialogOpen(false); setArchiveError(''); }}
+        />
+      )}
+
       {confirmOpen && (
         <DeleteJobDialog
           jobTitle={job.title}
@@ -659,4 +730,6 @@ JobDetailPanel.propTypes = {
   onUpdateInterview: PropTypes.func,
   onAddFollowUp: PropTypes.func,
   onUpdateFollowUp: PropTypes.func,
+  onArchive: PropTypes.func,
+  onRestore: PropTypes.func,
 };

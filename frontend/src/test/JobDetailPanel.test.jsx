@@ -41,6 +41,8 @@ const defaultProps = {
   onUpdateInterview: vi.fn(),
   onAddFollowUp: vi.fn(),
   onUpdateFollowUp: vi.fn(),
+  onArchive: vi.fn(),
+  onRestore: vi.fn(),
 };
 
 describe('JobDetailPanel', () => {
@@ -580,5 +582,76 @@ describe('JobDetailPanel — Timeline (S2-BR-013)', () => {
     };
     render(<JobDetailPanel {...defaultProps} job={jobWithCompleted} />);
     expect(screen.getByText(/follow-up completed: send thank you email/i)).toBeInTheDocument();
+  });
+});
+
+describe('JobDetailPanel — Archive and Restore (S2-014)', () => {
+  const archivedJob = {
+    ...mockJob,
+    stage: 'Archived',
+    stageHistory: [
+      { id: 'sh-1', fromStage: 'Interview', toStage: 'Archived', changedAt: '2026-06-20T00:00:00.000Z' },
+    ],
+  };
+
+  it('shows the Archive button when stage is not Archived', () => {
+    render(<JobDetailPanel {...defaultProps} />);
+    expect(screen.getByRole('button', { name: /archive frontend engineer/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /restore frontend engineer/i })).not.toBeInTheDocument();
+  });
+
+  it('shows the Restore button (not Archive) when stage is Archived', () => {
+    render(<JobDetailPanel {...defaultProps} job={archivedJob} />);
+    expect(screen.getByRole('button', { name: /restore frontend engineer/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /archive frontend engineer/i })).not.toBeInTheDocument();
+  });
+
+  it('opens the archive dialog when Archive is clicked', async () => {
+    const user = userEvent.setup();
+    render(<JobDetailPanel {...defaultProps} />);
+    await user.click(screen.getByRole('button', { name: /archive frontend engineer/i }));
+    expect(screen.getByRole('alertdialog', { name: /archive job/i })).toBeInTheDocument();
+  });
+
+  it('opens the restore dialog when Restore is clicked', async () => {
+    const user = userEvent.setup();
+    render(<JobDetailPanel {...defaultProps} job={archivedJob} />);
+    await user.click(screen.getByRole('button', { name: /restore frontend engineer/i }));
+    expect(screen.getByRole('alertdialog', { name: /restore job/i })).toBeInTheDocument();
+  });
+
+  it('calls onArchive with the note when Archive is confirmed', async () => {
+    const onArchive = vi.fn().mockResolvedValue(undefined);
+    const user = userEvent.setup();
+    render(<JobDetailPanel {...defaultProps} onArchive={onArchive} />);
+
+    await user.click(screen.getByRole('button', { name: /archive frontend engineer/i }));
+    const dialog = screen.getByRole('alertdialog', { name: /archive job/i });
+
+    await user.type(within(dialog).getByLabelText(/note/i), 'Position filled');
+    await user.click(within(dialog).getByRole('button', { name: /^archive$/i }));
+
+    expect(onArchive).toHaveBeenCalledWith('Position filled');
+  });
+
+  it('calls onRestore when Restore is confirmed', async () => {
+    const onRestore = vi.fn().mockResolvedValue(undefined);
+    const user = userEvent.setup();
+    render(<JobDetailPanel {...defaultProps} job={archivedJob} onRestore={onRestore} />);
+
+    await user.click(screen.getByRole('button', { name: /restore frontend engineer/i }));
+    await user.click(screen.getByRole('button', { name: /^restore$/i }));
+
+    expect(onRestore).toHaveBeenCalledOnce();
+  });
+
+  it('shows the correct restore target stage in the restore dialog', async () => {
+    const user = userEvent.setup();
+    render(<JobDetailPanel {...defaultProps} job={archivedJob} />);
+
+    await user.click(screen.getByRole('button', { name: /restore frontend engineer/i }));
+    const dialog = screen.getByRole('alertdialog', { name: /restore job/i });
+
+    expect(within(dialog).getByText(/interview/i)).toBeInTheDocument();
   });
 });

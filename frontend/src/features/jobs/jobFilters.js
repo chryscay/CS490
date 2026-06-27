@@ -32,9 +32,11 @@ export function matchesDeadlineState(job, deadlineState) {
   return true;
 }
 
-export function applyFilters(jobs, { stage, location, deadlineState, search }) {
+// S2-014: when showArchived is false (default), archived jobs are hidden (S2-BR-006 terminal).
+export function applyFilters(jobs, { stage, location, deadlineState, search, showArchived = false }) {
   return jobs.filter(
     (job) =>
+      (showArchived || stage === 'Archived' || job.stage !== 'Archived') &&
       matchesStage(job, stage) &&
       matchesLocation(job, location) &&
       matchesDeadlineState(job, deadlineState) &&

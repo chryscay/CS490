@@ -151,4 +151,24 @@ describe('applyFilters', () => {
       applyFilters(jobs, { stage: 'Offer', location: '', deadlineState: 'all' })
     ).toHaveLength(0);
   });
+
+  it('hides Archived jobs by default (showArchived not set)', () => {
+    const withArchived = [...jobs, { _id: '4', stage: 'Archived', deadline: null, location: 'Remote' }];
+    const result = applyFilters(withArchived, { stage: '', location: '', deadlineState: 'all' });
+    expect(result.every((j) => j.stage !== 'Archived')).toBe(true);
+    expect(result).toHaveLength(3);
+  });
+
+  it('shows Archived jobs when showArchived is true', () => {
+    const withArchived = [...jobs, { _id: '4', stage: 'Archived', deadline: null, location: 'Remote' }];
+    const result = applyFilters(withArchived, { stage: '', location: '', deadlineState: 'all', showArchived: true });
+    expect(result).toHaveLength(4);
+  });
+
+  it('shows Archived jobs when filtering specifically by Archived stage', () => {
+    const withArchived = [...jobs, { _id: '4', stage: 'Archived', deadline: null, location: 'Remote' }];
+    const result = applyFilters(withArchived, { stage: 'Archived', location: '', deadlineState: 'all' });
+    expect(result).toHaveLength(1);
+    expect(result[0]._id).toBe('4');
+  });
 });

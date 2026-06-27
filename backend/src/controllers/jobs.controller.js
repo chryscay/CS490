@@ -299,6 +299,72 @@ export default class JobsController {
     }
   }
 
+  static async apiArchiveJob(req, res) {
+    try {
+      const { note = '' } = req.body ?? {};
+      const job = await JobsDAO.findByIdForOwner(req.params.id, req.user.uid);
+      if (!job) return res.status(404).json({ error: 'Job not found' });
+
+      if (job.stage === 'Archived') {
+        return res.status(400).json({ error: 'Job is already archived' });
+      }
+
+      const fromStage = job.stage;
+      const isForward = isForwardTransition(fromStage, 'Archived');
+
+      const entry = {
+        id: randomUUID(),
+        fromStage,
+        toStage: 'Archived',
+        changedAt: new Date().toISOString(),
+        changedBy: req.user.uid,
+        isOverride: !isForward,
+        note: String(note || ''),
+      };
+
+      const updated = await JobsDAO.appendStageTransition(req.params.id, req.user.uid, entry);
+      if (!updated) return res.status(404).json({ error: 'Job not found' });
+
+      return res.status(200).json({ message: 'Job archived', job: updated });
+    } catch (error) {
+      console.error('apiArchiveJob error:', error);
+      return res.status(500).json({ error: 'Failed to archive job' });
+    }
+  }
+
+  static async apiRestoreJob(req, res) {
+    try {
+      const job = await JobsDAO.findByIdForOwner(req.params.id, req.user.uid);
+      if (!job) return res.status(404).json({ error: 'Job not found' });
+
+      if (job.stage !== 'Archived') {
+        return res.status(400).json({ error: 'Job is not archived' });
+      }
+
+      const history = job.stageHistory ?? [];
+      const lastArchiveEntry = [...history].reverse().find((e) => e.toStage === 'Archived');
+      const targetStage = lastArchiveEntry?.fromStage ?? 'Interested';
+
+      const entry = {
+        id: randomUUID(),
+        fromStage: 'Archived',
+        toStage: targetStage,
+        changedAt: new Date().toISOString(),
+        changedBy: req.user.uid,
+        isOverride: true,
+        note: '',
+      };
+
+      const updated = await JobsDAO.appendStageTransition(req.params.id, req.user.uid, entry);
+      if (!updated) return res.status(404).json({ error: 'Job not found' });
+
+      return res.status(200).json({ message: 'Job restored', job: updated, restoredTo: targetStage });
+    } catch (error) {
+      console.error('apiRestoreJob error:', error);
+      return res.status(500).json({ error: 'Failed to restore job' });
+    }
+  }
+
   static async apiAddFollowUp(req, res) {
     try {
       const { title, dueAt } = req.body;
