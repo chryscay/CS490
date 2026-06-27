@@ -41,12 +41,42 @@ describe('DashboardPage', () => {
     expect(screen.getByRole('button', { name: /add job/i })).toBeInTheDocument();
   });
 
-  it('renders all four stat card labels', () => {
+  it('renders all stat card labels', () => {
     render(<DashboardPage />);
     expect(screen.getByText('Total Jobs')).toBeInTheDocument();
     expect(screen.getByText('Applications')).toBeInTheDocument();
     expect(screen.getByText('Interviews')).toBeInTheDocument();
-    expect(screen.getByText('Hired')).toBeInTheDocument();
+    expect(screen.getByText('Offers')).toBeInTheDocument();
+    expect(screen.getByText('Responses')).toBeInTheDocument();
+  });
+
+  it('computes stage counts and response tracking from job data (SCRUM-62)', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      json: vi.fn().mockResolvedValue({
+        jobs: [
+          { _id: '1', title: 'A', company: 'X', stage: 'Interested', lastActivityAt: '2026-06-10T00:00:00.000Z' },
+          { _id: '2', title: 'B', company: 'X', stage: 'Applied', lastActivityAt: '2026-06-10T00:00:00.000Z' },
+          { _id: '3', title: 'C', company: 'X', stage: 'Applied', lastActivityAt: '2026-06-10T00:00:00.000Z' },
+          { _id: '4', title: 'D', company: 'X', stage: 'Interview', lastActivityAt: '2026-06-10T00:00:00.000Z' },
+          { _id: '5', title: 'E', company: 'X', stage: 'Offer', lastActivityAt: '2026-06-10T00:00:00.000Z' },
+          { _id: '6', title: 'F', company: 'X', stage: 'Rejected', lastActivityAt: '2026-06-10T00:00:00.000Z' },
+        ],
+      }),
+    }));
+
+    render(<DashboardPage />);
+    await waitFor(() => expect(screen.getByText('A')).toBeInTheDocument());
+
+    // Each stat card: find the label, read the count in its sibling <h2>.
+    const statValue = (label) =>
+      screen.getByText(label).closest('div').querySelector('h2').textContent;
+
+    expect(statValue('Total Jobs')).toBe('6');
+    expect(statValue('Applications')).toBe('2');   // two Applied
+    expect(statValue('Interviews')).toBe('1');     // one Interview
+    expect(statValue('Offers')).toBe('1');         // one Offer (was the broken 'Hired' card)
+    // Responses = Interview + Offer + Rejected = 3 (excludes Interested + Applied)
+    expect(statValue('Responses')).toBe('3');
   });
 
   it('renders job cards when jobs are returned from the API', async () => {
