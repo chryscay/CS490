@@ -282,6 +282,36 @@ describe('POST /api/jobs/:id/ai/draft', () => {
     expect(UsersDAO.getProfile).toHaveBeenCalledWith('user-a');
   });
 
+  it('returns a cover letter draft for an owned job', async () => {
+    JobsDAO.findByIdForOwner.mockResolvedValue({
+      _id: ID,
+      firebaseUid: 'user-a',
+      company: 'Acme',
+      title: 'Backend Engineer',
+      jobPostingBody: 'Build services',
+    });
+    UsersDAO.getProfile.mockResolvedValue({
+      firstName: 'Alice',
+      lastName: 'Developer',
+      summary: 'Experienced backend engineer',
+      skills: [{ name: 'Node.js' }],
+    });
+    AiDraftService.generateAiDraft.mockResolvedValue('Generated cover letter draft');
+
+    const res = await request(app)
+      .post(`/api/jobs/${ID}/ai/draft`)
+      .set('Authorization', 'Bearer faketoken')
+      .send({ type: 'coverLetter' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.draft).toBe('Generated cover letter draft');
+    expect(JobsDAO.findByIdForOwner).toHaveBeenCalledWith(ID, 'user-a');
+    expect(UsersDAO.getProfile).toHaveBeenCalledWith('user-a');
+    expect(AiDraftService.generateAiDraft).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'coverLetter' })
+    );
+  });
+
   it('denies cross-user access with 404 before profile fetch', async () => {
     mockVerifyIdToken.mockResolvedValue({ uid: 'user-b', email: 'b@test.com' });
     JobsDAO.findByIdForOwner.mockResolvedValue(null);
@@ -289,11 +319,12 @@ describe('POST /api/jobs/:id/ai/draft', () => {
     const res = await request(app)
       .post(`/api/jobs/${ID}/ai/draft`)
       .set('Authorization', 'Bearer faketoken')
-      .send({ type: 'resume' });
+      .send({ type: 'coverLetter' });
 
     expect(res.status).toBe(404);
     expect(JobsDAO.findByIdForOwner).toHaveBeenCalledWith(ID, 'user-b');
     expect(UsersDAO.getProfile).not.toHaveBeenCalled();
+    expect(AiDraftService.generateAiDraft).not.toHaveBeenCalled();
   });
 
   it('returns 502 when AI draft service fails', async () => {
@@ -310,7 +341,7 @@ describe('POST /api/jobs/:id/ai/draft', () => {
     const res = await request(app)
       .post(`/api/jobs/${ID}/ai/draft`)
       .set('Authorization', 'Bearer faketoken')
-      .send({ type: 'resume' });
+      .send({ type: 'coverLetter' });
 
     expect(res.status).toBe(502);
     expect(res.body.error).toBe('Failed to generate draft');
@@ -328,10 +359,13 @@ describe('POST /api/jobs/:id/ai/draft', () => {
     const res = await request(app)
       .post(`/api/jobs/${ID}/ai/draft`)
       .set('Authorization', 'Bearer faketoken')
-      .send({ type: 'coverLetter' });
+      .send({ type: 'portfolio' });
 
     expect(res.status).toBe(400);
     expect(res.body.error).toBe('Unsupported draft type');
+    expect(JobsDAO.findByIdForOwner).not.toHaveBeenCalled();
+    expect(UsersDAO.getProfile).not.toHaveBeenCalled();
+    expect(AiDraftService.generateAiDraft).not.toHaveBeenCalled();
   });
 });
 describe('POST /api/jobs', () => {

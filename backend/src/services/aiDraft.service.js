@@ -21,16 +21,21 @@ function createOpenAiClient() {
 }
 
 export async function generateAiDraft({ profile, job, type }) {
-  if (type !== 'resume') {
+  if (type !== 'resume' && type !== 'coverLetter') {
     throw new Error('Unsupported draft type');
   }
 
   const { profileContext, jobContext } = buildAiProfileJobContext(profile, job);
   const cappedProfileContext = truncateText(profileContext, 3000);
   const cappedJobContext = truncateText(jobContext, 6000);
+  const isCoverLetter = type === 'coverLetter';
   const promptLines = [
-    'Write a concise resume draft that highlights the user profile and the target job posting.',
-    'Use profile details to tailor the experience and skills to the position.',
+    isCoverLetter
+      ? 'Write a concise cover letter draft tailored to the target job posting and user profile.'
+      : 'Write a concise resume draft that highlights the user profile and the target job posting.',
+    isCoverLetter
+      ? 'Focus on motivation, relevant strengths, and fit for the role in a professional tone.'
+      : 'Use profile details to tailor the experience and skills to the position.',
     '',
     'Profile context:',
     cappedProfileContext || 'No profile details available.',
@@ -38,7 +43,9 @@ export async function generateAiDraft({ profile, job, type }) {
     'Job context:',
     cappedJobContext || 'No job details available.',
     '',
-    'Return the resume draft as plain text only.',
+    isCoverLetter
+      ? 'Return the cover letter draft as plain text only.'
+      : 'Return the resume draft as plain text only.',
   ];
 
   const prompt = promptLines.join('\n');

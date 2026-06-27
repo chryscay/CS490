@@ -111,17 +111,25 @@ export default function JobDetailPanel({
   const [draftError, setDraftError] = useState('');
   const [draftText, setDraftText] = useState('');
   const [draftVisible, setDraftVisible] = useState(false);
+  const [draftType, setDraftType] = useState('resume');
 
-  const handleGenerateDraft = async () => {
+  const handleGenerateDraft = async (type) => {
     setDraftError('');
+    setDraftType(type);
+    setDraftText('');
+    setDraftVisible(false);
     setDraftLoading(true);
     try {
       const token = await currentUser.getIdToken();
-      const result = await generateJobDraft(job._id, token, { type: 'resume' });
+      const result = await generateJobDraft(job._id, token, { type });
       setDraftText(result.draft);
       setDraftVisible(true);
     } catch (error) {
-      setDraftError(error.message || 'Could not generate resume draft');
+      const fallbackMessage =
+        type === 'coverLetter'
+          ? 'Could not generate cover letter draft'
+          : 'Could not generate resume draft';
+      setDraftError(error.message || fallbackMessage);
     } finally {
       setDraftLoading(false);
     }
@@ -284,7 +292,7 @@ export default function JobDetailPanel({
               Edit
             </button>
             <button
-              onClick={handleGenerateDraft}
+              onClick={() => handleGenerateDraft('resume')}
               disabled={draftLoading}
               aria-label={`Generate resume draft for ${job.title}`}
               className="
@@ -296,6 +304,21 @@ export default function JobDetailPanel({
               "
             >
               {draftLoading ? 'Generating...' : 'Generate resume draft'}
+            </button>
+
+            <button
+              onClick={() => handleGenerateDraft('coverLetter')}
+              disabled={draftLoading}
+              aria-label={`Generate cover letter draft for ${job.title}`}
+              className="
+                rounded-lg border border-white/10 px-4 py-2
+                text-sm text-white/70
+                hover:text-white hover:border-white/20 hover:bg-white/5
+                transition
+                disabled:cursor-not-allowed disabled:text-white/30
+              "
+            >
+              {draftLoading ? 'Generating...' : 'Generate cover letter draft'}
             </button>
 
             <button
@@ -384,17 +407,19 @@ export default function JobDetailPanel({
           </div>
         )}
 
-        {/* Generated resume draft */}
+        {/* Generated AI draft */}
         {draftVisible && (
           <div className="px-6 py-5 border-b border-white/10">
             <h3 className="text-sm font-medium text-white/50 uppercase tracking-wider mb-3">
-              Resume Draft
+              {draftType === 'coverLetter' ? 'Cover Letter Draft' : 'Resume Draft'}
             </h3>
             <textarea
               value={draftText}
               onChange={(e) => setDraftText(e.target.value)}
               rows={12}
-              aria-label="Editable resume draft"
+              aria-label={
+                draftType === 'coverLetter' ? 'Editable cover letter draft' : 'Editable resume draft'
+              }
               className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none focus:ring-2 focus:ring-blue-500"
             />
             <p className="mt-2 text-xs text-white/40">
