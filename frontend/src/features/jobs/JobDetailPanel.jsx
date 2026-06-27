@@ -115,12 +115,14 @@ export default function JobDetailPanel({
 
   const handleGenerateDraft = async (type) => {
     setDraftError('');
+    setDraftType(type);
+    setDraftText('');
+    setDraftVisible(false);
     setDraftLoading(true);
     try {
       const token = await currentUser.getIdToken();
       const result = await generateJobDraft(job._id, token, { type });
       setDraftText(result.draft);
-      setDraftType(type);
       setDraftVisible(true);
     } catch (error) {
       const fallbackMessage =

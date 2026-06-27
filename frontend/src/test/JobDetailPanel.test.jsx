@@ -277,6 +277,23 @@ describe('JobDetailPanel', () => {
     expect(await screen.findByText(/failed to generate draft/i)).toBeInTheDocument();
   });
 
+  it('hides old resume draft when cover letter generation fails after switching types', async () => {
+    JobsApi.generateJobDraft
+      .mockResolvedValueOnce({ draft: 'Old resume draft text' })
+      .mockRejectedValueOnce(new Error('Could not generate cover letter draft'));
+
+    render(<JobDetailPanel {...defaultProps} />);
+
+    await userEvent.click(screen.getByRole('button', { name: /generate resume draft/i }));
+    expect(await screen.findByLabelText(/editable resume draft/i)).toHaveValue('Old resume draft text');
+
+    await userEvent.click(screen.getByRole('button', { name: /generate cover letter draft/i }));
+
+    expect(screen.queryByDisplayValue('Old resume draft text')).not.toBeInTheDocument();
+    expect(await screen.findByText(/could not generate cover letter draft/i)).toBeInTheDocument();
+    expect(screen.queryByLabelText(/editable cover letter draft/i)).not.toBeInTheDocument();
+  });
+
   it('does not call onDelete until the action is confirmed', async () => {
     const onDelete = vi.fn();
     render(<JobDetailPanel {...defaultProps} onDelete={onDelete} />);
