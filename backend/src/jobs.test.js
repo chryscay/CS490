@@ -884,6 +884,152 @@ describe('PUT /api/jobs/:id/followups/:followUpId', () => {
   });
 });
 
+describe('POST /api/jobs/:id/archive', () => {
+  const ID = '507f1f77bcf86cd799439011';
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockVerifyIdToken.mockResolvedValue({ uid: 'user-a', email: 'a@test.com' });
+  });
+
+  it('archives a job in a non-forward stage (Applied -> Archived)', async () => {
+    JobsDAO.findByIdForOwner.mockResolvedValue({ _id: ID, stage: 'Applied', stageHistory: [] });
+    JobsDAO.appendStageTransition.mockResolvedValue({ _id: ID, stage: 'Archived' });
+
+    const res = await request(app)
+      .post(`/api/jobs/${ID}/archive`)
+      .set('Authorization', 'Bearer faketoken')
+      .send({ note: 'Withdrew application' });
+
+    expect(res.status).toBe(200);
+    const entry = JobsDAO.appendStageTransition.mock.calls[0][2];
+    expect(entry.fromStage).toBe('Applied');
+    expect(entry.toStage).toBe('Archived');
+    expect(entry.isOverride).toBe(true);
+    expect(entry.note).toBe('Withdrew application');
+  });
+
+  it('archives a job on the forward path (Offer -> Archived)', async () => {
+    JobsDAO.findByIdForOwner.mockResolvedValue({ _id: ID, stage: 'Offer', stageHistory: [] });
+    JobsDAO.appendStageTransition.mockResolvedValue({ _id: ID, stage: 'Archived' });
+
+    const res = await request(app)
+      .post(`/api/jobs/${ID}/archive`)
+      .set('Authorization', 'Bearer faketoken')
+      .send({});
+
+    expect(res.status).toBe(200);
+    const entry = JobsDAO.appendStageTransition.mock.calls[0][2];
+    expect(entry.isOverride).toBe(false);
+  });
+
+  it('returns 400 when job is already archived', async () => {
+    JobsDAO.findByIdForOwner.mockResolvedValue({ _id: ID, stage: 'Archived', stageHistory: [] });
+
+    const res = await request(app)
+      .post(`/api/jobs/${ID}/archive`)
+      .set('Authorization', 'Bearer faketoken')
+      .send({});
+
+    expect(res.status).toBe(400);
+    expect(JobsDAO.appendStageTransition).not.toHaveBeenCalled();
+  });
+
+  it('returns 404 when job is not found', async () => {
+    JobsDAO.findByIdForOwner.mockResolvedValue(null);
+
+    const res = await request(app)
+      .post(`/api/jobs/${ID}/archive`)
+      .set('Authorization', 'Bearer faketoken')
+      .send({});
+
+    expect(res.status).toBe(404);
+    expect(JobsDAO.appendStageTransition).not.toHaveBeenCalled();
+  });
+
+  it('blocks unauthenticated requests (401)', async () => {
+    const res = await request(app).post(`/api/jobs/${ID}/archive`).send({});
+    expect(res.status).toBe(401);
+    expect(JobsDAO.appendStageTransition).not.toHaveBeenCalled();
+  });
+});
+
+describe('POST /api/jobs/:id/restore', () => {
+  const ID = '507f1f77bcf86cd799439011';
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockVerifyIdToken.mockResolvedValue({ uid: 'user-a', email: 'a@test.com' });
+  });
+
+  it('restores a job to the stage it was in before archiving', async () => {
+    JobsDAO.findByIdForOwner.mockResolvedValue({
+      _id: ID,
+      stage: 'Archived',
+      stageHistory: [
+        { id: 'sh-1', fromStage: 'Applied', toStage: 'Interview', changedAt: '2026-06-01T00:00:00.000Z' },
+        { id: 'sh-2', fromStage: 'Interview', toStage: 'Archived', changedAt: '2026-06-10T00:00:00.000Z' },
+      ],
+    });
+    JobsDAO.appendStageTransition.mockResolvedValue({ _id: ID, stage: 'Interview' });
+
+    const res = await request(app)
+      .post(`/api/jobs/${ID}/restore`)
+      .set('Authorization', 'Bearer faketoken')
+      .send({});
+
+    expect(res.status).toBe(200);
+    const entry = JobsDAO.appendStageTransition.mock.calls[0][2];
+    expect(entry.fromStage).toBe('Archived');
+    expect(entry.toStage).toBe('Interview');
+    expect(entry.isOverride).toBe(true);
+  });
+
+  it('restores to Interested when stageHistory has no archive entry', async () => {
+    JobsDAO.findByIdForOwner.mockResolvedValue({ _id: ID, stage: 'Archived', stageHistory: [] });
+    JobsDAO.appendStageTransition.mockResolvedValue({ _id: ID, stage: 'Interested' });
+
+    const res = await request(app)
+      .post(`/api/jobs/${ID}/restore`)
+      .set('Authorization', 'Bearer faketoken')
+      .send({});
+
+    expect(res.status).toBe(200);
+    const entry = JobsDAO.appendStageTransition.mock.calls[0][2];
+    expect(entry.toStage).toBe('Interested');
+  });
+
+  it('returns 400 when job is not archived', async () => {
+    JobsDAO.findByIdForOwner.mockResolvedValue({ _id: ID, stage: 'Applied', stageHistory: [] });
+
+    const res = await request(app)
+      .post(`/api/jobs/${ID}/restore`)
+      .set('Authorization', 'Bearer faketoken')
+      .send({});
+
+    expect(res.status).toBe(400);
+    expect(JobsDAO.appendStageTransition).not.toHaveBeenCalled();
+  });
+
+  it('returns 404 when job is not found', async () => {
+    JobsDAO.findByIdForOwner.mockResolvedValue(null);
+
+    const res = await request(app)
+      .post(`/api/jobs/${ID}/restore`)
+      .set('Authorization', 'Bearer faketoken')
+      .send({});
+
+    expect(res.status).toBe(404);
+    expect(JobsDAO.appendStageTransition).not.toHaveBeenCalled();
+  });
+
+  it('blocks unauthenticated requests (401)', async () => {
+    const res = await request(app).post(`/api/jobs/${ID}/restore`).send({});
+    expect(res.status).toBe(401);
+    expect(JobsDAO.appendStageTransition).not.toHaveBeenCalled();
+  });
+});
+
 describe('DELETE /api/jobs/:id', () => {
   const ID = '507f1f77bcf86cd799439011';
 

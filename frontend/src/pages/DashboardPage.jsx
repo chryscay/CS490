@@ -3,7 +3,7 @@ import { useAuth } from '../features/auth/useAuth';
 import JobCard from '../features/jobs/JobCard';
 import JobFormModal from '../features/jobs/JobFormModal';
 import JobDetailPanel from '../features/jobs/JobDetailPanel';
-import { transitionStage, deleteJob, addInterview, updateInterview, addFollowUp, updateFollowUp } from '../features/jobs/jobsApi';
+import { transitionStage, deleteJob, addInterview, updateInterview, addFollowUp, updateFollowUp, archiveJob, restoreJob } from '../features/jobs/jobsApi';
 import { STAGES } from '../features/jobs/stageStyles';
 import { applyFilters } from '../features/jobs/jobFilters';
 
@@ -21,6 +21,7 @@ export default function DashboardPage() {
   const [filterDeadlineState, setFilterDeadlineState] = useState('all');
   const [filterLocation, setFilterLocation] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [showArchived, setShowArchived] = useState(false);
 
   const loadJobs = () => {
     if (!currentUser) {
@@ -102,6 +103,18 @@ export default function DashboardPage() {
     handleTransitioned(job);
   };
 
+  const handleArchive = async (note) => {
+    const token = await currentUser.getIdToken();
+    const { job } = await archiveJob(selectedJob._id, note, token);
+    handleTransitioned(job);
+  };
+
+  const handleRestore = async () => {
+    const token = await currentUser.getIdToken();
+    const { job } = await restoreJob(selectedJob._id, token);
+    handleTransitioned(job);
+  };
+
   const handleDelete = async (job) => {
     const token = await currentUser.getIdToken();
     await deleteJob(job._id, token);
@@ -120,11 +133,14 @@ export default function DashboardPage() {
     setFilterLocation('');
   };
 
+  const archivedCount = jobs.filter((j) => j.stage === 'Archived').length;
+
   const visibleJobs = applyFilters(jobs, {
     stage: filterStage,
     location: filterLocation,
     deadlineState: filterDeadlineState,
     search: searchTerm,
+    showArchived,
   });
 
   const stats = [
@@ -250,6 +266,20 @@ export default function DashboardPage() {
           "
         />
 
+        <button
+          onClick={() => setShowArchived((prev) => !prev)}
+          aria-label={showArchived ? 'Hide archived jobs' : 'Show archived jobs'}
+          aria-pressed={showArchived}
+          className={`
+            rounded-xl border px-4 py-2.5 text-sm transition
+            ${showArchived
+              ? 'border-white/20 bg-white/10 text-white'
+              : 'border-white/10 bg-transparent text-white/50 hover:text-white hover:bg-white/5'}
+          `}
+        >
+          {showArchived ? 'Hide archived' : `Show archived${archivedCount > 0 ? ` (${archivedCount})` : ''}`}
+        </button>
+
         {hasActiveFilters && (
           <button
             onClick={clearFilters}
@@ -346,6 +376,8 @@ export default function DashboardPage() {
           onUpdateInterview={handleUpdateInterview}
           onAddFollowUp={handleAddFollowUp}
           onUpdateFollowUp={handleUpdateFollowUp}
+          onArchive={handleArchive}
+          onRestore={handleRestore}
           transition={makeTransition(selectedJob._id)}
           onTransitioned={handleTransitioned}
         />

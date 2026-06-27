@@ -103,6 +103,36 @@ export async function updateFollowUp(jobId, followUpId, entry, token) {
   return { job: data.job };
 }
 
+// S2-014: move job to Archived stage, preserving history (S2-BR-009). 200 -> { job }.
+export async function archiveJob(jobId, note, token) {
+  const res = await fetch(`${API_URL}/api/jobs/${jobId}/archive`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ note: note ?? '' }),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || 'Failed to archive job');
+  }
+  const data = await res.json();
+  return { job: data.job };
+}
+
+// S2-014: restore job from Archived back to previous stage. 200 -> { job }.
+export async function restoreJob(jobId, token) {
+  const res = await fetch(`${API_URL}/api/jobs/${jobId}/restore`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({}),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || 'Failed to restore job');
+  }
+  const data = await res.json();
+  return { job: data.job };
+}
+
 // SCRUM-52: hard delete (not archive — that's S2-014). 200 -> { id }, 404 -> throws.
 export async function deleteJob(id, token) {
   const res = await fetch(`${API_URL}/api/jobs/${id}`, {
