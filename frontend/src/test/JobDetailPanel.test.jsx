@@ -213,6 +213,13 @@ describe('JobDetailPanel', () => {
     ).toBeInTheDocument();
   });
 
+  it('renders a Generate cover letter draft button', () => {
+    render(<JobDetailPanel {...defaultProps} />);
+    expect(
+      screen.getByRole('button', { name: /generate cover letter draft/i })
+    ).toBeInTheDocument();
+  });
+
   it('shows editable draft textarea after generating a resume draft', async () => {
     render(<JobDetailPanel {...defaultProps} />);
 
@@ -221,6 +228,53 @@ describe('JobDetailPanel', () => {
     expect(JobsApi.generateJobDraft).toHaveBeenCalledWith('abc123', 'faketoken', { type: 'resume' });
     expect(await screen.findByLabelText(/editable resume draft/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/editable resume draft/i)).toHaveValue('AI resume draft text');
+  });
+
+  it('calls API with type coverLetter and shows editable cover letter textarea', async () => {
+    JobsApi.generateJobDraft.mockResolvedValue({ draft: 'AI cover letter draft text' });
+    render(<JobDetailPanel {...defaultProps} />);
+
+    await userEvent.click(screen.getByRole('button', { name: /generate cover letter draft/i }));
+
+    expect(JobsApi.generateJobDraft).toHaveBeenCalledWith('abc123', 'faketoken', {
+      type: 'coverLetter',
+    });
+    expect(await screen.findByLabelText(/editable cover letter draft/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/editable cover letter draft/i)).toHaveValue(
+      'AI cover letter draft text'
+    );
+  });
+
+  it('shows loading state while generating cover letter draft', async () => {
+    let resolveDraft;
+    JobsApi.generateJobDraft.mockImplementation(
+      () => new Promise((resolve) => {
+        resolveDraft = resolve;
+      })
+    );
+    const user = userEvent.setup();
+    render(<JobDetailPanel {...defaultProps} />);
+
+    await user.click(screen.getByRole('button', { name: /generate cover letter draft/i }));
+
+    expect(
+      screen.getByRole('button', { name: /generate resume draft for frontend engineer/i })
+    ).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: /generate cover letter draft for frontend engineer/i })
+    ).toBeDisabled();
+
+    resolveDraft({ draft: 'Later cover letter draft' });
+    expect(await screen.findByLabelText(/editable cover letter draft/i)).toBeInTheDocument();
+  });
+
+  it('shows failure message when cover letter generation fails', async () => {
+    JobsApi.generateJobDraft.mockRejectedValue(new Error('Failed to generate draft'));
+    render(<JobDetailPanel {...defaultProps} />);
+
+    await userEvent.click(screen.getByRole('button', { name: /generate cover letter draft/i }));
+
+    expect(await screen.findByText(/failed to generate draft/i)).toBeInTheDocument();
   });
 
   it('does not call onDelete until the action is confirmed', async () => {

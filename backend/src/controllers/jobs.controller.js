@@ -388,7 +388,7 @@ export default class JobsController {
     try {
       const { type } = req.body;
 
-      if (type !== 'resume') {
+      if (type !== 'resume' && type !== 'coverLetter') {
         return res.status(400).json({ error: 'Unsupported draft type' });
       }
 
