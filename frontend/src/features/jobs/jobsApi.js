@@ -185,3 +185,22 @@ export async function rewriteJobDraft(id, token, { type, text, instruction } = {
   const data = await res.json();
   return { draft: data.draft };
 }
+
+export async function saveJobDocument(jobId, token, { type, title, text }) {
+  const res = await fetch(`${API_URL}/api/jobs/${jobId}/documents`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ type, title, text }),
+  });
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || 'Failed to save document draft');
+  }
+
+  const data = await res.json();
+  return { document: data.document };
+}

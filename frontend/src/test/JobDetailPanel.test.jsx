@@ -15,6 +15,7 @@ vi.mock('../features/auth/useAuth.js', () => ({
 vi.mock('../features/jobs/jobsApi.js', () => ({
   generateJobDraft: vi.fn(),
   rewriteJobDraft: vi.fn(),
+  saveJobDocument: vi.fn(),
 }));
 
 import * as JobsApi from '../features/jobs/jobsApi.js';
@@ -52,6 +53,9 @@ describe('JobDetailPanel', () => {
     mockGetIdToken.mockResolvedValue('faketoken');
     JobsApi.generateJobDraft.mockResolvedValue({ draft: 'AI resume draft text' });
     JobsApi.rewriteJobDraft.mockResolvedValue({ draft: 'Improved resume draft text' });
+    JobsApi.saveJobDocument.mockResolvedValue({
+      document: { currentVersion: 1 },
+    });
   });
   it('renders the job title', () => {
     render(<JobDetailPanel {...defaultProps} />);
@@ -360,6 +364,95 @@ describe('JobDetailPanel', () => {
 
     expect(await screen.findByText(/failed to rewrite draft/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/editable resume draft/i)).toHaveValue('Stable draft text');
+  });
+
+  it('shows Save draft button only after a draft is generated', async () => {
+    render(<JobDetailPanel {...defaultProps} />);
+
+    expect(screen.queryByRole('button', { name: /save draft/i })).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: /generate resume draft/i }));
+
+    expect(await screen.findByRole('button', { name: /save draft/i })).toBeInTheDocument();
+  });
+
+  it('saves the current edited draft text with the active draft type', async () => {
+    const user = userEvent.setup();
+    render(<JobDetailPanel {...defaultProps} />);
+
+    await user.click(screen.getByRole('button', { name: /generate cover letter draft/i }));
+
+    const draftTextarea = await screen.findByLabelText(/editable cover letter draft/i);
+    await user.clear(draftTextarea);
+    await user.type(draftTextarea, 'Edited cover letter content');
+    await user.click(screen.getByRole('button', { name: /save draft/i }));
+
+    expect(JobsApi.saveJobDocument).toHaveBeenCalledWith('abc123', 'faketoken', {
+      type: 'coverLetter',
+      title: 'Frontend Engineer Cover Letter',
+      text: 'Edited cover letter content',
+    });
+  });
+
+  it('shows a success message with the saved version number', async () => {
+    const user = userEvent.setup();
+    JobsApi.saveJobDocument.mockResolvedValue({
+      document: { currentVersion: 4 },
+    });
+
+    render(<JobDetailPanel {...defaultProps} />);
+    await user.click(screen.getByRole('button', { name: /generate resume draft/i }));
+    await user.click(await screen.findByRole('button', { name: /save draft/i }));
+
+    expect(await screen.findByText(/saved as version 4/i)).toBeInTheDocument();
+  });
+
+  it('shows save failure and keeps the draft visible/editable', async () => {
+    const user = userEvent.setup();
+    JobsApi.saveJobDocument.mockRejectedValue(new Error('Failed to save document'));
+
+    render(<JobDetailPanel {...defaultProps} />);
+    await user.click(screen.getByRole('button', { name: /generate resume draft/i }));
+
+    const draftTextarea = await screen.findByLabelText(/editable resume draft/i);
+    await user.clear(draftTextarea);
+    await user.type(draftTextarea, 'Do not lose this content');
+    await user.click(screen.getByRole('button', { name: /save draft/i }));
+
+    expect(await screen.findByText(/failed to save document/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/editable resume draft/i)).toHaveValue('Do not lose this content');
+  });
+
+  it('disables Save draft when draft text is blank', async () => {
+    const user = userEvent.setup();
+    render(<JobDetailPanel {...defaultProps} />);
+
+    await user.click(screen.getByRole('button', { name: /generate resume draft/i }));
+
+    const draftTextarea = await screen.findByLabelText(/editable resume draft/i);
+    await user.clear(draftTextarea);
+
+    expect(screen.getByRole('button', { name: /save draft/i })).toBeDisabled();
+  });
+
+  it('disables Save draft while rewrite is loading', async () => {
+    const user = userEvent.setup();
+    let resolveRewrite;
+    JobsApi.rewriteJobDraft.mockImplementation(
+      () => new Promise((resolve) => {
+        resolveRewrite = resolve;
+      })
+    );
+
+    render(<JobDetailPanel {...defaultProps} />);
+
+    await user.click(screen.getByRole('button', { name: /generate resume draft/i }));
+    await user.click(await screen.findByRole('button', { name: /improve draft/i }));
+
+    expect(screen.getByRole('button', { name: /save draft/i })).toBeDisabled();
+
+    resolveRewrite({ draft: 'Rewritten draft text' });
+    await screen.findByDisplayValue('Rewritten draft text');
   });
 
   it('does not call onDelete until the action is confirmed', async () => {

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import PropTypes from 'prop-types';
 import { useAuth } from '../auth/useAuth';
-import { generateJobDraft, rewriteJobDraft } from './jobsApi';
+import { generateJobDraft, rewriteJobDraft, saveJobDocument } from './jobsApi';
 import { getStageStyles, isOutcomeStage } from './stageStyles';
 import DeleteJobDialog from './DeleteJobDialog';
 import ArchiveJobDialog from './ArchiveJobDialog';
@@ -119,6 +119,9 @@ export default function JobDetailPanel({
   const [rewriteError, setRewriteError] = useState('');
   const [rewriteInstruction, setRewriteInstruction] = useState('');
   const [previousDraftText, setPreviousDraftText] = useState('');
+  const [saveLoading, setSaveLoading] = useState(false);
+  const [saveError, setSaveError] = useState('');
+  const [saveMessage, setSaveMessage] = useState('');
 
   const handleGenerateDraft = async (type) => {
     if (rewriteLoading) {
@@ -129,6 +132,8 @@ export default function JobDetailPanel({
     setRewriteError('');
     setRewriteInstruction('');
     setPreviousDraftText('');
+    setSaveError('');
+    setSaveMessage('');
     setDraftType(type);
     setDraftText('');
     setDraftVisible(false);
@@ -162,10 +167,43 @@ export default function JobDetailPanel({
       });
       setPreviousDraftText(currentDraftText);
       setDraftText(result.draft);
+      setSaveError('');
+      setSaveMessage('');
     } catch (error) {
       setRewriteError(error.message || 'Could not improve draft');
     } finally {
       setRewriteLoading(false);
+    }
+  };
+
+  const handleSaveDraft = async () => {
+    if (!draftText.trim()) {
+      return;
+    }
+
+    setSaveLoading(true);
+    setSaveError('');
+    setSaveMessage('');
+
+    try {
+      const token = await currentUser.getIdToken();
+      const fallbackTitle =
+        draftType === 'coverLetter' ? `${job.title} Cover Letter` : `${job.title} Resume`;
+      const result = await saveJobDocument(job._id, token, {
+        type: draftType,
+        title: fallbackTitle,
+        text: draftText,
+      });
+
+      if (result.document?.currentVersion) {
+        setSaveMessage(`Saved as version ${result.document.currentVersion}`);
+      } else {
+        setSaveMessage('Draft saved');
+      }
+    } catch (error) {
+      setSaveError(error.message || 'Could not save draft');
+    } finally {
+      setSaveLoading(false);
     }
   };
 
@@ -505,7 +543,11 @@ export default function JobDetailPanel({
             </h3>
             <textarea
               value={draftText}
-              onChange={(e) => setDraftText(e.target.value)}
+              onChange={(e) => {
+                setDraftText(e.target.value);
+                setSaveError('');
+                setSaveMessage('');
+              }}
               disabled={rewriteLoading}
               rows={12}
               aria-label={
@@ -514,7 +556,7 @@ export default function JobDetailPanel({
               className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none focus:ring-2 focus:ring-blue-500"
             />
             <p className="mt-2 text-xs text-white/40">
-              This draft can be edited before a later save flow is added.
+              Edit this draft, then click Save draft to store a version linked to this job.
             </p>
 
             <div className="mt-4 space-y-3">
@@ -534,7 +576,7 @@ export default function JobDetailPanel({
               <div className="flex items-center gap-3">
                 <button
                   onClick={handleRewriteDraft}
-                  disabled={rewriteLoading}
+                  disabled={rewriteLoading || saveLoading}
                   className="
                     rounded-lg border border-white/10 px-4 py-2
                     text-sm text-white/70
@@ -545,10 +587,30 @@ export default function JobDetailPanel({
                 >
                   {rewriteLoading ? 'Improving...' : 'Improve draft'}
                 </button>
+                <button
+                  onClick={handleSaveDraft}
+                  disabled={
+                    draftLoading ||
+                    rewriteLoading ||
+                    saveLoading ||
+                    !draftText.trim()
+                  }
+                  className="
+                    rounded-lg border border-white/10 px-4 py-2
+                    text-sm text-white/70
+                    hover:text-white hover:border-white/20 hover:bg-white/5
+                    transition
+                    disabled:cursor-not-allowed disabled:text-white/30
+                  "
+                >
+                  {saveLoading ? 'Saving...' : 'Save draft'}
+                </button>
                 <p className="text-xs text-white/40">Improves only after you click.</p>
               </div>
 
               {rewriteError && <p className="text-sm text-red-300">{rewriteError}</p>}
+              {saveError && <p className="text-sm text-red-300">{saveError}</p>}
+              {saveMessage && <p className="text-sm text-green-300">{saveMessage}</p>}
             </div>
 
             {previousDraftText && (
