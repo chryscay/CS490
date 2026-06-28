@@ -75,6 +75,14 @@ function buildTimeline(job) {
     }
   });
 
+  (job.interviews ?? []).forEach((interview) => {
+    events.push({
+      id: `interview-${interview.id}`,
+      label: `Interview: ${interview.roundType}`,
+      date: interview.scheduledAt,
+    });
+  });
+
   return events.sort((a, b) => new Date(a.date) - new Date(b.date));
 }
 
@@ -182,7 +190,9 @@ export default function JobDetailPanel({
       }
       setArchiveDialogOpen(false);
     } catch (err) {
-      setArchiveError(err.message || `Could not ${archiveDialogMode} job. Please try again.`);
+      setArchiveError(
+        err.message || `Could not ${archiveDialogMode} job. Please try again.`
+      );
     } finally {
       setArchiveSubmitting(false);
     }
@@ -212,7 +222,9 @@ export default function JobDetailPanel({
       setInterviewFormOpen(false);
       setEditingInterview(null);
     } catch (err) {
-      setInterviewError(err.message || 'Could not save interview. Please try again.');
+      setInterviewError(
+        err.message || 'Could not save interview. Please try again.'
+      );
     } finally {
       setInterviewSubmitting(false);
     }
@@ -245,7 +257,9 @@ export default function JobDetailPanel({
       setFollowUpFormOpen(false);
       setEditingFollowUp(null);
     } catch (err) {
-      setFollowUpError(err.message || 'Could not save follow-up. Please try again.');
+      setFollowUpError(
+        err.message || 'Could not save follow-up. Please try again.'
+      );
     } finally {
       setFollowUpSubmitting(false);
     }
@@ -293,7 +307,9 @@ export default function JobDetailPanel({
         {/* Header */}
         <div className="flex items-start justify-between gap-4 p-6 border-b border-white/10">
           <div className="flex-1 min-w-0">
-            <h2 className="text-xl font-semibold text-white truncate">{job.title}</h2>
+            <h2 className="text-xl font-semibold text-white truncate">
+              {job.title}
+            </h2>
             <p className="mt-1 text-white/50">{job.company}</p>
           </div>
           <button
@@ -307,7 +323,9 @@ export default function JobDetailPanel({
 
         {/* Stage + actions */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-white/10">
-          <span className={`rounded-full px-3 py-1 text-xs font-medium ${stageStyle}`}>
+          <span
+            className={`rounded-full px-3 py-1 text-xs font-medium ${stageStyle}`}
+          >
             {job.stage}
           </span>
           <div className="flex items-center gap-2">
@@ -340,7 +358,11 @@ export default function JobDetailPanel({
 
             {job.stage !== 'Archived' ? (
               <button
-                onClick={() => { setArchiveDialogMode('archive'); setArchiveError(''); setArchiveDialogOpen(true); }}
+                onClick={() => {
+                  setArchiveDialogMode('archive');
+                  setArchiveError('');
+                  setArchiveDialogOpen(true);
+                }}
                 aria-label={`Archive ${job.title}`}
                 className="
                   rounded-lg border border-white/10 px-4 py-2
@@ -353,7 +375,11 @@ export default function JobDetailPanel({
               </button>
             ) : (
               <button
-                onClick={() => { setArchiveDialogMode('restore'); setArchiveError(''); setArchiveDialogOpen(true); }}
+                onClick={() => {
+                  setArchiveDialogMode('restore');
+                  setArchiveError('');
+                  setArchiveDialogOpen(true);
+                }}
                 aria-label={`Restore ${job.title}`}
                 className="
                   rounded-lg border border-green-500/30 px-4 py-2
@@ -402,33 +428,51 @@ export default function JobDetailPanel({
           </h3>
           <dl className="space-y-3">
             <div>
-              <dt className="text-xs text-white/40 uppercase tracking-wider">Title</dt>
+              <dt className="text-xs text-white/40 uppercase tracking-wider">
+                Title
+              </dt>
               <dd className="text-sm text-white/80 mt-1">{job.title}</dd>
             </div>
             <div>
-              <dt className="text-xs text-white/40 uppercase tracking-wider">Company</dt>
+              <dt className="text-xs text-white/40 uppercase tracking-wider">
+                Company
+              </dt>
               <dd className="text-sm text-white/80 mt-1">{job.company}</dd>
             </div>
             <div>
-              <dt className="text-xs text-white/40 uppercase tracking-wider">Stage</dt>
+              <dt className="text-xs text-white/40 uppercase tracking-wider">
+                Stage
+              </dt>
               <dd className="text-sm text-white/80 mt-1">{job.stage}</dd>
             </div>
             {job.deadline && (
               <div>
-                <dt className="text-xs text-white/40 uppercase tracking-wider">Deadline</dt>
-                <dd className="text-sm text-white/80 mt-1">{formatDate(job.deadline)}</dd>
+                <dt className="text-xs text-white/40 uppercase tracking-wider">
+                  Deadline
+                </dt>
+                <dd className="text-sm text-white/80 mt-1">
+                  {formatDate(job.deadline)}
+                </dd>
               </div>
             )}
             {job.recruiterName && (
               <div>
-                <dt className="text-xs text-white/40 uppercase tracking-wider">Recruiter / Contact</dt>
-                <dd className="text-sm text-white/80 mt-1">{job.recruiterName}</dd>
+                <dt className="text-xs text-white/40 uppercase tracking-wider">
+                  Recruiter / Contact
+                </dt>
+                <dd className="text-sm text-white/80 mt-1">
+                  {job.recruiterName}
+                </dd>
               </div>
             )}
             {job.contactNotes && (
               <div>
-                <dt className="text-xs text-white/40 uppercase tracking-wider">Contact Notes</dt>
-                <dd className="text-sm text-white/80 mt-1">{job.contactNotes}</dd>
+                <dt className="text-xs text-white/40 uppercase tracking-wider">
+                  Contact Notes
+                </dt>
+                <dd className="text-sm text-white/80 mt-1">
+                  {job.contactNotes}
+                </dd>
               </div>
             )}
           </dl>
@@ -453,15 +497,23 @@ export default function JobDetailPanel({
               Outcome
             </h3>
             <div className="flex items-center gap-2">
-              <span className={`rounded-full px-3 py-1 text-xs font-medium ${getStageStyles(outcome.toStage)}`}>
+              <span
+                className={`rounded-full px-3 py-1 text-xs font-medium ${getStageStyles(outcome.toStage)}`}
+              >
                 {outcome.toStage}
               </span>
-              <span className="text-xs text-white/35">{formatDate(outcome.changedAt)}</span>
+              <span className="text-xs text-white/35">
+                {formatDate(outcome.changedAt)}
+              </span>
             </div>
             {outcome.note ? (
-              <p className="mt-3 text-sm text-white/80 whitespace-pre-wrap">{outcome.note}</p>
+              <p className="mt-3 text-sm text-white/80 whitespace-pre-wrap">
+                {outcome.note}
+              </p>
             ) : (
-              <p className="mt-3 text-sm text-white/30">No outcome note recorded.</p>
+              <p className="mt-3 text-sm text-white/30">
+                No outcome note recorded.
+              </p>
             )}
           </div>
         )}
@@ -470,14 +522,18 @@ export default function JobDetailPanel({
         {draftVisible && (
           <div className="px-6 py-5 border-b border-white/10">
             <h3 className="text-sm font-medium text-white/50 uppercase tracking-wider mb-3">
-              {draftType === 'coverLetter' ? 'Cover Letter Draft' : 'Resume Draft'}
+              {draftType === 'coverLetter'
+                ? 'Cover Letter Draft'
+                : 'Resume Draft'}
             </h3>
             <textarea
               value={draftText}
               onChange={(e) => setDraftText(e.target.value)}
               rows={12}
               aria-label={
-                draftType === 'coverLetter' ? 'Editable cover letter draft' : 'Editable resume draft'
+                draftType === 'coverLetter'
+                  ? 'Editable cover letter draft'
+                  : 'Editable resume draft'
               }
               className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none focus:ring-2 focus:ring-blue-500"
             />
@@ -488,9 +544,7 @@ export default function JobDetailPanel({
         )}
 
         {draftError && (
-          <div className="px-6 py-3 text-sm text-red-300">
-            {draftError}
-          </div>
+          <div className="px-6 py-3 text-sm text-red-300">{draftError}</div>
         )}
 
         {/* Interviews (S2-011) — only visible when stage is Interview */}
@@ -514,18 +568,31 @@ export default function JobDetailPanel({
             </div>
 
             {interviews.length === 0 ? (
-              <p className="text-sm text-white/30">No interviews recorded yet.</p>
+              <p className="text-sm text-white/30">
+                No interviews recorded yet.
+              </p>
             ) : (
               <ul aria-label="Interview list" className="space-y-4">
                 {[...interviews]
-                  .sort((a, b) => new Date(a.scheduledAt) - new Date(b.scheduledAt))
+                  .sort(
+                    (a, b) => new Date(a.scheduledAt) - new Date(b.scheduledAt)
+                  )
                   .map((iv) => (
-                    <li key={iv.id} className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+                    <li
+                      key={iv.id}
+                      className="rounded-xl border border-white/10 bg-white/[0.03] p-4"
+                    >
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
-                          <p className="text-sm font-medium text-white/80">{iv.roundType}</p>
-                          <p className="text-xs text-white/40 mt-0.5">{formatDateTime(iv.scheduledAt)}</p>
-                          <p className="text-sm text-white/60 mt-2 whitespace-pre-wrap">{iv.notes}</p>
+                          <p className="text-sm font-medium text-white/80">
+                            {iv.roundType}
+                          </p>
+                          <p className="text-xs text-white/40 mt-0.5">
+                            {formatDateTime(iv.scheduledAt)}
+                          </p>
+                          <p className="text-sm text-white/60 mt-2 whitespace-pre-wrap">
+                            {iv.notes}
+                          </p>
                         </div>
                         <button
                           onClick={() => openEditInterview(iv)}
@@ -569,24 +636,37 @@ export default function JobDetailPanel({
           ) : (
             <ul aria-label="Follow-up list" className="space-y-3">
               {sortedFollowUps.map((fu) => (
-                <li key={fu.id} className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+                <li
+                  key={fu.id}
+                  className="rounded-xl border border-white/10 bg-white/[0.03] p-4"
+                >
                   <div className="flex items-start gap-3">
                     <button
                       onClick={() => handleToggleComplete(fu)}
-                      aria-label={fu.completedAt ? `Mark "${fu.title}" incomplete` : `Mark "${fu.title}" complete`}
+                      aria-label={
+                        fu.completedAt
+                          ? `Mark "${fu.title}" incomplete`
+                          : `Mark "${fu.title}" complete`
+                      }
                       className={`
                         mt-0.5 flex-shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center
                         transition
-                        ${fu.completedAt
-                          ? 'border-green-500 bg-green-500/20 text-green-400'
-                          : 'border-white/30 hover:border-white/50'}
+                        ${
+                          fu.completedAt
+                            ? 'border-green-500 bg-green-500/20 text-green-400'
+                            : 'border-white/30 hover:border-white/50'
+                        }
                       `}
                     >
-                      {fu.completedAt && <span className="text-xs leading-none">✓</span>}
+                      {fu.completedAt && (
+                        <span className="text-xs leading-none">✓</span>
+                      )}
                     </button>
 
                     <div className="flex-1 min-w-0">
-                      <p className={`text-sm font-medium ${fu.completedAt ? 'line-through text-white/30' : 'text-white/80'}`}>
+                      <p
+                        className={`text-sm font-medium ${fu.completedAt ? 'line-through text-white/30' : 'text-white/80'}`}
+                      >
                         {fu.title}
                       </p>
                       <p className="text-xs text-white/40 mt-0.5">
@@ -625,12 +705,17 @@ export default function JobDetailPanel({
           {timeline.length === 0 ? (
             <p className="text-white/30 text-sm">No activity recorded yet.</p>
           ) : (
-            <ol aria-label="Job activity timeline" className="relative border-l border-white/10 space-y-6 ml-2">
+            <ol
+              aria-label="Job activity timeline"
+              className="relative border-l border-white/10 space-y-6 ml-2"
+            >
               {timeline.map((event) => (
                 <li key={event.id} className="pl-5 relative">
                   <span className="absolute -left-[5px] top-1.5 w-2.5 h-2.5 rounded-full bg-white/20 border border-white/30" />
                   <p className="text-sm text-white/80">{event.label}</p>
-                  <p className="text-xs text-white/35 mt-0.5">{formatDate(event.date)}</p>
+                  <p className="text-xs text-white/35 mt-0.5">
+                    {formatDate(event.date)}
+                  </p>
                 </li>
               ))}
             </ol>
@@ -646,7 +731,10 @@ export default function JobDetailPanel({
           isSubmitting={archiveSubmitting}
           error={archiveError}
           onConfirm={handleArchiveConfirm}
-          onCancel={() => { setArchiveDialogOpen(false); setArchiveError(''); }}
+          onCancel={() => {
+            setArchiveDialogOpen(false);
+            setArchiveError('');
+          }}
         />
       )}
 
@@ -656,7 +744,10 @@ export default function JobDetailPanel({
           isSubmitting={deleting}
           error={deleteError}
           onConfirm={handleConfirmDelete}
-          onCancel={() => { setConfirmOpen(false); setDeleteError(''); }}
+          onCancel={() => {
+            setConfirmOpen(false);
+            setDeleteError('');
+          }}
         />
       )}
 
@@ -703,25 +794,31 @@ JobDetailPanel.propTypes = {
     deadline: PropTypes.string,
     recruiterName: PropTypes.string,
     contactNotes: PropTypes.string,
-    stageHistory: PropTypes.arrayOf(PropTypes.shape({
-      id: PropTypes.string,
-      toStage: PropTypes.string,
-      note: PropTypes.string,
-      changedAt: PropTypes.string,
-    })),
-    interviews: PropTypes.arrayOf(PropTypes.shape({
-      id: PropTypes.string.isRequired,
-      roundType: PropTypes.string.isRequired,
-      scheduledAt: PropTypes.string.isRequired,
-      notes: PropTypes.string.isRequired,
-    })),
-    followUps: PropTypes.arrayOf(PropTypes.shape({
-      id: PropTypes.string.isRequired,
-      title: PropTypes.string.isRequired,
-      dueAt: PropTypes.string.isRequired,
-      completedAt: PropTypes.string,
-      createdAt: PropTypes.string,
-    })),
+    stageHistory: PropTypes.arrayOf(
+      PropTypes.shape({
+        id: PropTypes.string,
+        toStage: PropTypes.string,
+        note: PropTypes.string,
+        changedAt: PropTypes.string,
+      })
+    ),
+    interviews: PropTypes.arrayOf(
+      PropTypes.shape({
+        id: PropTypes.string.isRequired,
+        roundType: PropTypes.string.isRequired,
+        scheduledAt: PropTypes.string.isRequired,
+        notes: PropTypes.string.isRequired,
+      })
+    ),
+    followUps: PropTypes.arrayOf(
+      PropTypes.shape({
+        id: PropTypes.string.isRequired,
+        title: PropTypes.string.isRequired,
+        dueAt: PropTypes.string.isRequired,
+        completedAt: PropTypes.string,
+        createdAt: PropTypes.string,
+      })
+    ),
   }).isRequired,
   onClose: PropTypes.func.isRequired,
   onEdit: PropTypes.func.isRequired,
