@@ -476,6 +476,39 @@ export default class JobsController {
       return res.status(502).json({ error: 'Failed to generate draft' });
     }
   }
+
+  static async apiRewriteDraft(req, res) {
+    try {
+      const { type, text, instruction } = req.body;
+
+      if (type !== 'resume' && type !== 'coverLetter') {
+        return res.status(400).json({ error: 'Unsupported draft type' });
+      }
+
+      if (!text?.trim()) {
+        return res.status(400).json({ error: 'Draft text is required' });
+      }
+
+      const job = await JobsDAO.findByIdForOwner(req.params.id, req.user.uid);
+      if (!job) {
+        return res.status(404).json({ error: 'Job not found' });
+      }
+
+      const profile = await UsersDAO.getProfile(req.user.uid);
+      const rewrittenText = await AiDraftService.rewriteAiDraft({
+        profile: profile || {},
+        job,
+        type,
+        text,
+        instruction,
+      });
+
+      return res.status(200).json({ draft: rewrittenText });
+    } catch (error) {
+      console.error('apiRewriteDraft error:', error);
+      return res.status(502).json({ error: 'Failed to rewrite draft' });
+    }
+  }
 }
 
 export { VALID_STAGES };

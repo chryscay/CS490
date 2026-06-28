@@ -21,6 +21,7 @@ router.post('/:id/transition', JobsController.apiTransitionStage); // SCRUM-45
 router.post('/:id/archive', JobsController.apiArchiveJob); // S2-014
 router.post('/:id/restore', JobsController.apiRestoreJob); // S2-014
 router.post('/:id/ai/draft', JobsController.apiDraftJob);
+router.post('/:id/ai/rewrite', JobsController.apiRewriteDraft);
 router.post('/:id/interviews', JobsController.apiAddInterview); // S2-011
 router.put('/:id/interviews/:interviewId', JobsController.apiUpdateInterview); // S2-011
 router.post('/:id/followups', JobsController.apiAddFollowUp); // S2-012

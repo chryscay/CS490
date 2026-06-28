@@ -166,3 +166,22 @@ export async function generateJobDraft(id, token, { type } = {}) {
   const data = await res.json();
   return { draft: data.draft };
 }
+
+export async function rewriteJobDraft(id, token, { type, text, instruction } = {}) {
+  const res = await fetch(`${API_URL}/api/jobs/${id}/ai/rewrite`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ type, text, instruction }),
+  });
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || 'Failed to rewrite draft');
+  }
+
+  const data = await res.json();
+  return { draft: data.draft };
+}
