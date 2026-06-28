@@ -1,5 +1,6 @@
 import JobsDAO from '../dao/jobsDAO.js';
 import UsersDAO from '../dao/usersDAO.js';
+import DocumentsDAO from '../dao/documentsDAO.js';
 import { randomUUID } from 'crypto';
 import { isValidStage, isForwardTransition, isOutcomeStage } from '../lib/stageTransitions.js';
 import * as AiDraftService from '../services/aiDraft.service.js';
@@ -507,6 +508,54 @@ export default class JobsController {
     } catch (error) {
       console.error('apiRewriteDraft error:', error);
       return res.status(502).json({ error: 'Failed to rewrite draft' });
+    }
+  }
+
+  static async apiSaveDraftDocument(req, res) {
+    try {
+      const { type, title, text } = req.body;
+
+      if (type !== 'resume' && type !== 'coverLetter') {
+        return res.status(400).json({ error: 'Unsupported document type' });
+      }
+
+      if (!text?.trim()) {
+        return res.status(400).json({ error: 'Draft text is required' });
+      }
+
+      const job = await JobsDAO.findByIdForOwner(req.params.id, req.user.uid);
+      if (!job) {
+        return res.status(404).json({ error: 'Job not found' });
+      }
+
+      const safeTitle = title?.trim()
+        ? title.trim()
+        : `${job.title} ${type === 'coverLetter' ? 'Cover Letter' : 'Resume'}`;
+
+      const document = await DocumentsDAO.saveDocumentVersion({
+        firebaseUid: req.user.uid,
+        jobId: req.params.id,
+        type,
+        title: safeTitle,
+        text: text.trim(),
+      });
+
+      if (!document) {
+        return res.status(500).json({ error: 'Failed to save document' });
+      }
+
+      const safeDocument = {
+        _id: document._id,
+        type: document.type,
+        title: document.title,
+        currentVersion: document.currentVersion,
+        updatedAt: document.updatedAt,
+      };
+
+      return res.status(201).json({ document: safeDocument });
+    } catch (error) {
+      console.error('apiSaveDraftDocument error:', error);
+      return res.status(500).json({ error: 'Failed to save document' });
     }
   }
 }

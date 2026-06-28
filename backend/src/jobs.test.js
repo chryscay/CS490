@@ -3,6 +3,7 @@ import { vi, describe, it, expect, beforeEach } from 'vitest';
 import app from './app.js';
 import JobsDAO from './dao/jobsDAO.js';
 import UsersDAO from './dao/usersDAO.js';
+import DocumentsDAO from './dao/documentsDAO.js';
 import * as AiDraftService from './services/aiDraft.service.js';
 
 const mockVerifyIdToken = vi.fn();
@@ -35,6 +36,11 @@ vi.mock('./dao/jobsDAO.js', () => ({
 vi.mock('./dao/usersDAO.js', () => ({
   default: {
     getProfile: vi.fn(),
+  },
+}));
+vi.mock('./dao/documentsDAO.js', () => ({
+  default: {
+    saveDocumentVersion: vi.fn(),
   },
 }));
 vi.mock('./services/aiDraft.service.js', () => ({
@@ -461,6 +467,132 @@ describe('POST /api/jobs/:id/ai/rewrite', () => {
 
     expect(res.status).toBe(502);
     expect(res.body.error).toBe('Failed to rewrite draft');
+  });
+});
+
+describe('POST /api/jobs/:id/documents', () => {
+  const ID = '507f1f77bcf86cd799439011';
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockVerifyIdToken.mockResolvedValue({ uid: 'user-a', email: 'a@test.com' });
+  });
+
+  it('saves a resume document version for an owned job', async () => {
+    JobsDAO.findByIdForOwner.mockResolvedValue({
+      _id: ID,
+      firebaseUid: 'user-a',
+      title: 'Backend Engineer',
+    });
+    DocumentsDAO.saveDocumentVersion.mockResolvedValue({
+      _id: 'doc-1',
+      type: 'resume',
+      title: 'Backend Engineer Resume',
+      currentVersion: 1,
+      updatedAt: '2026-06-28T00:00:00.000Z',
+      versions: [{ version: 1, text: 'Edited resume draft' }],
+    });
+
+    const res = await request(app)
+      .post(`/api/jobs/${ID}/documents`)
+      .set('Authorization', 'Bearer faketoken')
+      .send({ type: 'resume', text: 'Edited resume draft' });
+
+    expect(res.status).toBe(201);
+    expect(res.body.document.currentVersion).toBe(1);
+    expect(res.body.document.versions).toBeUndefined();
+    expect(JobsDAO.findByIdForOwner).toHaveBeenCalledWith(ID, 'user-a');
+    expect(DocumentsDAO.saveDocumentVersion).toHaveBeenCalledWith(
+      expect.objectContaining({
+        firebaseUid: 'user-a',
+        jobId: ID,
+        type: 'resume',
+        text: 'Edited resume draft',
+        title: 'Backend Engineer Resume',
+      })
+    );
+  });
+
+  it('saves a cover letter document version for an owned job', async () => {
+    JobsDAO.findByIdForOwner.mockResolvedValue({
+      _id: ID,
+      firebaseUid: 'user-a',
+      title: 'Platform Engineer',
+    });
+    DocumentsDAO.saveDocumentVersion.mockResolvedValue({
+      _id: 'doc-2',
+      type: 'coverLetter',
+      currentVersion: 1,
+    });
+
+    const res = await request(app)
+      .post(`/api/jobs/${ID}/documents`)
+      .set('Authorization', 'Bearer faketoken')
+      .send({ type: 'coverLetter', text: 'Edited cover letter draft' });
+
+    expect(res.status).toBe(201);
+    expect(res.body.document.type).toBe('coverLetter');
+    expect(DocumentsDAO.saveDocumentVersion).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'coverLetter',
+        title: 'Platform Engineer Cover Letter',
+      })
+    );
+  });
+
+  it('returns 400 for unsupported document type', async () => {
+    const res = await request(app)
+      .post(`/api/jobs/${ID}/documents`)
+      .set('Authorization', 'Bearer faketoken')
+      .send({ type: 'portfolio', text: 'Some text' });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('Unsupported document type');
+    expect(JobsDAO.findByIdForOwner).not.toHaveBeenCalled();
+    expect(DocumentsDAO.saveDocumentVersion).not.toHaveBeenCalled();
+  });
+
+  it('returns 400 for blank draft text', async () => {
+    const res = await request(app)
+      .post(`/api/jobs/${ID}/documents`)
+      .set('Authorization', 'Bearer faketoken')
+      .send({ type: 'resume', text: '   ' });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('Draft text is required');
+    expect(JobsDAO.findByIdForOwner).not.toHaveBeenCalled();
+    expect(DocumentsDAO.saveDocumentVersion).not.toHaveBeenCalled();
+  });
+
+  it('returns 404 for a cross-user job before document save', async () => {
+    mockVerifyIdToken.mockResolvedValue({ uid: 'user-b', email: 'b@test.com' });
+    JobsDAO.findByIdForOwner.mockResolvedValue(null);
+
+    const res = await request(app)
+      .post(`/api/jobs/${ID}/documents`)
+      .set('Authorization', 'Bearer faketoken')
+      .send({ type: 'resume', text: 'User B should not save this' });
+
+    expect(res.status).toBe(404);
+    expect(JobsDAO.findByIdForOwner).toHaveBeenCalledWith(ID, 'user-b');
+    expect(DocumentsDAO.saveDocumentVersion).not.toHaveBeenCalled();
+  });
+
+  it('returns 500 when saveDocumentVersion fails', async () => {
+    JobsDAO.findByIdForOwner.mockResolvedValue({
+      _id: ID,
+      firebaseUid: 'user-a',
+      title: 'Backend Engineer',
+    });
+    DocumentsDAO.saveDocumentVersion.mockRejectedValue(new Error('db down'));
+
+    const res = await request(app)
+      .post(`/api/jobs/${ID}/documents`)
+      .set('Authorization', 'Bearer faketoken')
+      .send({ type: 'resume', text: 'Edited resume draft' });
+
+    expect(res.status).toBe(500);
+    expect(res.body.error).toBe('Failed to save document');
   });
 });
 
