@@ -18,37 +18,81 @@ const matchesQuery = (document, query) => {
 };
 
 const mockCollection = {
-  findOne: async (query) => {
-    return storedDocuments.find((document) => matchesQuery(document, query)) || null;
-  },
-  insertOne: async (document) => {
-    const insertedId = new ObjectId();
-    storedDocuments.push({ _id: insertedId, ...document });
-    return { insertedId };
-  },
+  createIndex: async () => 'owner_job_type_unique',
   findOneAndUpdate: async (filter, update, options) => {
     const index = storedDocuments.findIndex((document) => matchesQuery(document, filter));
-    if (index === -1) {
-      return null;
+    if (index === -1 && !options?.upsert) {
+      return { value: null };
     }
 
-    const current = storedDocuments[index];
-    const updated = {
-      ...current,
-      ...(update.$set || {}),
+    const evaluate = (expr, sourceDocument) => {
+      if (Array.isArray(expr)) {
+        return expr.map((item) => evaluate(item, sourceDocument));
+      }
+
+      if (expr && typeof expr === 'object') {
+        if ('$literal' in expr) {
+          return expr.$literal;
+        }
+        if ('$ifNull' in expr) {
+          const [left, right] = expr.$ifNull;
+          const leftValue = evaluate(left, sourceDocument);
+          return leftValue ?? evaluate(right, sourceDocument);
+        }
+        if ('$add' in expr) {
+          return expr.$add
+            .map((item) => evaluate(item, sourceDocument))
+            .reduce((sum, value) => sum + Number(value), 0);
+        }
+        if ('$concatArrays' in expr) {
+          return expr.$concatArrays.flatMap((item) => evaluate(item, sourceDocument));
+        }
+
+        const objectResult = {};
+        Object.entries(expr).forEach(([key, value]) => {
+          objectResult[key] = evaluate(value, sourceDocument);
+        });
+        return objectResult;
+      }
+
+      if (typeof expr === 'string' && expr.startsWith('$')) {
+        return sourceDocument?.[expr.slice(1)];
+      }
+
+      return expr;
     };
 
-    if (update.$push?.versions) {
-      updated.versions = [...(updated.versions || []), update.$push.versions];
+    const current = index === -1 ? null : storedDocuments[index];
+    const sourceDocument = current ? { ...current } : {};
+    const setStage = Array.isArray(update)
+      ? update.find((stage) => stage.$set)?.$set ?? {}
+      : update.$set ?? {};
+
+    const computedSet = {};
+    Object.entries(setStage).forEach(([key, value]) => {
+      computedSet[key] = evaluate(value, sourceDocument);
+    });
+
+    const updated = {
+      ...(current ?? {}),
+      ...computedSet,
+    };
+
+    if (!updated._id) {
+      updated._id = new ObjectId();
     }
 
-    storedDocuments[index] = updated;
+    if (index === -1) {
+      storedDocuments.push(updated);
+    } else {
+      storedDocuments[index] = updated;
+    }
 
     if (options?.returnDocument === 'after') {
-      return updated;
+      return { value: updated };
     }
 
-    return current;
+    return { value: current };
   },
 };
 
@@ -74,6 +118,7 @@ describe('DocumentsDAO.saveDocumentVersion', () => {
     });
 
     expect(result.currentVersion).toBe(1);
+    expect(result.value).toBeUndefined();
     expect(result.versions).toHaveLength(1);
     expect(result.versions[0]).toEqual(
       expect.objectContaining({
@@ -103,6 +148,7 @@ describe('DocumentsDAO.saveDocumentVersion', () => {
     });
 
     expect(result.currentVersion).toBe(2);
+    expect(result.value).toBeUndefined();
     expect(result.versions).toHaveLength(2);
     expect(result.versions[1]).toEqual(
       expect.objectContaining({

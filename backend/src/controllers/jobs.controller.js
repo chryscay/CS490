@@ -540,7 +540,19 @@ export default class JobsController {
         text: text.trim(),
       });
 
-      return res.status(201).json({ document });
+      if (!document) {
+        return res.status(500).json({ error: 'Failed to save document' });
+      }
+
+      const safeDocument = {
+        _id: document._id,
+        type: document.type,
+        title: document.title,
+        currentVersion: document.currentVersion,
+        updatedAt: document.updatedAt,
+      };
+
+      return res.status(201).json({ document: safeDocument });
     } catch (error) {
       console.error('apiSaveDraftDocument error:', error);
       return res.status(500).json({ error: 'Failed to save document' });

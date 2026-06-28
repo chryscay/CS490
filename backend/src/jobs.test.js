@@ -487,7 +487,10 @@ describe('POST /api/jobs/:id/documents', () => {
     DocumentsDAO.saveDocumentVersion.mockResolvedValue({
       _id: 'doc-1',
       type: 'resume',
+      title: 'Backend Engineer Resume',
       currentVersion: 1,
+      updatedAt: '2026-06-28T00:00:00.000Z',
+      versions: [{ version: 1, text: 'Edited resume draft' }],
     });
 
     const res = await request(app)
@@ -497,6 +500,7 @@ describe('POST /api/jobs/:id/documents', () => {
 
     expect(res.status).toBe(201);
     expect(res.body.document.currentVersion).toBe(1);
+    expect(res.body.document.versions).toBeUndefined();
     expect(JobsDAO.findByIdForOwner).toHaveBeenCalledWith(ID, 'user-a');
     expect(DocumentsDAO.saveDocumentVersion).toHaveBeenCalledWith(
       expect.objectContaining({

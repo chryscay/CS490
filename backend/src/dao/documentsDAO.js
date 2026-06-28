@@ -18,6 +18,10 @@ export default class DocumentsDAO {
 
     try {
       documents = await conn.db('ats').collection('documents');
+      await documents.createIndex(
+        { firebaseUid: 1, jobId: 1, type: 1 },
+        { unique: true, name: 'owner_job_type_unique' }
+      );
     } catch (e) {
       console.error(`Unable to connect in documentsDAO: ${e}`);
     }
@@ -30,65 +34,53 @@ export default class DocumentsDAO {
 
     const normalizedJobId = normalizeJobId(jobId);
     const now = new Date();
+    const nextVersionExpr = { $add: [{ $ifNull: ['$currentVersion', 0] }, 1] };
 
-    const existing = await documents.findOne({
-      firebaseUid,
-      jobId: normalizedJobId,
-      type,
-    });
-
-    if (!existing) {
-      const createdDocument = {
-        firebaseUid,
-        jobId: normalizedJobId,
-        type,
-        title,
-        currentVersion: 1,
-        versions: [
-          {
-            version: 1,
-            text,
-            createdAt: now,
-          },
-        ],
-        createdAt: now,
-        updatedAt: now,
-      };
-
-      const result = await documents.insertOne(createdDocument);
-      return {
-        _id: result.insertedId,
-        ...createdDocument,
-      };
-    }
-
-    const nextVersion = Number(existing.currentVersion || 0) + 1;
     const updated = await documents.findOneAndUpdate(
       {
-        _id: existing._id,
         firebaseUid,
         jobId: normalizedJobId,
         type,
       },
-      {
-        $set: {
-          title,
-          currentVersion: nextVersion,
-          updatedAt: now,
-        },
-        $push: {
-          versions: {
-            version: nextVersion,
-            text,
-            createdAt: now,
+      [
+        {
+          $set: {
+            firebaseUid: {
+              $ifNull: ['$firebaseUid', { $literal: firebaseUid }],
+            },
+            jobId: {
+              $ifNull: ['$jobId', { $literal: normalizedJobId }],
+            },
+            type: {
+              $ifNull: ['$type', { $literal: type }],
+            },
+            title: { $literal: title },
+            createdAt: {
+              $ifNull: ['$createdAt', { $literal: now }],
+            },
+            updatedAt: { $literal: now },
+            currentVersion: nextVersionExpr,
+            versions: {
+              $concatArrays: [
+                { $ifNull: ['$versions', []] },
+                [
+                  {
+                    version: nextVersionExpr,
+                    text: { $literal: text },
+                    createdAt: { $literal: now },
+                  },
+                ],
+              ],
+            },
           },
         },
-      },
+      ],
       {
+        upsert: true,
         returnDocument: 'after',
       }
     );
 
-    return updated;
+    return updated?.value ?? updated ?? null;
   }
 }
