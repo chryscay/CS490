@@ -39,6 +39,7 @@ vi.mock('./dao/usersDAO.js', () => ({
 }));
 vi.mock('./services/aiDraft.service.js', () => ({
   generateAiDraft: vi.fn(),
+  rewriteAiDraft: vi.fn(),
 }));
 describe('POST /api/jobs/:id/transition', () => {
   const ID = '507f1f77bcf86cd799439011';
@@ -368,6 +369,101 @@ describe('POST /api/jobs/:id/ai/draft', () => {
     expect(AiDraftService.generateAiDraft).not.toHaveBeenCalled();
   });
 });
+
+describe('POST /api/jobs/:id/ai/rewrite', () => {
+  const ID = '507f1f77bcf86cd799439011';
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockVerifyIdToken.mockResolvedValue({ uid: 'user-a', email: 'a@test.com' });
+  });
+
+  it('returns a rewritten draft for an owned job', async () => {
+    JobsDAO.findByIdForOwner.mockResolvedValue({
+      _id: ID,
+      firebaseUid: 'user-a',
+      company: 'Acme',
+      title: 'Backend Engineer',
+      jobPostingBody: 'Build services',
+    });
+    UsersDAO.getProfile.mockResolvedValue({ firstName: 'Alice' });
+    AiDraftService.rewriteAiDraft.mockResolvedValue('Improved draft text');
+
+    const res = await request(app)
+      .post(`/api/jobs/${ID}/ai/rewrite`)
+      .set('Authorization', 'Bearer faketoken')
+      .send({
+        type: 'resume',
+        text: 'Original draft text',
+        instruction: 'Make it concise and achievement-focused',
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.draft).toBe('Improved draft text');
+    expect(JobsDAO.findByIdForOwner).toHaveBeenCalledWith(ID, 'user-a');
+    expect(UsersDAO.getProfile).toHaveBeenCalledWith('user-a');
+    expect(AiDraftService.rewriteAiDraft).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'resume',
+        text: 'Original draft text',
+        instruction: 'Make it concise and achievement-focused',
+      })
+    );
+  });
+
+  it('returns 400 when draft text is missing', async () => {
+    const res = await request(app)
+      .post(`/api/jobs/${ID}/ai/rewrite`)
+      .set('Authorization', 'Bearer faketoken')
+      .send({ type: 'coverLetter', text: '   ' });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('Draft text is required');
+    expect(JobsDAO.findByIdForOwner).not.toHaveBeenCalled();
+    expect(UsersDAO.getProfile).not.toHaveBeenCalled();
+    expect(AiDraftService.rewriteAiDraft).not.toHaveBeenCalled();
+  });
+
+  it('returns 404 for cross-user access before profile fetch', async () => {
+    mockVerifyIdToken.mockResolvedValue({ uid: 'user-b', email: 'b@test.com' });
+    JobsDAO.findByIdForOwner.mockResolvedValue(null);
+
+    const res = await request(app)
+      .post(`/api/jobs/${ID}/ai/rewrite`)
+      .set('Authorization', 'Bearer faketoken')
+      .send({ type: 'coverLetter', text: 'Existing cover letter draft' });
+
+    expect(res.status).toBe(404);
+    expect(JobsDAO.findByIdForOwner).toHaveBeenCalledWith(ID, 'user-b');
+    expect(UsersDAO.getProfile).not.toHaveBeenCalled();
+    expect(AiDraftService.rewriteAiDraft).not.toHaveBeenCalled();
+  });
+
+  it('returns 502 when AI rewrite service fails', async () => {
+    JobsDAO.findByIdForOwner.mockResolvedValue({
+      _id: ID,
+      firebaseUid: 'user-a',
+      company: 'Acme',
+      title: 'Backend Engineer',
+      jobPostingBody: 'Build services',
+    });
+    UsersDAO.getProfile.mockResolvedValue({});
+    AiDraftService.rewriteAiDraft.mockRejectedValue(new Error('OpenAI unreachable'));
+
+    const res = await request(app)
+      .post(`/api/jobs/${ID}/ai/rewrite`)
+      .set('Authorization', 'Bearer faketoken')
+      .send({
+        type: 'coverLetter',
+        text: 'Draft to improve',
+        instruction: 'Make it more persuasive',
+      });
+
+    expect(res.status).toBe(502);
+    expect(res.body.error).toBe('Failed to rewrite draft');
+  });
+});
+
 describe('POST /api/jobs', () => {
   beforeEach(() => {
     vi.clearAllMocks();

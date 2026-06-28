@@ -14,6 +14,7 @@ vi.mock('../features/auth/useAuth.js', () => ({
 
 vi.mock('../features/jobs/jobsApi.js', () => ({
   generateJobDraft: vi.fn(),
+  rewriteJobDraft: vi.fn(),
 }));
 
 import * as JobsApi from '../features/jobs/jobsApi.js';
@@ -50,6 +51,7 @@ describe('JobDetailPanel', () => {
     vi.clearAllMocks();
     mockGetIdToken.mockResolvedValue('faketoken');
     JobsApi.generateJobDraft.mockResolvedValue({ draft: 'AI resume draft text' });
+    JobsApi.rewriteJobDraft.mockResolvedValue({ draft: 'Improved resume draft text' });
   });
   it('renders the job title', () => {
     render(<JobDetailPanel {...defaultProps} />);
@@ -294,6 +296,70 @@ describe('JobDetailPanel', () => {
     expect(screen.queryByDisplayValue('Old resume draft text')).not.toBeInTheDocument();
     expect(await screen.findByText(/could not generate cover letter draft/i)).toBeInTheDocument();
     expect(screen.queryByLabelText(/editable cover letter draft/i)).not.toBeInTheDocument();
+  });
+
+  it('shows rewrite controls after a draft is generated', async () => {
+    render(<JobDetailPanel {...defaultProps} />);
+
+    expect(screen.queryByRole('button', { name: /improve draft/i })).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: /generate resume draft/i }));
+
+    expect(await screen.findByRole('button', { name: /improve draft/i })).toBeInTheDocument();
+    expect(screen.getByLabelText(/rewrite instruction/i)).toBeInTheDocument();
+  });
+
+  it('calls rewriteJobDraft with current editable draft text and instruction', async () => {
+    const user = userEvent.setup();
+    render(<JobDetailPanel {...defaultProps} />);
+
+    await user.click(screen.getByRole('button', { name: /generate resume draft/i }));
+
+    const draftTextarea = await screen.findByLabelText(/editable resume draft/i);
+    await user.clear(draftTextarea);
+    await user.type(draftTextarea, 'Current edited draft text');
+
+    const instructionTextarea = screen.getByLabelText(/rewrite instruction/i);
+    await user.type(instructionTextarea, 'Make this more concise and quantified.');
+
+    await user.click(screen.getByRole('button', { name: /improve draft/i }));
+
+    expect(JobsApi.rewriteJobDraft).toHaveBeenCalledWith('abc123', 'faketoken', {
+      type: 'resume',
+      text: 'Current edited draft text',
+      instruction: 'Make this more concise and quantified.',
+    });
+  });
+
+  it('replaces editable draft text with rewritten output and keeps previous draft visible', async () => {
+    const user = userEvent.setup();
+    JobsApi.generateJobDraft.mockResolvedValue({ draft: 'Original draft text' });
+    JobsApi.rewriteJobDraft.mockResolvedValue({ draft: 'Rewritten draft text' });
+
+    render(<JobDetailPanel {...defaultProps} />);
+
+    await user.click(screen.getByRole('button', { name: /generate resume draft/i }));
+    await user.click(await screen.findByRole('button', { name: /improve draft/i }));
+
+    expect(await screen.findByLabelText(/editable resume draft/i)).toHaveValue('Rewritten draft text');
+    expect(screen.getByText(/previous draft for comparison/i)).toBeInTheDocument();
+    expect(screen.getByText('Original draft text')).toBeInTheDocument();
+  });
+
+  it('shows rewrite failure and keeps current draft intact', async () => {
+    const user = userEvent.setup();
+    JobsApi.generateJobDraft.mockResolvedValue({ draft: 'Stable draft text' });
+    JobsApi.rewriteJobDraft.mockRejectedValue(new Error('Failed to rewrite draft'));
+
+    render(<JobDetailPanel {...defaultProps} />);
+
+    await user.click(screen.getByRole('button', { name: /generate resume draft/i }));
+    expect(await screen.findByLabelText(/editable resume draft/i)).toHaveValue('Stable draft text');
+
+    await user.click(screen.getByRole('button', { name: /improve draft/i }));
+
+    expect(await screen.findByText(/failed to rewrite draft/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/editable resume draft/i)).toHaveValue('Stable draft text');
   });
 
   it('does not call onDelete until the action is confirmed', async () => {

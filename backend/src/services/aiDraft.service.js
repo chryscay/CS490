@@ -65,3 +65,65 @@ export async function generateAiDraft({ profile, job, type }) {
 
   return text.trim();
 }
+
+export async function rewriteAiDraft({ profile, job, type, text, instruction }) {
+  if (type !== 'resume' && type !== 'coverLetter') {
+    throw new Error('Unsupported draft type');
+  }
+
+  const draftText = typeof text === 'string' ? text.trim() : '';
+  if (!draftText) {
+    throw new Error('Draft text is required');
+  }
+
+  const { profileContext, jobContext } = buildAiProfileJobContext(profile, job);
+  const cappedProfileContext = truncateText(profileContext, 3000);
+  const cappedJobContext = truncateText(jobContext, 6000);
+  const cappedDraftText = truncateText(draftText, 6000);
+  const cappedInstruction = truncateText(
+    typeof instruction === 'string' ? instruction.trim() : '',
+    1200
+  );
+  const isCoverLetter = type === 'coverLetter';
+
+  const promptLines = [
+    isCoverLetter
+      ? 'Rewrite and improve the existing cover letter draft using the profile and job context.'
+      : 'Rewrite and improve the existing resume draft using the profile and job context.',
+    'Preserve truthful facts from the profile and the original draft.',
+    'Do not invent or exaggerate experience, responsibilities, skills, education, or credentials.',
+    cappedInstruction
+      ? `User rewrite instruction: ${cappedInstruction}`
+      : 'User rewrite instruction: Improve clarity, impact, and job relevance while keeping facts accurate.',
+    '',
+    'Profile context:',
+    cappedProfileContext || 'No profile details available.',
+    '',
+    'Job context:',
+    cappedJobContext || 'No job details available.',
+    '',
+    'Current draft to rewrite:',
+    cappedDraftText,
+    '',
+    isCoverLetter
+      ? 'Return only the rewritten cover letter draft as plain text.'
+      : 'Return only the rewritten resume draft as plain text.',
+  ];
+
+  const prompt = promptLines.join('\n');
+
+  const openai = createOpenAiClient();
+  const response = await openai.responses.create({
+    model: 'gpt-4.1-mini',
+    input: prompt,
+    max_output_tokens: 550,
+    temperature: 0.5,
+  });
+
+  const rewrittenText = response.output_text ?? response.output?.[0]?.content?.[0]?.text;
+  if (!rewrittenText) {
+    throw new Error('AI did not return a rewritten draft');
+  }
+
+  return rewrittenText.trim();
+}

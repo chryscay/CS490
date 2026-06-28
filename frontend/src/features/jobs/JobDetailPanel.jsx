@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import PropTypes from 'prop-types';
 import { useAuth } from '../auth/useAuth';
-import { generateJobDraft } from './jobsApi';
+import { generateJobDraft, rewriteJobDraft } from './jobsApi';
 import { getStageStyles, isOutcomeStage } from './stageStyles';
 import DeleteJobDialog from './DeleteJobDialog';
 import ArchiveJobDialog from './ArchiveJobDialog';
@@ -115,9 +115,16 @@ export default function JobDetailPanel({
   const [draftText, setDraftText] = useState('');
   const [draftVisible, setDraftVisible] = useState(false);
   const [draftType, setDraftType] = useState('resume');
+  const [rewriteLoading, setRewriteLoading] = useState(false);
+  const [rewriteError, setRewriteError] = useState('');
+  const [rewriteInstruction, setRewriteInstruction] = useState('');
+  const [previousDraftText, setPreviousDraftText] = useState('');
 
   const handleGenerateDraft = async (type) => {
     setDraftError('');
+    setRewriteError('');
+    setRewriteInstruction('');
+    setPreviousDraftText('');
     setDraftType(type);
     setDraftText('');
     setDraftVisible(false);
@@ -135,6 +142,26 @@ export default function JobDetailPanel({
       setDraftError(error.message || fallbackMessage);
     } finally {
       setDraftLoading(false);
+    }
+  };
+
+  const handleRewriteDraft = async () => {
+    setRewriteError('');
+    setRewriteLoading(true);
+    try {
+      const token = await currentUser.getIdToken();
+      const currentDraftText = draftText;
+      const result = await rewriteJobDraft(job._id, token, {
+        type: draftType,
+        text: currentDraftText,
+        instruction: rewriteInstruction,
+      });
+      setPreviousDraftText(currentDraftText);
+      setDraftText(result.draft);
+    } catch (error) {
+      setRewriteError(error.message || 'Could not improve draft');
+    } finally {
+      setRewriteLoading(false);
     }
   };
 
@@ -484,6 +511,50 @@ export default function JobDetailPanel({
             <p className="mt-2 text-xs text-white/40">
               This draft can be edited before a later save flow is added.
             </p>
+
+            <div className="mt-4 space-y-3">
+              <label className="block">
+                <span className="text-xs text-white/50 uppercase tracking-wider">Improve instruction</span>
+                <textarea
+                  value={rewriteInstruction}
+                  onChange={(e) => setRewriteInstruction(e.target.value)}
+                  rows={3}
+                  aria-label="Rewrite instruction"
+                  placeholder="Example: Make this more concise and results-focused for a backend role."
+                  className="mt-2 w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </label>
+
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={handleRewriteDraft}
+                  disabled={rewriteLoading}
+                  className="
+                    rounded-lg border border-white/10 px-4 py-2
+                    text-sm text-white/70
+                    hover:text-white hover:border-white/20 hover:bg-white/5
+                    transition
+                    disabled:cursor-not-allowed disabled:text-white/30
+                  "
+                >
+                  {rewriteLoading ? 'Improving...' : 'Improve draft'}
+                </button>
+                <p className="text-xs text-white/40">Improves only after you click.</p>
+              </div>
+
+              {rewriteError && <p className="text-sm text-red-300">{rewriteError}</p>}
+            </div>
+
+            {previousDraftText && (
+              <div className="mt-5 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                <h4 className="text-xs font-medium text-white/50 uppercase tracking-wider">
+                  Previous draft for comparison
+                </h4>
+                <pre className="mt-2 whitespace-pre-wrap text-sm text-white/60">
+                  {previousDraftText}
+                </pre>
+              </div>
+            )}
           </div>
         )}
 
