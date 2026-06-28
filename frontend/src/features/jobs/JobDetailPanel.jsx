@@ -121,6 +121,10 @@ export default function JobDetailPanel({
   const [previousDraftText, setPreviousDraftText] = useState('');
 
   const handleGenerateDraft = async (type) => {
+    if (rewriteLoading) {
+      return;
+    }
+
     setDraftError('');
     setRewriteError('');
     setRewriteInstruction('');
@@ -352,7 +356,7 @@ export default function JobDetailPanel({
             </button>
             <button
               onClick={() => handleGenerateDraft('resume')}
-              disabled={draftLoading}
+              disabled={draftLoading || rewriteLoading}
               aria-label={`Generate resume draft for ${job.title}`}
               className="
                 rounded-lg border border-white/10 px-4 py-2
@@ -394,7 +398,7 @@ export default function JobDetailPanel({
             )}
             <button
               onClick={() => handleGenerateDraft('coverLetter')}
-              disabled={draftLoading}
+              disabled={draftLoading || rewriteLoading}
               aria-label={`Generate cover letter draft for ${job.title}`}
               className="
                 rounded-lg border border-white/10 px-4 py-2
@@ -502,6 +506,7 @@ export default function JobDetailPanel({
             <textarea
               value={draftText}
               onChange={(e) => setDraftText(e.target.value)}
+              disabled={rewriteLoading}
               rows={12}
               aria-label={
                 draftType === 'coverLetter' ? 'Editable cover letter draft' : 'Editable resume draft'
@@ -518,6 +523,7 @@ export default function JobDetailPanel({
                 <textarea
                   value={rewriteInstruction}
                   onChange={(e) => setRewriteInstruction(e.target.value)}
+                  disabled={rewriteLoading}
                   rows={3}
                   aria-label="Rewrite instruction"
                   placeholder="Example: Make this more concise and results-focused for a backend role."
