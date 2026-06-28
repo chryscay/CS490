@@ -143,13 +143,20 @@ export default function DashboardPage() {
     showArchived,
   });
 
-  const stats = [
-    { label: 'Total Jobs', value: jobs.length },
-    { label: 'Applications', value: jobs.filter((j) => j.stage === 'Applied').length },
-    { label: 'Interviews', value: jobs.filter((j) => j.stage === 'Interview').length },
-    { label: 'Hired', value: jobs.filter((j) => j.stage === 'Hired').length },
-  ];
+// SCRUM-62: stage counts + response tracking (S2-BR-022), computed from
+// persisted job records, not UI state (S2-BR-023). Fixes the prior 'Hired'
+// stat, which filtered a non-canonical stage and always read zero.
+const RESPONSE_STAGES = ['Interview', 'Offer', 'Rejected'];
+const countByStage = (stage) => jobs.filter((j) => j.stage === stage).length;
+const responseCount = jobs.filter((j) => RESPONSE_STAGES.includes(j.stage)).length;
 
+const stats = [
+  { label: 'Total Jobs', value: jobs.length },
+  { label: 'Applications', value: countByStage('Applied') },
+  { label: 'Interviews', value: countByStage('Interview') },
+  { label: 'Offers', value: countByStage('Offer') },
+  { label: 'Responses', value: responseCount },
+];
   const selectClass = `
     rounded-xl
     bg-white/5
