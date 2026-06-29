@@ -49,11 +49,15 @@ describe('JobDetailPanel', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetIdToken.mockResolvedValue('faketoken');
-    JobsApi.generateJobDraft.mockResolvedValue({ draft: 'AI resume draft text' });
+    JobsApi.generateJobDraft.mockResolvedValue({
+      draft: 'AI resume draft text',
+    });
   });
   it('renders the job title', () => {
     render(<JobDetailPanel {...defaultProps} />);
-    expect(screen.getByRole('heading', { name: /frontend engineer/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: /frontend engineer/i })
+    ).toBeInTheDocument();
   });
 
   // Outcome surfacing (S2-013)
@@ -62,21 +66,33 @@ describe('JobDetailPanel', () => {
     stage: 'Offer',
     stageHistory: [
       { toStage: 'Applied', note: '', changedAt: '2026-06-05T00:00:00.000Z' },
-      { toStage: 'Offer', note: 'Signed offer letter', changedAt: '2026-06-12T00:00:00.000Z' },
+      {
+        toStage: 'Offer',
+        note: 'Signed offer letter',
+        changedAt: '2026-06-12T00:00:00.000Z',
+      },
     ],
   };
 
   it('renders the Outcome section with the note for a job in an outcome stage', () => {
     render(<JobDetailPanel {...defaultProps} job={outcomeJob} />);
     const section = screen.getByText('Outcome').closest('div');
-    expect(within(section).getByText('Signed offer letter')).toBeInTheDocument();
+    expect(
+      within(section).getByText('Signed offer letter')
+    ).toBeInTheDocument();
   });
 
   it('shows an empty outcome message when no note was recorded', () => {
     const noNote = {
       ...mockJob,
       stage: 'Rejected',
-      stageHistory: [{ toStage: 'Rejected', note: '', changedAt: '2026-06-12T00:00:00.000Z' }],
+      stageHistory: [
+        {
+          toStage: 'Rejected',
+          note: '',
+          changedAt: '2026-06-12T00:00:00.000Z',
+        },
+      ],
     };
     render(<JobDetailPanel {...defaultProps} job={noNote} />);
     expect(screen.getByText(/no outcome note recorded/i)).toBeInTheDocument();
@@ -99,12 +115,16 @@ describe('JobDetailPanel', () => {
 
   it('renders the job posting body', () => {
     render(<JobDetailPanel {...defaultProps} />);
-    expect(screen.getByText(/looking for a frontend engineer/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/looking for a frontend engineer/i)
+    ).toBeInTheDocument();
   });
 
   it('renders the timeline section', () => {
     render(<JobDetailPanel {...defaultProps} />);
-    expect(screen.getByRole('list', { name: /job activity timeline/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole('list', { name: /job activity timeline/i })
+    ).toBeInTheDocument();
   });
 
   it('renders a Job added timeline event', () => {
@@ -115,14 +135,18 @@ describe('JobDetailPanel', () => {
   it('calls onClose when the close button is clicked', async () => {
     const onClose = vi.fn();
     render(<JobDetailPanel {...defaultProps} onClose={onClose} />);
-    await userEvent.click(screen.getByRole('button', { name: /close job details/i }));
+    await userEvent.click(
+      screen.getByRole('button', { name: /close job details/i })
+    );
     expect(onClose).toHaveBeenCalledOnce();
   });
 
   it('calls onEdit when the Edit button is clicked', async () => {
     const onEdit = vi.fn();
     render(<JobDetailPanel {...defaultProps} onEdit={onEdit} />);
-    await userEvent.click(screen.getByRole('button', { name: /edit frontend engineer/i }));
+    await userEvent.click(
+      screen.getByRole('button', { name: /edit frontend engineer/i })
+    );
     expect(onEdit).toHaveBeenCalledWith(mockJob);
   });
 
@@ -137,7 +161,14 @@ describe('JobDetailPanel', () => {
   });
 
   it('shows all six canonical stages correctly', () => {
-    const stages = ['Interested', 'Applied', 'Interview', 'Offer', 'Rejected', 'Archived'];
+    const stages = [
+      'Interested',
+      'Applied',
+      'Interview',
+      'Offer',
+      'Rejected',
+      'Archived',
+    ];
     stages.forEach((stage) => {
       const { unmount } = render(
         <JobDetailPanel {...defaultProps} job={{ ...mockJob, stage }} />
@@ -158,7 +189,9 @@ describe('JobDetailPanel', () => {
     // Find the Overview section and verify core fields within it
     const overviewHeading = screen.getByText('Overview');
     const overviewSection = overviewHeading.closest('div');
-    expect(within(overviewSection).getByText('Frontend Engineer')).toBeInTheDocument();
+    expect(
+      within(overviewSection).getByText('Frontend Engineer')
+    ).toBeInTheDocument();
     expect(within(overviewSection).getByText('Acme Corp')).toBeInTheDocument();
     expect(within(overviewSection).getByText('Applied')).toBeInTheDocument();
   });
@@ -179,7 +212,9 @@ describe('JobDetailPanel', () => {
     render(<JobDetailPanel {...defaultProps} />);
     const overviewHeading = screen.getByText('Overview');
     const overviewSection = overviewHeading.closest('div');
-    expect(within(overviewSection).getByText('Follow up next week')).toBeInTheDocument();
+    expect(
+      within(overviewSection).getByText('Follow up next week')
+    ).toBeInTheDocument();
   });
 
   it('does not render deadline in Overview when not present', () => {
@@ -225,23 +260,43 @@ describe('JobDetailPanel', () => {
   it('shows editable draft textarea after generating a resume draft', async () => {
     render(<JobDetailPanel {...defaultProps} />);
 
-    await userEvent.click(screen.getByRole('button', { name: /generate resume draft/i }));
+    await userEvent.click(
+      screen.getByRole('button', { name: /generate resume draft/i })
+    );
 
-    expect(JobsApi.generateJobDraft).toHaveBeenCalledWith('abc123', 'faketoken', { type: 'resume' });
-    expect(await screen.findByLabelText(/editable resume draft/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/editable resume draft/i)).toHaveValue('AI resume draft text');
+    expect(JobsApi.generateJobDraft).toHaveBeenCalledWith(
+      'abc123',
+      'faketoken',
+      { type: 'resume' }
+    );
+    expect(
+      await screen.findByLabelText(/editable resume draft/i)
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText(/editable resume draft/i)).toHaveValue(
+      'AI resume draft text'
+    );
   });
 
   it('calls API with type coverLetter and shows editable cover letter textarea', async () => {
-    JobsApi.generateJobDraft.mockResolvedValue({ draft: 'AI cover letter draft text' });
+    JobsApi.generateJobDraft.mockResolvedValue({
+      draft: 'AI cover letter draft text',
+    });
     render(<JobDetailPanel {...defaultProps} />);
 
-    await userEvent.click(screen.getByRole('button', { name: /generate cover letter draft/i }));
+    await userEvent.click(
+      screen.getByRole('button', { name: /generate cover letter draft/i })
+    );
 
-    expect(JobsApi.generateJobDraft).toHaveBeenCalledWith('abc123', 'faketoken', {
-      type: 'coverLetter',
-    });
-    expect(await screen.findByLabelText(/editable cover letter draft/i)).toBeInTheDocument();
+    expect(JobsApi.generateJobDraft).toHaveBeenCalledWith(
+      'abc123',
+      'faketoken',
+      {
+        type: 'coverLetter',
+      }
+    );
+    expect(
+      await screen.findByLabelText(/editable cover letter draft/i)
+    ).toBeInTheDocument();
     expect(screen.getByLabelText(/editable cover letter draft/i)).toHaveValue(
       'AI cover letter draft text'
     );
@@ -250,50 +305,79 @@ describe('JobDetailPanel', () => {
   it('shows loading state while generating cover letter draft', async () => {
     let resolveDraft;
     JobsApi.generateJobDraft.mockImplementation(
-      () => new Promise((resolve) => {
-        resolveDraft = resolve;
-      })
+      () =>
+        new Promise((resolve) => {
+          resolveDraft = resolve;
+        })
     );
     const user = userEvent.setup();
     render(<JobDetailPanel {...defaultProps} />);
 
-    await user.click(screen.getByRole('button', { name: /generate cover letter draft/i }));
+    await user.click(
+      screen.getByRole('button', { name: /generate cover letter draft/i })
+    );
 
     expect(
-      screen.getByRole('button', { name: /generate resume draft for frontend engineer/i })
+      screen.getByRole('button', {
+        name: /generate resume draft for frontend engineer/i,
+      })
     ).toBeDisabled();
     expect(
-      screen.getByRole('button', { name: /generate cover letter draft for frontend engineer/i })
+      screen.getByRole('button', {
+        name: /generate cover letter draft for frontend engineer/i,
+      })
     ).toBeDisabled();
 
     resolveDraft({ draft: 'Later cover letter draft' });
-    expect(await screen.findByLabelText(/editable cover letter draft/i)).toBeInTheDocument();
+    expect(
+      await screen.findByLabelText(/editable cover letter draft/i)
+    ).toBeInTheDocument();
   });
 
   it('shows failure message when cover letter generation fails', async () => {
-    JobsApi.generateJobDraft.mockRejectedValue(new Error('Failed to generate draft'));
+    JobsApi.generateJobDraft.mockRejectedValue(
+      new Error('Failed to generate draft')
+    );
     render(<JobDetailPanel {...defaultProps} />);
 
-    await userEvent.click(screen.getByRole('button', { name: /generate cover letter draft/i }));
+    await userEvent.click(
+      screen.getByRole('button', { name: /generate cover letter draft/i })
+    );
 
-    expect(await screen.findByText(/failed to generate draft/i)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/failed to generate draft/i)
+    ).toBeInTheDocument();
   });
 
   it('hides old resume draft when cover letter generation fails after switching types', async () => {
     JobsApi.generateJobDraft
       .mockResolvedValueOnce({ draft: 'Old resume draft text' })
-      .mockRejectedValueOnce(new Error('Could not generate cover letter draft'));
+      .mockRejectedValueOnce(
+        new Error('Could not generate cover letter draft')
+      );
 
     render(<JobDetailPanel {...defaultProps} />);
 
-    await userEvent.click(screen.getByRole('button', { name: /generate resume draft/i }));
-    expect(await screen.findByLabelText(/editable resume draft/i)).toHaveValue('Old resume draft text');
+    await userEvent.click(
+      screen.getByRole('button', { name: /generate resume draft/i })
+    );
+    expect(await screen.findByLabelText(/editable resume draft/i)).toHaveValue(
+      'Old resume draft text'
+    );
 
-    await userEvent.click(screen.getByRole('button', { name: /generate cover letter draft/i }));
+    await userEvent.click(
+      screen.getByRole('button', { name: /generate cover letter draft/i })
+    );
 
-    expect(screen.queryByDisplayValue('Old resume draft text')).not.toBeInTheDocument();
-    expect(await screen.findByText(/could not generate cover letter draft/i)).toBeInTheDocument();
-    expect(screen.queryByLabelText(/editable cover letter draft/i)).not.toBeInTheDocument();
+    expect(
+      screen.queryByDisplayValue('Old resume draft text')
+    ).not.toBeInTheDocument();
+    expect(
+      await screen.findByText(/could not generate cover letter draft/i)
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByLabelText(/editable cover letter draft/i)
+    ).not.toBeInTheDocument();
   });
 
   it('does not call onDelete until the action is confirmed', async () => {
@@ -312,7 +396,9 @@ describe('JobDetailPanel', () => {
     await userEvent.click(
       screen.getByRole('button', { name: /delete frontend engineer/i })
     );
-    await userEvent.click(screen.getByRole('button', { name: /^delete job$/i }));
+    await userEvent.click(
+      screen.getByRole('button', { name: /^delete job$/i })
+    );
     expect(onDelete).toHaveBeenCalledWith(mockJob);
   });
 
@@ -350,42 +436,78 @@ describe('JobDetailPanel', () => {
   it('does not render the Interviews section when stage is not Interview', () => {
     render(<JobDetailPanel {...defaultProps} />); // mockJob is 'Applied'
     expect(screen.queryByText('Interviews')).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /add interview/i })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /add interview/i })
+    ).not.toBeInTheDocument();
   });
 
   it('renders the Interviews section when stage is Interview', () => {
-    render(<JobDetailPanel {...defaultProps} job={{ ...mockJob, stage: 'Interview' }} />);
+    render(
+      <JobDetailPanel
+        {...defaultProps}
+        job={{ ...mockJob, stage: 'Interview' }}
+      />
+    );
     expect(screen.getByText('Interviews')).toBeInTheDocument();
   });
 
   it('renders the Add Interview button when stage is Interview', () => {
-    render(<JobDetailPanel {...defaultProps} job={{ ...mockJob, stage: 'Interview' }} />);
-    expect(screen.getByRole('button', { name: /add interview/i })).toBeInTheDocument();
+    render(
+      <JobDetailPanel
+        {...defaultProps}
+        job={{ ...mockJob, stage: 'Interview' }}
+      />
+    );
+    expect(
+      screen.getByRole('button', { name: /add interview/i })
+    ).toBeInTheDocument();
   });
 
   it('shows the empty interviews message when there are no entries', () => {
-    render(<JobDetailPanel {...defaultProps} job={{ ...mockJob, stage: 'Interview' }} />);
+    render(
+      <JobDetailPanel
+        {...defaultProps}
+        job={{ ...mockJob, stage: 'Interview' }}
+      />
+    );
     expect(screen.getByText(/no interviews recorded yet/i)).toBeInTheDocument();
   });
 
   it('renders existing interview entries', () => {
     render(<JobDetailPanel {...defaultProps} job={interviewJob} />);
-    expect(screen.getByRole('list', { name: /interview list/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole('list', { name: /interview list/i })
+    ).toBeInTheDocument();
     expect(screen.getByText('Technical Screen')).toBeInTheDocument();
     expect(screen.getByText('System Design')).toBeInTheDocument();
-    expect(screen.getByText('Algorithms and data structures.')).toBeInTheDocument();
+    expect(
+      screen.getByText('Algorithms and data structures.')
+    ).toBeInTheDocument();
   });
 
   it('opens the Add Interview form when the Add button is clicked', async () => {
-    render(<JobDetailPanel {...defaultProps} job={{ ...mockJob, stage: 'Interview' }} />);
-    await userEvent.click(screen.getByRole('button', { name: /add interview/i }));
-    expect(screen.getByRole('dialog', { name: /add interview/i })).toBeInTheDocument();
+    render(
+      <JobDetailPanel
+        {...defaultProps}
+        job={{ ...mockJob, stage: 'Interview' }}
+      />
+    );
+    await userEvent.click(
+      screen.getByRole('button', { name: /add interview/i })
+    );
+    expect(
+      screen.getByRole('dialog', { name: /add interview/i })
+    ).toBeInTheDocument();
   });
 
   it('opens the Edit Interview form when an interview Edit button is clicked', async () => {
     render(<JobDetailPanel {...defaultProps} job={interviewJob} />);
-    await userEvent.click(screen.getByRole('button', { name: /edit technical screen interview/i }));
-    expect(screen.getByRole('dialog', { name: /edit interview/i })).toBeInTheDocument();
+    await userEvent.click(
+      screen.getByRole('button', { name: /edit technical screen interview/i })
+    );
+    expect(
+      screen.getByRole('dialog', { name: /edit interview/i })
+    ).toBeInTheDocument();
   });
 
   it('calls onUpdateInterview when the edit interview form is submitted', async () => {
@@ -399,11 +521,20 @@ describe('JobDetailPanel', () => {
       />
     );
 
-    await user.click(screen.getByRole('button', { name: /edit technical screen interview/i }));
+    await user.click(
+      screen.getByRole('button', { name: /edit technical screen interview/i })
+    );
     const formDialog = screen.getByRole('dialog', { name: /edit interview/i });
-    await user.clear(within(formDialog).getByRole('textbox', { name: /notes/i }));
-    await user.type(within(formDialog).getByRole('textbox', { name: /notes/i }), 'Updated notes.');
-    await user.click(within(formDialog).getByRole('button', { name: /save changes/i }));
+    await user.clear(
+      within(formDialog).getByRole('textbox', { name: /notes/i })
+    );
+    await user.type(
+      within(formDialog).getByRole('textbox', { name: /notes/i }),
+      'Updated notes.'
+    );
+    await user.click(
+      within(formDialog).getByRole('button', { name: /save changes/i })
+    );
 
     expect(onUpdateInterview).toHaveBeenCalledWith(
       'iv-1',
@@ -425,10 +556,21 @@ describe('JobDetailPanel', () => {
     await user.click(screen.getByRole('button', { name: /add interview/i }));
 
     const formDialog = screen.getByRole('dialog', { name: /add interview/i });
-    await user.selectOptions(within(formDialog).getByRole('combobox', { name: /round type/i }), 'Behavioral');
-    await user.type(within(formDialog).getByLabelText(/date.*time/i), '2026-08-10T09:00');
-    await user.type(within(formDialog).getByRole('textbox', { name: /notes/i }), 'Star method questions.');
-    await user.click(within(formDialog).getByRole('button', { name: /add interview/i }));
+    await user.selectOptions(
+      within(formDialog).getByRole('combobox', { name: /round type/i }),
+      'Behavioral'
+    );
+    await user.type(
+      within(formDialog).getByLabelText(/date.*time/i),
+      '2026-08-10T09:00'
+    );
+    await user.type(
+      within(formDialog).getByRole('textbox', { name: /notes/i }),
+      'Star method questions.'
+    );
+    await user.click(
+      within(formDialog).getByRole('button', { name: /add interview/i })
+    );
 
     expect(onAddInterview).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -463,12 +605,16 @@ describe('JobDetailPanel — Follow-ups (S2-BR-012)', () => {
 
   it('always renders the Follow-ups section', () => {
     render(<JobDetailPanel {...defaultProps} />);
-    expect(screen.getByRole('button', { name: /add follow-up/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /add follow-up/i })
+    ).toBeInTheDocument();
   });
 
   it('renders the Add Follow-up button', () => {
     render(<JobDetailPanel {...defaultProps} />);
-    expect(screen.getByRole('button', { name: /add follow-up/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /add follow-up/i })
+    ).toBeInTheDocument();
   });
 
   it('shows empty message when there are no follow-ups', () => {
@@ -478,7 +624,9 @@ describe('JobDetailPanel — Follow-ups (S2-BR-012)', () => {
 
   it('renders existing follow-up entries', () => {
     render(<JobDetailPanel {...defaultProps} job={followUpJob} />);
-    expect(screen.getByRole('list', { name: /follow-up list/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole('list', { name: /follow-up list/i })
+    ).toBeInTheDocument();
     expect(screen.getByText('Send thank you email')).toBeInTheDocument();
     expect(screen.getByText('Check portal status')).toBeInTheDocument();
   });
@@ -487,14 +635,22 @@ describe('JobDetailPanel — Follow-ups (S2-BR-012)', () => {
     const user = userEvent.setup();
     render(<JobDetailPanel {...defaultProps} />);
     await user.click(screen.getByRole('button', { name: /add follow-up/i }));
-    expect(screen.getByRole('dialog', { name: /add follow-up/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole('dialog', { name: /add follow-up/i })
+    ).toBeInTheDocument();
   });
 
   it('opens the Edit Follow-up form when an edit button is clicked', async () => {
     const user = userEvent.setup();
     render(<JobDetailPanel {...defaultProps} job={followUpJob} />);
-    await user.click(screen.getByRole('button', { name: /edit follow-up "send thank you email"/i }));
-    expect(screen.getByRole('dialog', { name: /edit follow-up/i })).toBeInTheDocument();
+    await user.click(
+      screen.getByRole('button', {
+        name: /edit follow-up "send thank you email"/i,
+      })
+    );
+    expect(
+      screen.getByRole('dialog', { name: /edit follow-up/i })
+    ).toBeInTheDocument();
   });
 
   it('calls onAddFollowUp when the form is submitted', async () => {
@@ -505,9 +661,17 @@ describe('JobDetailPanel — Follow-ups (S2-BR-012)', () => {
     await user.click(screen.getByRole('button', { name: /add follow-up/i }));
     const dialog = screen.getByRole('dialog', { name: /add follow-up/i });
 
-    await user.type(within(dialog).getByLabelText(/title/i), 'Follow up on application');
-    await user.type(within(dialog).getByLabelText(/due date/i), '2026-08-05T10:00');
-    await user.click(within(dialog).getByRole('button', { name: /add follow-up/i }));
+    await user.type(
+      within(dialog).getByLabelText(/title/i),
+      'Follow up on application'
+    );
+    await user.type(
+      within(dialog).getByLabelText(/due date/i),
+      '2026-08-05T10:00'
+    );
+    await user.click(
+      within(dialog).getByRole('button', { name: /add follow-up/i })
+    );
 
     expect(onAddFollowUp).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -520,14 +684,26 @@ describe('JobDetailPanel — Follow-ups (S2-BR-012)', () => {
   it('calls onUpdateFollowUp when the edit form is submitted', async () => {
     const onUpdateFollowUp = vi.fn().mockResolvedValue(undefined);
     const user = userEvent.setup();
-    render(<JobDetailPanel {...defaultProps} job={followUpJob} onUpdateFollowUp={onUpdateFollowUp} />);
+    render(
+      <JobDetailPanel
+        {...defaultProps}
+        job={followUpJob}
+        onUpdateFollowUp={onUpdateFollowUp}
+      />
+    );
 
-    await user.click(screen.getByRole('button', { name: /edit follow-up "send thank you email"/i }));
+    await user.click(
+      screen.getByRole('button', {
+        name: /edit follow-up "send thank you email"/i,
+      })
+    );
     const dialog = screen.getByRole('dialog', { name: /edit follow-up/i });
 
     await user.clear(within(dialog).getByLabelText(/title/i));
     await user.type(within(dialog).getByLabelText(/title/i), 'Updated title');
-    await user.click(within(dialog).getByRole('button', { name: /save changes/i }));
+    await user.click(
+      within(dialog).getByRole('button', { name: /save changes/i })
+    );
 
     expect(onUpdateFollowUp).toHaveBeenCalledWith(
       'fu-1',
@@ -541,8 +717,16 @@ describe('JobDetailPanel — Timeline (S2-BR-013)', () => {
     const jobWithHistory = {
       ...mockJob,
       stageHistory: [
-        { id: 'sh-1', toStage: 'Applied', changedAt: '2026-06-05T00:00:00.000Z' },
-        { id: 'sh-2', toStage: 'Interview', changedAt: '2026-06-15T00:00:00.000Z' },
+        {
+          id: 'sh-1',
+          toStage: 'Applied',
+          changedAt: '2026-06-05T00:00:00.000Z',
+        },
+        {
+          id: 'sh-2',
+          toStage: 'Interview',
+          changedAt: '2026-06-15T00:00:00.000Z',
+        },
       ],
     };
     render(<JobDetailPanel {...defaultProps} job={jobWithHistory} />);
@@ -564,7 +748,9 @@ describe('JobDetailPanel — Timeline (S2-BR-013)', () => {
       ],
     };
     render(<JobDetailPanel {...defaultProps} job={jobWithFollowUps} />);
-    expect(screen.getByText(/follow-up added: send thank you email/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/follow-up added: send thank you email/i)
+    ).toBeInTheDocument();
   });
 
   it('includes follow-up completion events in the timeline', () => {
@@ -581,7 +767,28 @@ describe('JobDetailPanel — Timeline (S2-BR-013)', () => {
       ],
     };
     render(<JobDetailPanel {...defaultProps} job={jobWithCompleted} />);
-    expect(screen.getByText(/follow-up completed: send thank you email/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/follow-up completed: send thank you email/i)
+    ).toBeInTheDocument();
+  });
+
+  it('includes interview events in the timeline', () => {
+    const jobWithInterview = {
+      ...mockJob,
+      stage: 'Interview',
+      interviews: [
+        {
+          id: 'iv-1',
+          roundType: 'Phone Screen',
+          scheduledAt: '2026-06-27T02:00:00.000Z',
+          notes: '',
+        },
+      ],
+    };
+
+    render(<JobDetailPanel {...defaultProps} job={jobWithInterview} />);
+
+    expect(screen.getByText('Interview: Phone Screen')).toBeInTheDocument();
   });
 });
 
@@ -590,34 +797,55 @@ describe('JobDetailPanel — Archive and Restore (S2-014)', () => {
     ...mockJob,
     stage: 'Archived',
     stageHistory: [
-      { id: 'sh-1', fromStage: 'Interview', toStage: 'Archived', changedAt: '2026-06-20T00:00:00.000Z' },
+      {
+        id: 'sh-1',
+        fromStage: 'Interview',
+        toStage: 'Archived',
+        changedAt: '2026-06-20T00:00:00.000Z',
+      },
     ],
   };
 
   it('shows the Archive button when stage is not Archived', () => {
     render(<JobDetailPanel {...defaultProps} />);
-    expect(screen.getByRole('button', { name: /archive frontend engineer/i })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /restore frontend engineer/i })).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /archive frontend engineer/i })
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /restore frontend engineer/i })
+    ).not.toBeInTheDocument();
   });
 
   it('shows the Restore button (not Archive) when stage is Archived', () => {
     render(<JobDetailPanel {...defaultProps} job={archivedJob} />);
-    expect(screen.getByRole('button', { name: /restore frontend engineer/i })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /archive frontend engineer/i })).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /restore frontend engineer/i })
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /archive frontend engineer/i })
+    ).not.toBeInTheDocument();
   });
 
   it('opens the archive dialog when Archive is clicked', async () => {
     const user = userEvent.setup();
     render(<JobDetailPanel {...defaultProps} />);
-    await user.click(screen.getByRole('button', { name: /archive frontend engineer/i }));
-    expect(screen.getByRole('alertdialog', { name: /archive job/i })).toBeInTheDocument();
+    await user.click(
+      screen.getByRole('button', { name: /archive frontend engineer/i })
+    );
+    expect(
+      screen.getByRole('alertdialog', { name: /archive job/i })
+    ).toBeInTheDocument();
   });
 
   it('opens the restore dialog when Restore is clicked', async () => {
     const user = userEvent.setup();
     render(<JobDetailPanel {...defaultProps} job={archivedJob} />);
-    await user.click(screen.getByRole('button', { name: /restore frontend engineer/i }));
-    expect(screen.getByRole('alertdialog', { name: /restore job/i })).toBeInTheDocument();
+    await user.click(
+      screen.getByRole('button', { name: /restore frontend engineer/i })
+    );
+    expect(
+      screen.getByRole('alertdialog', { name: /restore job/i })
+    ).toBeInTheDocument();
   });
 
   it('calls onArchive with the note when Archive is confirmed', async () => {
@@ -625,11 +853,15 @@ describe('JobDetailPanel — Archive and Restore (S2-014)', () => {
     const user = userEvent.setup();
     render(<JobDetailPanel {...defaultProps} onArchive={onArchive} />);
 
-    await user.click(screen.getByRole('button', { name: /archive frontend engineer/i }));
+    await user.click(
+      screen.getByRole('button', { name: /archive frontend engineer/i })
+    );
     const dialog = screen.getByRole('alertdialog', { name: /archive job/i });
 
     await user.type(within(dialog).getByLabelText(/note/i), 'Position filled');
-    await user.click(within(dialog).getByRole('button', { name: /^archive$/i }));
+    await user.click(
+      within(dialog).getByRole('button', { name: /^archive$/i })
+    );
 
     expect(onArchive).toHaveBeenCalledWith('Position filled');
   });
@@ -637,9 +869,17 @@ describe('JobDetailPanel — Archive and Restore (S2-014)', () => {
   it('calls onRestore when Restore is confirmed', async () => {
     const onRestore = vi.fn().mockResolvedValue(undefined);
     const user = userEvent.setup();
-    render(<JobDetailPanel {...defaultProps} job={archivedJob} onRestore={onRestore} />);
+    render(
+      <JobDetailPanel
+        {...defaultProps}
+        job={archivedJob}
+        onRestore={onRestore}
+      />
+    );
 
-    await user.click(screen.getByRole('button', { name: /restore frontend engineer/i }));
+    await user.click(
+      screen.getByRole('button', { name: /restore frontend engineer/i })
+    );
     await user.click(screen.getByRole('button', { name: /^restore$/i }));
 
     expect(onRestore).toHaveBeenCalledOnce();
@@ -649,7 +889,9 @@ describe('JobDetailPanel — Archive and Restore (S2-014)', () => {
     const user = userEvent.setup();
     render(<JobDetailPanel {...defaultProps} job={archivedJob} />);
 
-    await user.click(screen.getByRole('button', { name: /restore frontend engineer/i }));
+    await user.click(
+      screen.getByRole('button', { name: /restore frontend engineer/i })
+    );
     const dialog = screen.getByRole('alertdialog', { name: /restore job/i });
 
     expect(within(dialog).getByText(/interview/i)).toBeInTheDocument();
