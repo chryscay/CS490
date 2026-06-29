@@ -6,6 +6,7 @@ import JobDetailPanel from '../features/jobs/JobDetailPanel';
 import { transitionStage, deleteJob, addInterview, updateInterview, addFollowUp, updateFollowUp, archiveJob, restoreJob } from '../features/jobs/jobsApi';
 import { STAGES } from '../features/jobs/stageStyles';
 import { applyFilters } from '../features/jobs/jobFilters';
+import { sortJobs, SORT_OPTIONS } from '../features/jobs/jobSort';
 
 export default function DashboardPage() {
   const { currentUser } = useAuth();
@@ -21,6 +22,8 @@ export default function DashboardPage() {
   const [filterDeadlineState, setFilterDeadlineState] = useState('all');
   const [filterLocation, setFilterLocation] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [sortBy, setSortBy] = useState('lastActivityAt');
+  const [sortDir, setSortDir] = useState('desc');
   const [showArchived, setShowArchived] = useState(false);
 
   const loadJobs = () => {
@@ -135,28 +138,36 @@ export default function DashboardPage() {
 
   const archivedCount = jobs.filter((j) => j.stage === 'Archived').length;
 
-  const visibleJobs = applyFilters(jobs, {
-    stage: filterStage,
-    location: filterLocation,
-    deadlineState: filterDeadlineState,
-    search: searchTerm,
-    showArchived,
-  });
+  const visibleJobs = sortJobs(
+    applyFilters(jobs, {
+      stage: filterStage,
+      location: filterLocation,
+      deadlineState: filterDeadlineState,
+      search: searchTerm,
+      showArchived,
+    }),
+    sortBy,
+    sortDir
+  );
+
 
 // SCRUM-62: stage counts + response tracking (S2-BR-022), computed from
-// persisted job records, not UI state (S2-BR-023). Fixes the prior 'Hired'
-// stat, which filtered a non-canonical stage and always read zero.
-const RESPONSE_STAGES = ['Interview', 'Offer', 'Rejected'];
-const countByStage = (stage) => jobs.filter((j) => j.stage === stage).length;
-const responseCount = jobs.filter((j) => RESPONSE_STAGES.includes(j.stage)).length;
+  // persisted job records, not UI state (S2-BR-023). Fixes the prior 'Hired'
+  // stat, which filtered a non-canonical stage and always read zero.
+  const RESPONSE_STAGES = ['Interview', 'Offer', 'Rejected'];
+  const countByStage = (stage) => jobs.filter((j) => j.stage === stage).length;
+  const responseCount = jobs.filter((j) => RESPONSE_STAGES.includes(j.stage)).length;
 
-const stats = [
-  { label: 'Total Jobs', value: jobs.length },
-  { label: 'Applications', value: countByStage('Applied') },
-  { label: 'Interviews', value: countByStage('Interview') },
-  { label: 'Offers', value: countByStage('Offer') },
-  { label: 'Responses', value: responseCount },
-];
+  const stats = [
+    { label: 'Total Jobs', value: jobs.length },
+    { label: 'Applications', value: countByStage('Applied') },
+    { label: 'Interviews', value: countByStage('Interview') },
+    { label: 'Offers', value: countByStage('Offer') },
+    { label: 'Responses', value: responseCount },
+  ];
+
+
+
   const selectClass = `
     rounded-xl
     bg-white/5
@@ -286,6 +297,29 @@ const stats = [
         >
           {showArchived ? 'Hide archived' : `Show archived${archivedCount > 0 ? ` (${archivedCount})` : ''}`}
         </button>
+
+        <select
+          aria-label="Sort by"
+          value={sortBy}
+          onChange={(e) => setSortBy(e.target.value)}
+          className={selectClass}
+        >
+          {SORT_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value} className="bg-[#13131f]">
+              Sort: {opt.label}
+            </option>
+          ))}
+        </select>
+
+        <select
+          aria-label="Sort direction"
+          value={sortDir}
+          onChange={(e) => setSortDir(e.target.value)}
+          className={selectClass}
+        >
+          <option value="desc" className="bg-[#13131f]">Descending</option>
+          <option value="asc" className="bg-[#13131f]">Ascending</option>
+        </select>
 
         {hasActiveFilters && (
           <button
