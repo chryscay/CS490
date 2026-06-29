@@ -144,6 +144,7 @@ export default function DashboardPage() {
       location: filterLocation,
       deadlineState: filterDeadlineState,
       search: searchTerm,
+      showArchived,
     }),
     sortBy,
     sortDir

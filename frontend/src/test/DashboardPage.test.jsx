@@ -79,6 +79,29 @@ describe('DashboardPage', () => {
     expect(statValue('Responses')).toBe('3');
   });
 
+  it('hides archived jobs by default and shows them when the toggle is flipped (SCRUM-51)', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      json: vi.fn().mockResolvedValue({
+        jobs: [
+          { _id: '1', title: 'Active Role', company: 'X', stage: 'Applied', lastActivityAt: '2026-06-10T00:00:00.000Z' },
+          { _id: '2', title: 'Archived Role', company: 'X', stage: 'Archived', lastActivityAt: '2026-06-10T00:00:00.000Z' },
+        ],
+      }),
+    }));
+
+    const user = userEvent.setup();
+    render(<DashboardPage />);
+
+    await waitFor(() => expect(screen.getByText('Active Role')).toBeInTheDocument());
+    expect(screen.queryByText('Archived Role')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /show archived jobs/i }));
+    expect(screen.getByText('Archived Role')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /hide archived jobs/i }));
+    expect(screen.queryByText('Archived Role')).not.toBeInTheDocument();
+  });
+
   it('renders job cards when jobs are returned from the API', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
       json: vi.fn().mockResolvedValue({
@@ -221,3 +244,6 @@ describe('DashboardPage', () => {
     expect(screen.queryByRole('button', { name: /clear filters/i })).not.toBeInTheDocument();
   });
 });
+
+
+
