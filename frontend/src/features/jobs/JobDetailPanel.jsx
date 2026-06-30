@@ -1,12 +1,13 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { useAuth } from '../auth/useAuth';
-import { generateJobDraft, rewriteJobDraft, saveJobDocument } from './jobsApi';
+import { generateJobDraft, rewriteJobDraft, saveJobDocument, getJobDocuments } from './jobsApi';
 import { getStageStyles, isOutcomeStage } from './stageStyles';
 import DeleteJobDialog from './DeleteJobDialog';
 import ArchiveJobDialog from './ArchiveJobDialog';
 import InterviewForm from './InterviewForm';
 import FollowUpForm from './FollowUpForm';
+
 
 function formatDate(dateStr) {
   if (!dateStr) return '-';
@@ -130,6 +131,25 @@ export default function JobDetailPanel({
   const [saveLoading, setSaveLoading] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [saveMessage, setSaveMessage] = useState('');
+  const [savedDocs, setSavedDocs] = useState([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadSavedDocs() {
+      try {
+        const token = await currentUser.getIdToken();
+        const { documents } = await getJobDocuments(job._id, token);
+        if (!cancelled) setSavedDocs(documents ?? []);
+      } catch {
+        // Non-blocking: if saved docs can't load, the panel still works.
+        if (!cancelled) setSavedDocs([]);
+      }
+    }
+    if (job._id && currentUser) loadSavedDocs();
+    return () => {
+      cancelled = true;
+    };
+  }, [job._id, currentUser]);
 
   const handleGenerateDraft = async (type) => {
     if (rewriteLoading) {
@@ -586,6 +606,47 @@ export default function JobDetailPanel({
                 No outcome note recorded.
               </p>
             )}
+          </div>
+        )}
+
+        {/* Saved drafts (SCRUM-XX) — reload persisted document versions */}
+        {savedDocs.length > 0 && (
+          <div className="px-6 py-5 border-b border-white/10">
+            <h3 className="text-sm font-medium text-white/50 uppercase tracking-wider mb-3">
+              Saved Drafts
+            </h3>
+            <ul className="space-y-3">
+              {savedDocs.map((doc) => (
+                <li
+                  key={doc._id}
+                  className="rounded-xl border border-white/10 bg-white/[0.03] p-4 flex items-start justify-between gap-3"
+                >
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-white/80">
+                      {doc.title}
+                    </p>
+                    <p className="text-xs text-white/40 mt-0.5">
+                      {doc.type === 'coverLetter' ? 'Cover Letter' : 'Resume'} ·
+                      version {doc.currentVersion}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setDraftType(doc.type);
+                      setDraftText(doc.text);
+                      setDraftVisible(true);
+                      setDraftError('');
+                      setSaveError('');
+                      setSaveMessage('');
+                    }}
+                    aria-label={`Load saved ${doc.type} draft`}
+                    className="flex-shrink-0 rounded-lg border border-white/10 px-3 py-1.5 text-xs text-white/60 hover:text-white hover:bg-white/5 transition"
+                  >
+                    Load
+                  </button>
+                </li>
+              ))}
+            </ul>
           </div>
         )}
 
