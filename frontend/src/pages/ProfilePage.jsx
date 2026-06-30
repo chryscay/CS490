@@ -7,6 +7,7 @@ import EducationSection from '../features/profile/sections/EducationSection.jsx'
 import SkillsSection from '../features/profile/sections/SkillsSection.jsx';
 import CareerPreferencesSection from '../features/profile/sections/CareerPreferencesSection.jsx';
 import { loadProfile } from '../features/profile/profileApi.js';
+import ExperienceSection from '../features/profile/sections/ExperienceSection.jsx';
 
 const EMPTY_PROFILE = {
   firstName: '',
@@ -16,6 +17,7 @@ const EMPTY_PROFILE = {
   state: '',
   summary: '',
   education: [],
+  experience: [],
   skills: [],
   careerPreferences: {
     targetRoles: [],
@@ -91,6 +93,7 @@ export default function ProfilePage() {
         <IdentitySection profile={profile} onSaved={handleSectionSaved} />
         <SummarySection profile={profile} onSaved={handleSectionSaved} />
         <EducationSection profile={profile} onSaved={handleSectionSaved} />
+        <ExperienceSection profile={profile} onSaved={handleSectionSaved} />
         <SkillsSection profile={profile} onSaved={handleSectionSaved} />
         <CareerPreferencesSection profile={profile} onSaved={handleSectionSaved} />
       </div>

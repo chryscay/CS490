@@ -7,6 +7,7 @@ const SECTION_FIELDS = {
   identity: ['firstName', 'lastName', 'phone', 'city', 'state'],
   summary: ['summary'],
   education: ['education'],
+  experience: ['experience'],
   skills: ['skills'],
   careerPreferences: ['careerPreferences'],
 };
@@ -51,6 +52,29 @@ const SECTION_VALIDATORS = {
 
     return errors;
   },
+
+  experience: (body) => {
+    const errors = {};
+    if (!Array.isArray(body.experience)) return errors;
+
+    body.experience.forEach((exp, idx) => {
+      if (!exp.title?.trim()) {
+        errors[`experience[${idx}].title`] = 'Title is required';
+      }
+      if (!exp.company?.trim()) {
+        errors[`experience[${idx}].company`] = 'Company is required';
+      }
+      if (!exp.startDate) {
+        errors[`experience[${idx}].startDate`] = 'Start date is required';
+      }
+      if (exp.endDate && exp.startDate && new Date(exp.endDate) < new Date(exp.startDate)) {
+        errors[`experience[${idx}].endDate`] = 'End date cannot be earlier than start date';
+      }
+    });
+
+    return errors;
+  },
+  
   skills: (body) => {
     const errors = {};
     if (!Array.isArray(body.skills)) return errors;
@@ -228,6 +252,15 @@ export default class ProfileController {
             startDate: edu.startDate ?? '',
             endDate: edu.endDate ?? '',
             description: edu.description?.trim() ?? '',
+          }));
+        } else if (field === 'experience' && Array.isArray(value)) {
+          updates.experience = value.map((exp) => ({
+            id: exp.id,
+            title: exp.title?.trim() ?? '',
+            company: exp.company?.trim() ?? '',
+            startDate: exp.startDate ?? '',
+            endDate: exp.endDate ?? '',
+            description: exp.description?.trim() ?? '',
           }));
         } else if (field === 'skills' && Array.isArray(value)) {
           updates.skills = value.map((skill) => ({
