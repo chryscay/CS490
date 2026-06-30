@@ -290,9 +290,8 @@ const profile = {
   lastName: 'Rivera',
   email: 'alex.rivera@example.com',
   phone: '4155550182',
-  location: 'San Francisco, CA',
-  linkedIn: 'https://linkedin.com/in/alex-rivera',
-  website: 'https://alexrivera.dev',
+  city: 'San Francisco',
+  state: 'CA',
   // Summary
   summary:
     'Full-stack software engineer with 3 years of experience building scalable web ' +
@@ -304,8 +303,8 @@ const profile = {
       id: randomUUID(),
       company: 'Acme Corp',
       title: 'Software Engineer',
-      startDate: '2022-06',
-      endDate: '2025-01',
+      startDate: '2022-06-01',
+      endDate: '2025-01-01',
       description:
         'Built and maintained the core API used by 50k+ customers. Led migration from REST to GraphQL. ' +
         'Reduced p99 latency by 40% through query optimization and caching.',
@@ -314,8 +313,8 @@ const profile = {
       id: randomUUID(),
       company: 'StartupXYZ',
       title: 'Junior Developer',
-      startDate: '2021-05',
-      endDate: '2022-05',
+      startDate: '2021-05-01',
+      endDate: '2022-05-01',
       description:
         'Full-stack feature development on a React + Node.js SaaS platform. ' +
         'Owned the user onboarding flow end-to-end.',
@@ -325,10 +324,11 @@ const profile = {
   education: [
     {
       id: randomUUID(),
-      institution: 'University of California, Berkeley',
+      schoolName: 'University of California, Berkeley',
       degree: 'B.S. Computer Science',
-      startDate: '2017-08',
-      endDate: '2021-05',
+      fieldOfStudy: 'Computer Science',
+      startDate: '2017-08-01',
+      endDate: '2021-05-01',
       description: 'GPA 3.7. Coursework in algorithms, systems, and machine learning.',
     },
   ],
@@ -349,7 +349,7 @@ const profile = {
       { id: randomUUID(), name: 'Software Engineer' },
       { id: randomUUID(), name: 'Full Stack Engineer' },
     ],
-    targetLocations: [
+    locations: [
       { id: randomUUID(), name: 'San Francisco, CA' },
       { id: randomUUID(), name: 'Remote' },
     ],
