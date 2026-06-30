@@ -25,6 +25,8 @@ export default function DashboardPage() {
   const [sortBy, setSortBy] = useState('lastActivityAt');
   const [sortDir, setSortDir] = useState('desc');
   const [showArchived, setShowArchived] = useState(false);
+  const [itemsPerPage, setItemsPerPage] = useState(6);
+  const [currentPage, setCurrentPage] = useState(1);
 
   const loadJobs = () => {
     if (!currentUser) {
@@ -49,6 +51,10 @@ export default function DashboardPage() {
     loadJobs();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filterStage, filterLocation, filterDeadlineState, searchTerm, sortBy, sortDir, showArchived, itemsPerPage]);
 
   const openCreate = () => {
     setEditingJob(null);
@@ -150,6 +156,10 @@ export default function DashboardPage() {
     sortDir
   );
 
+  const totalPages = Math.max(1, Math.ceil(visibleJobs.length / itemsPerPage));
+  const safePage = Math.min(currentPage, totalPages);
+  const paginatedJobs = visibleJobs.slice((safePage - 1) * itemsPerPage, safePage * itemsPerPage);
+
 
 // SCRUM-62: stage counts + response tracking (S2-BR-022), computed from
   // persisted job records, not UI state (S2-BR-023). Fixes the prior 'Hired'
@@ -168,19 +178,7 @@ export default function DashboardPage() {
 
 
 
-  const selectClass = `
-    rounded-xl
-    bg-white/5
-    border
-    border-white/10
-    px-4
-    py-2.5
-    text-sm
-    text-white
-    focus:outline-none
-    focus:ring-2
-    focus:ring-blue-500
-  `;
+  const selectClass = 'shrink-0 rounded-xl bg-white/5 border border-white/10 px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500';
 
   return (
     <div className="w-full">
@@ -221,20 +219,7 @@ export default function DashboardPage() {
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           placeholder="Search jobs..."
-          className="
-            rounded-xl
-            bg-white/5
-            border
-            border-white/10
-            px-4
-            py-2.5
-            text-sm
-            text-white
-            placeholder-white/40
-            focus:outline-none
-            focus:ring-2
-            focus:ring-blue-500
-          "
+          className="w-36 shrink-0 rounded-xl bg-white/5 border border-white/10 px-4 py-2.5 text-sm text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
         <select
           aria-label="Filter by stage"
@@ -268,75 +253,45 @@ export default function DashboardPage() {
           value={filterLocation}
           onChange={(e) => setFilterLocation(e.target.value)}
           placeholder="Filter by location..."
-          className="
-            rounded-xl
-            bg-white/5
-            border
-            border-white/10
-            px-4
-            py-2.5
-            text-sm
-            text-white
-            placeholder-white/40
-            focus:outline-none
-            focus:ring-2
-            focus:ring-blue-500
-          "
+          className="w-36 shrink-0 rounded-xl bg-white/5 border border-white/10 px-4 py-2.5 text-sm text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
 
         <button
           onClick={() => setShowArchived((prev) => !prev)}
           aria-label={showArchived ? 'Hide archived jobs' : 'Show archived jobs'}
           aria-pressed={showArchived}
-          className={`
-            rounded-xl border px-4 py-2.5 text-sm transition
-            ${showArchived
-              ? 'border-white/20 bg-white/10 text-white'
-              : 'border-white/10 bg-transparent text-white/50 hover:text-white hover:bg-white/5'}
-          `}
+          className={`shrink-0 rounded-xl border px-4 py-2.5 text-sm transition whitespace-nowrap ${showArchived ? 'border-white/20 bg-white/10 text-white' : 'border-white/10 bg-transparent text-white/50 hover:text-white hover:bg-white/5'}`}
         >
           {showArchived ? 'Hide archived' : `Show archived${archivedCount > 0 ? ` (${archivedCount})` : ''}`}
         </button>
 
         <select
           aria-label="Sort by"
-          value={sortBy}
-          onChange={(e) => setSortBy(e.target.value)}
+          value={`${sortBy}|${sortDir}`}
+          onChange={(e) => {
+            const [field, dir] = e.target.value.split('|');
+            setSortBy(field);
+            setSortDir(dir);
+          }}
           className={selectClass}
         >
           {SORT_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value} className="bg-[#13131f]">
-              Sort: {opt.label}
-            </option>
+            <optgroup key={opt.value} label={opt.label} className="bg-[#13131f]">
+              <option value={`${opt.value}|desc`} className="bg-[#13131f]">
+                {opt.label} ↓
+              </option>
+              <option value={`${opt.value}|asc`} className="bg-[#13131f]">
+                {opt.label} ↑
+              </option>
+            </optgroup>
           ))}
-        </select>
-
-        <select
-          aria-label="Sort direction"
-          value={sortDir}
-          onChange={(e) => setSortDir(e.target.value)}
-          className={selectClass}
-        >
-          <option value="desc" className="bg-[#13131f]">Descending</option>
-          <option value="asc" className="bg-[#13131f]">Ascending</option>
         </select>
 
         {hasActiveFilters && (
           <button
             onClick={clearFilters}
             aria-label="Clear filters"
-            className="
-              rounded-xl
-              border
-              border-white/10
-              px-4
-              py-2.5
-              text-sm
-              text-white/60
-              hover:text-white
-              hover:bg-white/5
-              transition
-            "
+            className="shrink-0 whitespace-nowrap rounded-xl border border-white/10 px-4 py-2.5 text-sm text-white/60 hover:text-white hover:bg-white/5 transition"
           >
             Clear filters
           </button>
@@ -345,7 +300,7 @@ export default function DashboardPage() {
 
       {/* Stats */}
       <div
-        className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-8"
+        className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4 mb-8"
         aria-label="Job statistics"
       >
         {stats.map(({ label, value }) => (
@@ -393,7 +348,7 @@ export default function DashboardPage() {
           </div>
         ) : (
           <ul className="space-y-4">
-            {visibleJobs.map((job) => (
+            {paginatedJobs.map((job) => (
               <JobCard
                 key={job._id}
                 job={job}
@@ -404,6 +359,47 @@ export default function DashboardPage() {
               />
             ))}
           </ul>
+        )}
+
+        {!loading && visibleJobs.length > 0 && (
+          <div className="flex items-center justify-between mt-6 pt-6 border-t border-white/10">
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-white/50">Per page:</span>
+              {[1, 3, 6, 9].map((n) => (
+                <button
+                  key={n}
+                  onClick={() => setItemsPerPage(n)}
+                  className={`w-8 h-8 rounded-lg text-sm font-medium transition focus:outline-none flex items-center justify-center ${
+                    itemsPerPage === n
+                      ? 'bg-blue-600 text-white ring-2 ring-blue-500 ring-offset-2 ring-offset-[#0e0e0e]'
+                      : 'bg-white/5 text-white/60 hover:bg-white/10 hover:text-white'
+                  }`}
+                >
+                  {n}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={safePage === 1}
+                className="px-3 py-1.5 rounded-lg text-sm bg-white/5 text-white/60 hover:bg-white/10 hover:text-white transition disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                ← Prev
+              </button>
+              <span className="text-sm text-white/50">
+                {safePage} / {totalPages}
+              </span>
+              <button
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                disabled={safePage === totalPages}
+                className="px-3 py-1.5 rounded-lg text-sm bg-white/5 text-white/60 hover:bg-white/10 hover:text-white transition disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                Next →
+              </button>
+            </div>
+          </div>
         )}
       </section>
 

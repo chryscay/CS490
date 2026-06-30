@@ -370,7 +370,7 @@ export default function JobDetailPanel({
         aria-label="Job details"
         className="
           fixed right-0 top-0 h-full w-full max-w-lg
-          bg-[#13131f] border-l border-white/10
+          bg-[#0e0e0e] border-l border-white/10
           flex flex-col z-50
           overflow-y-auto
         "
@@ -393,101 +393,59 @@ export default function JobDetailPanel({
         </div>
 
         {/* Stage + actions */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-white/10">
-          <span
-            className={`rounded-full px-3 py-1 text-xs font-medium ${stageStyle}`}
-          >
-            {job.stage}
-          </span>
+        <div className="flex flex-col gap-2 px-6 py-4 border-b border-white/10">
           <div className="flex items-center gap-2">
+            <span className={`rounded-full px-3 py-1 text-xs font-medium shrink-0 ${stageStyle}`}>
+              {job.stage}
+            </span>
             <button
               onClick={() => onEdit(job)}
               aria-label={`Edit ${job.title}`}
-              className="
-                rounded-lg border border-white/10 px-4 py-2
-                text-sm text-white/70
-                hover:text-white hover:border-white/20 hover:bg-white/5
-                transition
-              "
+              className="flex-1 rounded-lg border border-white/10 px-4 py-2 text-sm text-white/70 hover:text-white hover:border-white/20 hover:bg-white/5 transition"
             >
               Edit
             </button>
-            <button
-              onClick={() => handleGenerateDraft('resume')}
-              disabled={draftLoading || rewriteLoading}
-              aria-label={`Generate resume draft for ${job.title}`}
-              className="
-                rounded-lg border border-white/10 px-4 py-2
-                text-sm text-white/70
-                hover:text-white hover:border-white/20 hover:bg-white/5
-                transition
-                disabled:cursor-not-allowed disabled:text-white/30
-              "
-            >
-              {draftLoading ? 'Generating...' : 'Generate resume draft'}
-            </button>
-
             {job.stage !== 'Archived' ? (
               <button
-                onClick={() => {
-                  setArchiveDialogMode('archive');
-                  setArchiveError('');
-                  setArchiveDialogOpen(true);
-                }}
+                onClick={() => { setArchiveDialogMode('archive'); setArchiveError(''); setArchiveDialogOpen(true); }}
                 aria-label={`Archive ${job.title}`}
-                className="
-                  rounded-lg border border-white/10 px-4 py-2
-                  text-sm text-white/60
-                  hover:text-white hover:bg-white/5
-                  transition
-                "
+                className="flex-1 rounded-lg border border-white/10 px-4 py-2 text-sm text-white/60 hover:text-white hover:bg-white/5 transition"
               >
                 Archive
               </button>
             ) : (
               <button
-                onClick={() => {
-                  setArchiveDialogMode('restore');
-                  setArchiveError('');
-                  setArchiveDialogOpen(true);
-                }}
+                onClick={() => { setArchiveDialogMode('restore'); setArchiveError(''); setArchiveDialogOpen(true); }}
                 aria-label={`Restore ${job.title}`}
-                className="
-                  rounded-lg border border-green-500/30 px-4 py-2
-                  text-sm text-green-300
-                  hover:text-green-200 hover:border-green-500/40 hover:bg-green-500/10
-                  transition
-                "
+                className="flex-1 rounded-lg border border-green-500/30 px-4 py-2 text-sm text-green-300 hover:text-green-200 hover:border-green-500/40 hover:bg-green-500/10 transition"
               >
                 Restore
               </button>
             )}
             <button
+              onClick={() => setConfirmOpen(true)}
+              aria-label={`Delete ${job.title}`}
+              className="flex-1 rounded-lg border border-red-500/30 px-4 py-2 text-sm text-red-300 hover:text-red-200 hover:border-red-500/40 hover:bg-red-500/10 transition"
+            >
+              Delete
+            </button>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => handleGenerateDraft('resume')}
+              disabled={draftLoading || rewriteLoading}
+              aria-label={`Generate resume draft for ${job.title}`}
+              className="flex-1 rounded-lg border border-white/10 px-4 py-2 text-sm text-white/70 hover:text-white hover:border-white/20 hover:bg-white/5 transition disabled:cursor-not-allowed disabled:text-white/30"
+            >
+              {draftLoading ? 'Generating...' : 'Generate resume draft'}
+            </button>
+            <button
               onClick={() => handleGenerateDraft('coverLetter')}
               disabled={draftLoading || rewriteLoading}
               aria-label={`Generate cover letter draft for ${job.title}`}
-              className="
-                rounded-lg border border-white/10 px-4 py-2
-                text-sm text-white/70
-                hover:text-white hover:border-white/20 hover:bg-white/5
-                transition
-                disabled:cursor-not-allowed disabled:text-white/30
-              "
+              className="flex-1 rounded-lg border border-white/10 px-4 py-2 text-sm text-white/70 hover:text-white hover:border-white/20 hover:bg-white/5 transition disabled:cursor-not-allowed disabled:text-white/30"
             >
               {draftLoading ? 'Generating...' : 'Generate cover letter draft'}
-            </button>
-
-            <button
-              onClick={() => setConfirmOpen(true)}
-              aria-label={`Delete ${job.title}`}
-              className="
-                rounded-lg border border-red-500/30 px-4 py-2
-                text-sm text-red-300
-                hover:text-red-200 hover:border-red-500/40 hover:bg-red-500/10
-                transition
-              "
-            >
-              Delete
             </button>
           </div>
         </div>
