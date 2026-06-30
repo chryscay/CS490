@@ -306,6 +306,7 @@ describe('PUT /api/profile', () => {
     expect(writtenFields.education[0].description).toBe('Focused on math');
   });
 });
+
 describe('PUT /api/profile/:section', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -336,9 +337,7 @@ describe('PUT /api/profile/:section', () => {
         firstName: 'Ada', lastName: 'Lovelace', phone: '5550100123', city: 'London', state: 'NY',
       })
     );
-    // summary is not part of the identity section, so it must not be written
     expect(written.summary).toBeUndefined();
-    // response reflects persisted state (re-fetched after write)
     expect(res.body.profile.firstName).toBe('Ada');
   });
 
@@ -570,6 +569,128 @@ describe('PUT /api/profile/:section', () => {
           workMode: '',
           salaryPreference: '',
         },
+      });
+
+    expect(res.status).toBe(200);
+    expect(UsersDAO.updateProfile).toHaveBeenCalled();
+  });
+
+  it('saves experience section and trims values (happy path + persistence)', async () => {
+    UsersDAO.updateProfile.mockResolvedValue({ modifiedCount: 1 });
+    UsersDAO.getProfile.mockResolvedValue({
+      email: 'a@test.com',
+      experience: [
+        {
+          id: 'exp-1',
+          title: 'Software Engineer',
+          company: 'Acme Corp',
+          startDate: '2022-01-01',
+          endDate: '2024-06-30',
+          description: 'Built things',
+        },
+      ],
+    });
+
+    const res = await request(app)
+      .put('/api/profile/experience')
+      .set('Authorization', 'Bearer faketoken')
+      .send({
+        experience: [
+          {
+            id: 'exp-1',
+            title: '  Software Engineer  ',
+            company: '  Acme Corp  ',
+            startDate: '2022-01-01',
+            endDate: '2024-06-30',
+            description: '  Built things  ',
+          },
+        ],
+      });
+
+    expect(res.status).toBe(200);
+    const written = UsersDAO.updateProfile.mock.calls[0][1];
+    expect(written.experience[0].title).toBe('Software Engineer');
+    expect(written.experience[0].company).toBe('Acme Corp');
+    expect(written.experience[0].description).toBe('Built things');
+    expect(res.body.profile.experience[0].title).toBe('Software Engineer');
+  });
+
+  it('rejects experience records with missing required fields (400)', async () => {
+    const res = await request(app)
+      .put('/api/profile/experience')
+      .set('Authorization', 'Bearer faketoken')
+      .send({
+        experience: [
+          {
+            id: 'exp-1',
+            title: '',
+            company: 'Acme Corp',
+            startDate: '2022-01-01',
+            endDate: '',
+            description: '',
+          },
+        ],
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body.errors['experience[0].title']).toBe('Title is required');
+    expect(UsersDAO.updateProfile).not.toHaveBeenCalled();
+  });
+
+  it('rejects experience records with endDate before startDate (400)', async () => {
+    const res = await request(app)
+      .put('/api/profile/experience')
+      .set('Authorization', 'Bearer faketoken')
+      .send({
+        experience: [
+          {
+            id: 'exp-1',
+            title: 'Software Engineer',
+            company: 'Acme Corp',
+            startDate: '2024-06-30',
+            endDate: '2022-01-01',
+            description: '',
+          },
+        ],
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body.errors['experience[0].endDate']).toBe(
+      'End date cannot be earlier than start date'
+    );
+    expect(UsersDAO.updateProfile).not.toHaveBeenCalled();
+  });
+
+  it('allows experience with an empty endDate (current role)', async () => {
+    UsersDAO.updateProfile.mockResolvedValue({ modifiedCount: 1 });
+    UsersDAO.getProfile.mockResolvedValue({
+      email: 'a@test.com',
+      experience: [
+        {
+          id: 'exp-1',
+          title: 'Software Engineer',
+          company: 'Acme Corp',
+          startDate: '2022-01-01',
+          endDate: '',
+          description: '',
+        },
+      ],
+    });
+
+    const res = await request(app)
+      .put('/api/profile/experience')
+      .set('Authorization', 'Bearer faketoken')
+      .send({
+        experience: [
+          {
+            id: 'exp-1',
+            title: 'Software Engineer',
+            company: 'Acme Corp',
+            startDate: '2022-01-01',
+            endDate: '',
+            description: '',
+          },
+        ],
       });
 
     expect(res.status).toBe(200);
