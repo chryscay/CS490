@@ -1,6 +1,15 @@
 // Demo seed script — run ONCE before the Sprint 2 demo.
-// Usage: FIREBASE_UID=<uid> node seed.js
-// Get the uid from the Firebase console or by logging in and checking the network tab.
+//
+// Pre-requisites (each team member must do these):
+//   1. backend/.env must contain MONGO_URI (and any other backend vars)
+//   2. frontend/.env.local must contain: VITE_API_URL=http://localhost:3001/
+//      (missing this causes empty dashboard + "could not save/load profile" errors)
+//   3. Get YOUR Firebase UID: log in to the app, open DevTools Network tab,
+//      click any /api/ request, and copy the uid from the decoded Authorization token.
+//      Or find it in the Firebase console under Authentication.
+//
+// Usage (run from the backend/ directory):
+//   FIREBASE_UID=<your-uid> node seed.js
 //
 // Clears existing jobs + profile for that UID, then inserts fresh demo data.
 
