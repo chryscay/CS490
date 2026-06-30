@@ -10,7 +10,8 @@
     "start": "node src/index.js",
     "test": "vitest run",
     "lint": "eslint .",
-    "lint:fix": "eslint . --fix"
+    "lint:fix": "eslint . --fix",
+    "seed": "node seed.js"
   },
   "dependencies": {
     "cors": "^2.8.6",
