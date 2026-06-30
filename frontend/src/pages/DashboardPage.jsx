@@ -300,25 +300,24 @@ export default function DashboardPage() {
 
         <select
           aria-label="Sort by"
-          value={sortBy}
-          onChange={(e) => setSortBy(e.target.value)}
+          value={`${sortBy}|${sortDir}`}
+          onChange={(e) => {
+            const [field, dir] = e.target.value.split('|');
+            setSortBy(field);
+            setSortDir(dir);
+          }}
           className={selectClass}
         >
           {SORT_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value} className="bg-[#13131f]">
-              Sort: {opt.label}
-            </option>
+            <optgroup key={opt.value} label={opt.label} className="bg-[#13131f]">
+              <option value={`${opt.value}|desc`} className="bg-[#13131f]">
+                Sort: {opt.label} — Descending
+              </option>
+              <option value={`${opt.value}|asc`} className="bg-[#13131f]">
+                Sort: {opt.label} — Ascending
+              </option>
+            </optgroup>
           ))}
-        </select>
-
-        <select
-          aria-label="Sort direction"
-          value={sortDir}
-          onChange={(e) => setSortDir(e.target.value)}
-          className={selectClass}
-        >
-          <option value="desc" className="bg-[#13131f]">Descending</option>
-          <option value="asc" className="bg-[#13131f]">Ascending</option>
         </select>
 
         {hasActiveFilters && (
