@@ -8,7 +8,7 @@ import mongodb from 'mongodb';
 import dotenv from 'dotenv';
 import { randomUUID } from 'crypto';
 
-dotenv.config({ path: '../.env' });
+dotenv.config();
 
 const MONGO_URI = process.env.MONGO_URI;
 const FIREBASE_UID = process.env.FIREBASE_UID;
