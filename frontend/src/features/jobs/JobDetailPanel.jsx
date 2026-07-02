@@ -149,7 +149,11 @@ export default function JobDetailPanel({
     return () => {
       cancelled = true;
     };
-  }, [job._id, currentUser]);
+  // Reload drafts when the job or signed-in user changes. Depend on
+  // currentUser?.uid (stable) rather than the currentUser object, whose
+  // identity can change each render and would re-fire this effect in a loop.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [job._id, currentUser?.uid]);
 
   const handleGenerateDraft = async (type) => {
     if (rewriteLoading) {

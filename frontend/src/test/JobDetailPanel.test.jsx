@@ -16,6 +16,7 @@ vi.mock('../features/jobs/jobsApi.js', () => ({
   generateJobDraft: vi.fn(),
   rewriteJobDraft: vi.fn(),
   saveJobDocument: vi.fn(),
+  getJobDocuments: vi.fn(),
 }));
 
 import * as JobsApi from '../features/jobs/jobsApi.js';
@@ -60,6 +61,7 @@ describe('JobDetailPanel', () => {
     JobsApi.saveJobDocument.mockResolvedValue({
       document: { currentVersion: 1 },
     });
+    JobsApi.getJobDocuments.mockResolvedValue({ documents: [] });
   });
   it('renders the job title', () => {
     render(<JobDetailPanel {...defaultProps} />);
@@ -816,6 +818,48 @@ describe('JobDetailPanel', () => {
         notes: 'Star method questions.',
       })
     );
+  });
+});
+
+describe('JobDetailPanel — Saved Drafts (SCRUM-64)', () => {
+  const savedDocuments = [
+    {
+      _id: 'doc-1',
+      type: 'resume',
+      title: 'Frontend Engineer Resume',
+      currentVersion: 2,
+      text: 'Saved resume body text',
+      updatedAt: '2026-06-20T00:00:00.000Z',
+    },
+  ];
+
+  it('renders the Saved Drafts section from persisted documents', async () => {
+    JobsApi.getJobDocuments.mockResolvedValue({ documents: savedDocuments });
+    render(<JobDetailPanel {...defaultProps} />);
+
+    expect(await screen.findByText('Saved Drafts')).toBeInTheDocument();
+    expect(screen.getByText('Frontend Engineer Resume')).toBeInTheDocument();
+    expect(JobsApi.getJobDocuments).toHaveBeenCalledWith('abc123', 'faketoken');
+  });
+
+  it('loads a saved draft into the editable draft area', async () => {
+    const user = userEvent.setup();
+    JobsApi.getJobDocuments.mockResolvedValue({ documents: savedDocuments });
+    render(<JobDetailPanel {...defaultProps} />);
+
+    await user.click(
+      await screen.findByRole('button', { name: /load saved resume draft/i })
+    );
+    expect(
+      await screen.findByLabelText(/editable resume draft/i)
+    ).toHaveValue('Saved resume body text');
+  });
+
+  it('renders no Saved Drafts section when there are none', async () => {
+    JobsApi.getJobDocuments.mockResolvedValue({ documents: [] });
+    render(<JobDetailPanel {...defaultProps} />);
+    await screen.findByText('Overview');
+    expect(screen.queryByText('Saved Drafts')).not.toBeInTheDocument();
   });
 });
 
