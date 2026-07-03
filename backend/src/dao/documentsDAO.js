@@ -34,11 +34,15 @@ function normalizeTags(tags) {
   }
 
   if (!Array.isArray(tags)) {
-    throw new Error('Tags must be an array');
+    throw new Error('Tags must be an array of strings');
+  }
+
+  if (tags.some((tag) => typeof tag !== 'string')) {
+    throw new Error('Tags must be an array of strings');
   }
 
   const normalizedTags = tags
-    .map((tag) => (typeof tag === 'string' ? tag.trim() : ''))
+    .map((tag) => tag.trim())
     .filter((tag) => tag.length > 0);
 
   return [...new Set(normalizedTags)];

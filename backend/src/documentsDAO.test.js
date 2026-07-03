@@ -164,6 +164,43 @@ describe('DocumentsDAO.saveDocumentVersion', () => {
     ).rejects.toThrow('Unsupported document status');
   });
 
+  it('throws when tags include non-string values', async () => {
+    await expect(
+      DocumentsDAO.saveDocumentVersion({
+        firebaseUid: 'user-a',
+        jobId: '507f1f77bcf86cd799439011',
+        type: 'resume',
+        title: 'Resume',
+        text: 'v1',
+        tags: ['valid', 123],
+      })
+    ).rejects.toThrow('Tags must be an array of strings');
+  });
+
+  it('persists existing status and tags when later saves omit metadata', async () => {
+    await DocumentsDAO.saveDocumentVersion({
+      firebaseUid: 'user-a',
+      jobId: '507f1f77bcf86cd799439011',
+      type: 'resume',
+      title: 'Resume v1',
+      text: 'First draft',
+      status: 'archived',
+      tags: ['alpha', 'beta'],
+    });
+
+    const result = await DocumentsDAO.saveDocumentVersion({
+      firebaseUid: 'user-a',
+      jobId: '507f1f77bcf86cd799439011',
+      type: 'resume',
+      title: 'Resume v2',
+      text: 'Second draft',
+    });
+
+    expect(result.status).toBe('archived');
+    expect(result.tags).toEqual(['alpha', 'beta']);
+    expect(result.currentVersion).toBe(2);
+  });
+
   it('appends version 2 to an existing document and increments currentVersion', async () => {
     const firstVersion = await DocumentsDAO.saveDocumentVersion({
       firebaseUid: 'user-a',
