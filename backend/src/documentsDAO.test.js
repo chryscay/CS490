@@ -112,7 +112,7 @@ describe('DocumentsDAO.saveDocumentVersion', () => {
     await DocumentsDAO.injectDB(mockConn);
   });
 
-  it('creates a new document with version 1', async () => {
+  it('stores default metadata for a new document', async () => {
     const result = await DocumentsDAO.saveDocumentVersion({
       firebaseUid: 'user-a',
       jobId: '507f1f77bcf86cd799439011',
@@ -121,6 +121,14 @@ describe('DocumentsDAO.saveDocumentVersion', () => {
       text: 'Edited resume draft text',
     });
 
+    expect(result.firebaseUid).toBe('user-a');
+    expect(result.jobId).toBeTruthy();
+    expect(result.title).toBe('Backend Engineer Resume');
+    expect(result.type).toBe('resume');
+    expect(result.status).toBe('active');
+    expect(result.tags).toEqual([]);
+    expect(result.createdAt).toBeInstanceOf(Date);
+    expect(result.updatedAt).toBeInstanceOf(Date);
     expect(result.currentVersion).toBe(1);
     expect(result.value).toBeUndefined();
     expect(result.versions).toHaveLength(1);
@@ -134,8 +142,96 @@ describe('DocumentsDAO.saveDocumentVersion', () => {
     expect(storedDocuments).toHaveLength(1);
   });
 
-  it('appends version 2 to an existing document and increments currentVersion', async () => {
+  it('normalizes tags by trimming, removing blanks, and deduplicating', async () => {
+    const result = await DocumentsDAO.saveDocumentVersion({
+      firebaseUid: 'user-a',
+      jobId: '507f1f77bcf86cd799439011',
+      type: 'resume',
+      title: 'Resume',
+      text: 'v1',
+      tags: [' alpha ', '', 'beta', 'alpha', '   ', 'beta  '],
+    });
+
+    expect(result.tags).toEqual(['alpha', 'beta']);
+  });
+
+  it('throws on unsupported status', async () => {
+    await expect(
+      DocumentsDAO.saveDocumentVersion({
+        firebaseUid: 'user-a',
+        jobId: '507f1f77bcf86cd799439011',
+        type: 'resume',
+        title: 'Resume',
+        text: 'v1',
+        status: 'deleted',
+      })
+    ).rejects.toThrow('Unsupported document status');
+  });
+
+  it('throws when tags include non-string values', async () => {
+    await expect(
+      DocumentsDAO.saveDocumentVersion({
+        firebaseUid: 'user-a',
+        jobId: '507f1f77bcf86cd799439011',
+        type: 'resume',
+        title: 'Resume',
+        text: 'v1',
+        tags: ['valid', 123],
+      })
+    ).rejects.toThrow('Tags must be an array of strings');
+  });
+
+  it('persists existing status and tags when later saves omit metadata', async () => {
     await DocumentsDAO.saveDocumentVersion({
+      firebaseUid: 'user-a',
+      jobId: '507f1f77bcf86cd799439011',
+      type: 'resume',
+      title: 'Resume v1',
+      text: 'First draft',
+      status: 'archived',
+      tags: ['alpha', 'beta'],
+    });
+
+    const result = await DocumentsDAO.saveDocumentVersion({
+      firebaseUid: 'user-a',
+      jobId: '507f1f77bcf86cd799439011',
+      type: 'resume',
+      title: 'Resume v2',
+      text: 'Second draft',
+    });
+
+    expect(result.status).toBe('archived');
+    expect(result.tags).toEqual(['alpha', 'beta']);
+    expect(result.currentVersion).toBe(2);
+  });
+
+  it('updates the same archived document for the same owner-job-type and keeps one record', async () => {
+    await DocumentsDAO.saveDocumentVersion({
+      firebaseUid: 'user-a',
+      jobId: '507f1f77bcf86cd799439011',
+      type: 'resume',
+      title: 'Resume v1',
+      text: 'First draft',
+      status: 'archived',
+      tags: ['old'],
+    });
+
+    const result = await DocumentsDAO.saveDocumentVersion({
+      firebaseUid: 'user-a',
+      jobId: '507f1f77bcf86cd799439011',
+      type: 'resume',
+      title: 'Resume v2',
+      text: 'Second draft',
+    });
+
+    expect(result.currentVersion).toBe(2);
+    expect(result.status).toBe('archived');
+    expect(result.tags).toEqual(['old']);
+    expect(storedDocuments).toHaveLength(1);
+  });
+
+  it('appends version 2 to an existing document and increments currentVersion', async () => {
+    const firstVersion = await DocumentsDAO.saveDocumentVersion({
       firebaseUid: 'user-a',
       jobId: '507f1f77bcf86cd799439011',
       type: 'coverLetter',
@@ -160,6 +256,8 @@ describe('DocumentsDAO.saveDocumentVersion', () => {
         text: 'Second draft',
       })
     );
+    expect(result.createdAt.getTime()).toBe(firstVersion.createdAt.getTime());
+    expect(result.updatedAt).toBeInstanceOf(Date);
     expect(storedDocuments).toHaveLength(1);
   });
 
@@ -191,6 +289,28 @@ describe('DocumentsDAO.saveDocumentVersion', () => {
     expect(storedDocuments).toHaveLength(2);
     const resumeDoc = storedDocuments.find((d) => d.type === 'resume');
     expect(resumeDoc.currentVersion).toBe(2);
+  });
+
+  it('allows different users to save the same jobId/type without collisions', async () => {
+    await DocumentsDAO.saveDocumentVersion({
+      firebaseUid: 'user-a',
+      jobId: '507f1f77bcf86cd799439011',
+      type: 'resume',
+      title: 'Resume A',
+      text: 'Draft A',
+    });
+
+    await DocumentsDAO.saveDocumentVersion({
+      firebaseUid: 'user-b',
+      jobId: '507f1f77bcf86cd799439011',
+      type: 'resume',
+      title: 'Resume B',
+      text: 'Draft B',
+    });
+
+    expect(storedDocuments).toHaveLength(2);
+    expect(storedDocuments.some((d) => d.firebaseUid === 'user-a')).toBe(true);
+    expect(storedDocuments.some((d) => d.firebaseUid === 'user-b')).toBe(true);
   });
 
   it('stores ownership fields on the document record', async () => {

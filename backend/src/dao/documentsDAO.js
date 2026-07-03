@@ -2,12 +2,50 @@ import { ObjectId } from 'mongodb';
 
 let documents;
 const VALID_DOCUMENT_TYPES = new Set(['resume', 'coverLetter']);
+const VALID_DOCUMENT_STATUSES = new Set(['active', 'archived']);
 
 function normalizeJobId(jobId) {
   if (ObjectId.isValid(jobId)) {
     return new ObjectId(jobId);
   }
   return jobId;
+}
+
+function normalizeStatus(status) {
+  if (status === undefined) {
+    return undefined;
+  }
+
+  if (typeof status !== 'string') {
+    throw new Error('Unsupported document status');
+  }
+
+  const normalizedStatus = status.trim();
+  if (!VALID_DOCUMENT_STATUSES.has(normalizedStatus)) {
+    throw new Error('Unsupported document status');
+  }
+
+  return normalizedStatus;
+}
+
+function normalizeTags(tags) {
+  if (tags === undefined) {
+    return undefined;
+  }
+
+  if (!Array.isArray(tags)) {
+    throw new Error('Tags must be an array of strings');
+  }
+
+  if (tags.some((tag) => typeof tag !== 'string')) {
+    throw new Error('Tags must be an array of strings');
+  }
+
+  const normalizedTags = tags
+    .map((tag) => tag.trim())
+    .filter((tag) => tag.length > 0);
+
+  return [...new Set(normalizedTags)];
 }
 
 export default class DocumentsDAO {
@@ -27,12 +65,14 @@ export default class DocumentsDAO {
     }
   }
 
-  static async saveDocumentVersion({ firebaseUid, jobId, type, title, text }) {
+  static async saveDocumentVersion({ firebaseUid, jobId, type, title, text, status, tags }) {
     if (!VALID_DOCUMENT_TYPES.has(type)) {
       throw new Error('Unsupported document type');
     }
 
     const normalizedJobId = normalizeJobId(jobId);
+    const normalizedStatus = normalizeStatus(status);
+    const normalizedTags = normalizeTags(tags);
     const now = new Date();
     const nextVersionExpr = { $add: [{ $ifNull: ['$currentVersion', 0] }, 1] };
 
@@ -55,6 +95,14 @@ export default class DocumentsDAO {
               $ifNull: ['$type', { $literal: type }],
             },
             title: { $literal: title },
+            status:
+              normalizedStatus === undefined
+                ? { $ifNull: ['$status', { $literal: 'active' }] }
+                : { $literal: normalizedStatus },
+            tags:
+              normalizedTags === undefined
+                ? { $ifNull: ['$tags', { $literal: [] }] }
+                : { $literal: normalizedTags },
             createdAt: {
               $ifNull: ['$createdAt', { $literal: now }],
             },
