@@ -83,4 +83,24 @@ export default class DocumentsDAO {
 
     return updated?.value ?? updated ?? null;
   }
+
+  static async findByJobForOwner(firebaseUid, jobId) {
+    const normalizedJobId = normalizeJobId(jobId);
+    const docs = await documents
+      .find({ firebaseUid, jobId: normalizedJobId })
+      .toArray();
+    // Return only the latest version's text per document, plus metadata.
+    return docs.map((doc) => {
+      const versions = doc.versions ?? [];
+      const latest = versions.length > 0 ? versions[versions.length - 1] : null;
+      return {
+        _id: doc._id,
+        type: doc.type,
+        title: doc.title,
+        currentVersion: doc.currentVersion,
+        updatedAt: doc.updatedAt,
+        text: latest?.text ?? '',
+      };
+    });
+  }
 }

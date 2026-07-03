@@ -19,6 +19,10 @@ const matchesQuery = (document, query) => {
 
 const mockCollection = {
   createIndex: async () => 'owner_job_type_unique',
+  find: (query) => ({
+    toArray: async () =>
+      storedDocuments.filter((document) => matchesQuery(document, query)),
+  }),
   findOneAndUpdate: async (filter, update, options) => {
     const index = storedDocuments.findIndex((document) => matchesQuery(document, filter));
     if (index === -1 && !options?.upsert) {
@@ -201,5 +205,50 @@ describe('DocumentsDAO.saveDocumentVersion', () => {
     expect(result.firebaseUid).toBe('owner-uid');
     expect(result.type).toBe('resume');
     expect(result.jobId).toBeTruthy();
+  });
+
+  it('findByJobForOwner returns latest version text for owner docs', async () => {
+    await DocumentsDAO.saveDocumentVersion({
+      firebaseUid: 'user-a',
+      jobId: '507f1f77bcf86cd799439011',
+      type: 'resume',
+      title: 'Resume',
+      text: 'v1 text',
+    });
+    await DocumentsDAO.saveDocumentVersion({
+      firebaseUid: 'user-a',
+      jobId: '507f1f77bcf86cd799439011',
+      type: 'resume',
+      title: 'Resume',
+      text: 'v2 text',
+    });
+
+    const docs = await DocumentsDAO.findByJobForOwner(
+      'user-a',
+      '507f1f77bcf86cd799439011'
+    );
+
+    expect(docs).toHaveLength(1);
+    expect(docs[0].type).toBe('resume');
+    expect(docs[0].currentVersion).toBe(2);
+    expect(docs[0].text).toBe('v2 text');
+    expect(docs[0].versions).toBeUndefined();
+  });
+
+  it('findByJobForOwner does not return another user docs', async () => {
+    await DocumentsDAO.saveDocumentVersion({
+      firebaseUid: 'user-a',
+      jobId: '507f1f77bcf86cd799439011',
+      type: 'resume',
+      title: 'Resume',
+      text: 'owner text',
+    });
+
+    const docs = await DocumentsDAO.findByJobForOwner(
+      'user-b',
+      '507f1f77bcf86cd799439011'
+    );
+
+    expect(docs).toEqual([]);
   });
 });

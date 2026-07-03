@@ -558,6 +558,25 @@ export default class JobsController {
       return res.status(500).json({ error: 'Failed to save document' });
     }
   }
+
+  static async apiGetJobDocuments(req, res) {
+    try {
+      const job = await JobsDAO.findByIdForOwner(req.params.id, req.user.uid);
+      if (!job) {
+        return res.status(404).json({ error: 'Job not found' });
+      }
+
+      const documents = await DocumentsDAO.findByJobForOwner(
+        req.user.uid,
+        req.params.id
+      );
+
+      return res.status(200).json({ documents });
+    } catch (error) {
+      console.error('apiGetJobDocuments error:', error);
+      return res.status(500).json({ error: 'Failed to fetch documents' });
+    }
+  }
 }
 
 export { VALID_STAGES };

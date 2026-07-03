@@ -41,6 +41,7 @@ vi.mock('./dao/usersDAO.js', () => ({
 vi.mock('./dao/documentsDAO.js', () => ({
   default: {
     saveDocumentVersion: vi.fn(),
+    findByJobForOwner: vi.fn(),
   },
 }));
 vi.mock('./services/aiDraft.service.js', () => ({
@@ -593,6 +594,96 @@ describe('POST /api/jobs/:id/documents', () => {
 
     expect(res.status).toBe(500);
     expect(res.body.error).toBe('Failed to save document');
+  });
+});
+
+describe('GET /api/jobs/:id/documents', () => {
+  const ID = '507f1f77bcf86cd799439011';
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockVerifyIdToken.mockResolvedValue({ uid: 'user-a', email: 'a@test.com' });
+  });
+
+  it('returns saved documents for an owned job (happy path + persistence)', async () => {
+    JobsDAO.findByIdForOwner.mockResolvedValue({
+      _id: ID,
+      firebaseUid: 'user-a',
+      title: 'Backend Engineer',
+    });
+    DocumentsDAO.findByJobForOwner.mockResolvedValue([
+      {
+        _id: 'doc-1',
+        type: 'resume',
+        title: 'Backend Engineer Resume',
+        currentVersion: 2,
+        updatedAt: '2026-06-28T00:00:00.000Z',
+        text: 'Latest resume draft text',
+      },
+    ]);
+
+    const res = await request(app)
+      .get(`/api/jobs/${ID}/documents`)
+      .set('Authorization', 'Bearer faketoken');
+
+    expect(res.status).toBe(200);
+    expect(res.body.documents).toHaveLength(1);
+    expect(res.body.documents[0].text).toBe('Latest resume draft text');
+    expect(res.body.documents[0].currentVersion).toBe(2);
+    expect(JobsDAO.findByIdForOwner).toHaveBeenCalledWith(ID, 'user-a');
+    expect(DocumentsDAO.findByJobForOwner).toHaveBeenCalledWith('user-a', ID);
+  });
+
+  it('returns an empty array when the job has no saved documents', async () => {
+    JobsDAO.findByIdForOwner.mockResolvedValue({
+      _id: ID,
+      firebaseUid: 'user-a',
+      title: 'Backend Engineer',
+    });
+    DocumentsDAO.findByJobForOwner.mockResolvedValue([]);
+
+    const res = await request(app)
+      .get(`/api/jobs/${ID}/documents`)
+      .set('Authorization', 'Bearer faketoken');
+
+    expect(res.status).toBe(200);
+    expect(res.body.documents).toEqual([]);
+  });
+
+  it('denies cross-user access with 404 before fetching documents', async () => {
+    mockVerifyIdToken.mockResolvedValue({ uid: 'user-b', email: 'b@test.com' });
+    JobsDAO.findByIdForOwner.mockResolvedValue(null);
+
+    const res = await request(app)
+      .get(`/api/jobs/${ID}/documents`)
+      .set('Authorization', 'Bearer faketoken');
+
+    expect(res.status).toBe(404);
+    expect(JobsDAO.findByIdForOwner).toHaveBeenCalledWith(ID, 'user-b');
+    expect(DocumentsDAO.findByJobForOwner).not.toHaveBeenCalled();
+  });
+
+  it('blocks unauthenticated requests (401)', async () => {
+    const res = await request(app).get(`/api/jobs/${ID}/documents`);
+
+    expect(res.status).toBe(401);
+    expect(DocumentsDAO.findByJobForOwner).not.toHaveBeenCalled();
+  });
+
+  it('returns 500 when the documents lookup fails', async () => {
+    JobsDAO.findByIdForOwner.mockResolvedValue({
+      _id: ID,
+      firebaseUid: 'user-a',
+      title: 'Backend Engineer',
+    });
+    DocumentsDAO.findByJobForOwner.mockRejectedValue(new Error('db down'));
+
+    const res = await request(app)
+      .get(`/api/jobs/${ID}/documents`)
+      .set('Authorization', 'Bearer faketoken');
+
+    expect(res.status).toBe(500);
+    expect(res.body.error).toBe('Failed to fetch documents');
   });
 });
 

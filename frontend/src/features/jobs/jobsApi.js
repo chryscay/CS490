@@ -204,3 +204,20 @@ export async function saveJobDocument(jobId, token, { type, title, text }) {
   const data = await res.json();
   return { document: data.document };
 }
+
+export async function getJobDocuments(jobId, token) {
+  const res = await fetch(`${API_URL}/api/jobs/${jobId}/documents`, {
+    method: 'GET',
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || 'Failed to load saved documents');
+  }
+
+  const data = await res.json();
+  return { documents: data.documents };
+}
