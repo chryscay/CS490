@@ -201,6 +201,31 @@ describe('DocumentsDAO.saveDocumentVersion', () => {
     expect(result.currentVersion).toBe(2);
   });
 
+  it('updates the same archived document for the same owner-job-type and keeps one record', async () => {
+    await DocumentsDAO.saveDocumentVersion({
+      firebaseUid: 'user-a',
+      jobId: '507f1f77bcf86cd799439011',
+      type: 'resume',
+      title: 'Resume v1',
+      text: 'First draft',
+      status: 'archived',
+      tags: ['old'],
+    });
+
+    const result = await DocumentsDAO.saveDocumentVersion({
+      firebaseUid: 'user-a',
+      jobId: '507f1f77bcf86cd799439011',
+      type: 'resume',
+      title: 'Resume v2',
+      text: 'Second draft',
+    });
+
+    expect(result.currentVersion).toBe(2);
+    expect(result.status).toBe('archived');
+    expect(result.tags).toEqual(['old']);
+    expect(storedDocuments).toHaveLength(1);
+  });
+
   it('appends version 2 to an existing document and increments currentVersion', async () => {
     const firstVersion = await DocumentsDAO.saveDocumentVersion({
       firebaseUid: 'user-a',
@@ -260,6 +285,28 @@ describe('DocumentsDAO.saveDocumentVersion', () => {
     expect(storedDocuments).toHaveLength(2);
     const resumeDoc = storedDocuments.find((d) => d.type === 'resume');
     expect(resumeDoc.currentVersion).toBe(2);
+  });
+
+  it('allows different users to save the same jobId/type without collisions', async () => {
+    await DocumentsDAO.saveDocumentVersion({
+      firebaseUid: 'user-a',
+      jobId: '507f1f77bcf86cd799439011',
+      type: 'resume',
+      title: 'Resume A',
+      text: 'Draft A',
+    });
+
+    await DocumentsDAO.saveDocumentVersion({
+      firebaseUid: 'user-b',
+      jobId: '507f1f77bcf86cd799439011',
+      type: 'resume',
+      title: 'Resume B',
+      text: 'Draft B',
+    });
+
+    expect(storedDocuments).toHaveLength(2);
+    expect(storedDocuments.some((d) => d.firebaseUid === 'user-a')).toBe(true);
+    expect(storedDocuments.some((d) => d.firebaseUid === 'user-b')).toBe(true);
   });
 
   it('stores ownership fields on the document record', async () => {
