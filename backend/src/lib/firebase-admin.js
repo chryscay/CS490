@@ -1,22 +1,26 @@
-// Firebase Admin SDK initialization.
-// Prefers env-var credentials (for cloud deploy), falls back to a local
-// serviceAccountKey.json (gitignored) for local development.
 import { initializeApp, cert } from "firebase-admin/app";
-import { readFileSync } from "fs";
+import { readFileSync, existsSync } from "fs";
+import { fileURLToPath } from "url";
 
 function loadServiceAccount() {
-  // Cloud path: full JSON blob in one env var (set in Render dashboard).
+  // Cloud path: full JSON in an env var (Render).
   if (process.env.FIREBASE_SERVICE_ACCOUNT) {
     return JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
   }
-  // Local path: gitignored key file next to backend/.
-  return JSON.parse(
-    readFileSync(new URL("../../serviceAccountKey.json", import.meta.url))
-  );
+  // Local dev path: gitignored key file next to backend/.
+  const keyPath = fileURLToPath(new URL("../../serviceAccountKey.json", import.meta.url));
+  if (existsSync(keyPath)) {
+    return JSON.parse(readFileSync(keyPath));
+  }
+  // No credentials (e.g. CI, where firebase-admin is mocked). Return null
+  // so module load doesn't crash; init is skipped below.
+  return null;
 }
 
-const firebaseAdmin = initializeApp({
-  credential: cert(loadServiceAccount()),
-});
+const serviceAccount = loadServiceAccount();
+
+const firebaseAdmin = serviceAccount
+  ? initializeApp({ credential: cert(serviceAccount) })
+  : initializeApp();
 
 export default firebaseAdmin;
