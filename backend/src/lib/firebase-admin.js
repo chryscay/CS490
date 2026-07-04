@@ -1,18 +1,22 @@
-// TODO: Firebase Admin SDK placeholder.
-// Initialize Firebase Admin here using a service account from environment variables.
-// Firebase service account credentials must never be hardcoded (see engineering-coding-standards.md §6).
-
+// Firebase Admin SDK initialization.
+// Prefers env-var credentials (for cloud deploy), falls back to a local
+// serviceAccountKey.json (gitignored) for local development.
 import { initializeApp, cert } from "firebase-admin/app";
-import dotenv from "dotenv";
+import { readFileSync } from "fs";
 
-dotenv.config();
+function loadServiceAccount() {
+  // Cloud path: full JSON blob in one env var (set in Render dashboard).
+  if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+    return JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+  }
+  // Local path: gitignored key file next to backend/.
+  return JSON.parse(
+    readFileSync(new URL("../../serviceAccountKey.json", import.meta.url))
+  );
+}
 
 const firebaseAdmin = initializeApp({
-  credential: cert({
-    projectId: process.env.FIREBASE_PROJECT_ID,
-    clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-    privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, "\n"),
-  }),
+  credential: cert(loadServiceAccount()),
 });
 
 export default firebaseAdmin;
