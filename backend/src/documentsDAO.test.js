@@ -50,10 +50,14 @@ const mockCollection = {
         }
         if ('$toString' in expr) {
           const value = evaluate(expr.$toString, sourceDocument);
-          return value == null ? '' : String(value);
+          return value == null ? null : String(value);
         }
         if ('$concat' in expr) {
-          return expr.$concat.map((item) => evaluate(item, sourceDocument)).join('');
+          const values = expr.$concat.map((item) => evaluate(item, sourceDocument));
+          if (values.some((value) => value == null)) {
+            return null;
+          }
+          return values.map((value) => String(value)).join('');
         }
         if ('$concatArrays' in expr) {
           return expr.$concatArrays.flatMap((item) => evaluate(item, sourceDocument));
