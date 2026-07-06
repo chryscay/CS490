@@ -3,6 +3,7 @@ import express from 'express';
 import auth from './routes/auth/auth.route.js';
 import jobs from './routes/jobs/jobs.route.js';
 import profile from './routes/profile/profile.route.js';
+import documents from './routes/documents/documents.route.js';
 
 const app = express();
 
@@ -18,5 +19,6 @@ app.get('/api/health', (req, res) => {
 
 app.use('/api/auth', auth);
 app.use('/api/jobs', jobs);
+app.use('/api/documents', documents);
 
 export default app;

@@ -158,4 +158,20 @@ export default class DocumentsDAO {
       };
     });
   }
+
+  // S3-001: all documents across all jobs for a user (resume + coverLetter only).
+  static async findAllForOwner(firebaseUid) {
+    const docs = await documents
+      .find({ firebaseUid, type: { $in: [...VALID_DOCUMENT_TYPES] } })
+      .sort({ updatedAt: -1 })
+      .toArray();
+    return docs.map((doc) => ({
+      _id: doc._id,
+      jobId: doc.jobId,
+      type: doc.type,
+      title: doc.title,
+      currentVersion: doc.currentVersion,
+      updatedAt: doc.updatedAt,
+    }));
+  }
 }

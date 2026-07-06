@@ -6,6 +6,7 @@ import LoginPage from './features/auth/LoginPage';
 import RegisterPage from './features/auth/RegisterPage';
 import { RequireAuth } from './features/auth/RequireAuth';
 import DashboardPage from './pages/DashboardPage';
+import DocumentLibraryPage from './pages/DocumentLibraryPage';
 import ProfilePage from './pages/ProfilePage';
 import SettingsPage from './pages/SettingsPage';
 import LandingPage from './pages/LandingPage';
@@ -23,6 +24,7 @@ export default function App() {
           <Route element={<RequireAuth />}>
             <Route element={<AppShell />}>
               <Route path="/dashboard" element={<DashboardPage />} />
+              <Route path="/documents" element={<DocumentLibraryPage />} />
               <Route path="/profile" element={<ProfilePage />} />
               <Route path="/settings" element={<SettingsPage />} />
             </Route>
