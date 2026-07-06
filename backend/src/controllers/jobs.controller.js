@@ -2,8 +2,13 @@ import JobsDAO from '../dao/jobsDAO.js';
 import UsersDAO from '../dao/usersDAO.js';
 import DocumentsDAO from '../dao/documentsDAO.js';
 import { randomUUID } from 'crypto';
-import { isValidStage, isForwardTransition, isOutcomeStage } from '../lib/stageTransitions.js';
+import {
+  isValidStage,
+  isForwardTransition,
+  isOutcomeStage,
+} from '../lib/stageTransitions.js';
 import * as AiDraftService from '../services/aiDraft.service.js';
+import { error } from 'console';
 const VALID_STAGES = [
   'Interested',
   'Applied',
@@ -203,7 +208,7 @@ export default class JobsController {
       // outcome stage on the forward path (new). Otherwise it's not an outcome
       // reason and is dropped.
       const keepNote = isOverride || isOutcomeStage(toStage);
-  
+
       const entry = {
         id: randomUUID(),
         fromStage,
@@ -254,7 +259,11 @@ export default class JobsController {
         createdAt: new Date().toISOString(),
       };
 
-      const updated = await JobsDAO.addInterview(req.params.id, req.user.uid, entry);
+      const updated = await JobsDAO.addInterview(
+        req.params.id,
+        req.user.uid,
+        entry
+      );
       if (!updated) {
         return res.status(404).json({ error: 'Job not found' });
       }
@@ -288,12 +297,19 @@ export default class JobsController {
         notes: notes.trim(),
       };
 
-      const updated = await JobsDAO.updateInterview(id, req.user.uid, interviewId, fields);
+      const updated = await JobsDAO.updateInterview(
+        id,
+        req.user.uid,
+        interviewId,
+        fields
+      );
       if (!updated) {
         return res.status(404).json({ error: 'Job or interview not found' });
       }
 
-      return res.status(200).json({ message: 'Interview updated', job: updated });
+      return res
+        .status(200)
+        .json({ message: 'Interview updated', job: updated });
     } catch (error) {
       console.error('apiUpdateInterview error:', error);
       return res.status(500).json({ error: 'Failed to update interview' });
@@ -323,7 +339,11 @@ export default class JobsController {
         note: String(note || ''),
       };
 
-      const updated = await JobsDAO.appendStageTransition(req.params.id, req.user.uid, entry);
+      const updated = await JobsDAO.appendStageTransition(
+        req.params.id,
+        req.user.uid,
+        entry
+      );
       if (!updated) return res.status(404).json({ error: 'Job not found' });
 
       return res.status(200).json({ message: 'Job archived', job: updated });
@@ -343,7 +363,9 @@ export default class JobsController {
       }
 
       const history = job.stageHistory ?? [];
-      const lastArchiveEntry = [...history].reverse().find((e) => e.toStage === 'Archived');
+      const lastArchiveEntry = [...history]
+        .reverse()
+        .find((e) => e.toStage === 'Archived');
       const targetStage = lastArchiveEntry?.fromStage ?? 'Interested';
 
       const entry = {
@@ -356,10 +378,18 @@ export default class JobsController {
         note: '',
       };
 
-      const updated = await JobsDAO.appendStageTransition(req.params.id, req.user.uid, entry);
+      const updated = await JobsDAO.appendStageTransition(
+        req.params.id,
+        req.user.uid,
+        entry
+      );
       if (!updated) return res.status(404).json({ error: 'Job not found' });
 
-      return res.status(200).json({ message: 'Job restored', job: updated, restoredTo: targetStage });
+      return res.status(200).json({
+        message: 'Job restored',
+        job: updated,
+        restoredTo: targetStage,
+      });
     } catch (error) {
       console.error('apiRestoreJob error:', error);
       return res.status(500).json({ error: 'Failed to restore job' });
@@ -371,7 +401,9 @@ export default class JobsController {
       const { title, dueAt } = req.body;
 
       if (!title?.trim() || !dueAt) {
-        return res.status(400).json({ error: 'Title and due date/time are required' });
+        return res
+          .status(400)
+          .json({ error: 'Title and due date/time are required' });
       }
 
       const parsedDue = new Date(dueAt);
@@ -387,7 +419,11 @@ export default class JobsController {
         createdAt: new Date().toISOString(),
       };
 
-      const updated = await JobsDAO.addFollowUp(req.params.id, req.user.uid, entry);
+      const updated = await JobsDAO.addFollowUp(
+        req.params.id,
+        req.user.uid,
+        entry
+      );
       if (!updated) return res.status(404).json({ error: 'Job not found' });
 
       return res.status(201).json({ message: 'Follow-up added', job: updated });
@@ -403,7 +439,9 @@ export default class JobsController {
       const { id, followUpId } = req.params;
 
       if (!title?.trim() || !dueAt) {
-        return res.status(400).json({ error: 'Title and due date/time are required' });
+        return res
+          .status(400)
+          .json({ error: 'Title and due date/time are required' });
       }
 
       const parsedDue = new Date(dueAt);
@@ -426,10 +464,18 @@ export default class JobsController {
         completedAt: parsedCompletedAt,
       };
 
-      const updated = await JobsDAO.updateFollowUp(id, req.user.uid, followUpId, fields);
-      if (!updated) return res.status(404).json({ error: 'Job or follow-up not found' });
+      const updated = await JobsDAO.updateFollowUp(
+        id,
+        req.user.uid,
+        followUpId,
+        fields
+      );
+      if (!updated)
+        return res.status(404).json({ error: 'Job or follow-up not found' });
 
-      return res.status(200).json({ message: 'Follow-up updated', job: updated });
+      return res
+        .status(200)
+        .json({ message: 'Follow-up updated', job: updated });
     } catch (error) {
       console.error('apiUpdateFollowUp error:', error);
       return res.status(500).json({ error: 'Failed to update follow-up' });
@@ -444,7 +490,9 @@ export default class JobsController {
         return res.status(404).json({ error: 'Job not found' });
       }
 
-      return res.status(200).json({ message: 'Job deleted', id: req.params.id });
+      return res
+        .status(200)
+        .json({ message: 'Job deleted', id: req.params.id });
     } catch (error) {
       console.error('apiDeleteJob error:', error);
       return res.status(500).json({ error: 'Failed to delete job' });
@@ -577,8 +625,41 @@ export default class JobsController {
       return res.status(500).json({ error: 'Failed to fetch documents' });
     }
   }
+
+  static async apiUpdateResearchNotes(req, res) {
+    try {
+      const { researchNotes } = req.body;
+
+      if (!researchNotes?.trim()) {
+        return res.status(400).json({
+          error: 'Research notes are required',
+        });
+      }
+
+      const updated = await JobsDAO.updateResearchNotes(
+        req.params.id,
+        req.user.uid,
+        researchNotes.trim()
+      );
+
+      if (!updated) {
+        return res.status(404).json({
+          error: 'Job not found',
+        });
+      }
+
+      return res.status(200).json({
+        message: 'Research notes updated',
+        job: updated,
+      });
+    } catch (error) {
+      console.error('apiUpdateResearchNotes error:', error);
+
+      return res.status(500).json({
+        error: 'Failed to update research notes',
+      });
+    }
+  }
 }
 
 export { VALID_STAGES };
-
-

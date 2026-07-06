@@ -16,7 +16,7 @@ router
   .get(JobsController.apiGetJobById)
   .put(JobsController.apiUpdateJob)
   .delete(JobsController.apiDeleteJob);
-  
+
 router.post('/:id/transition', JobsController.apiTransitionStage); // SCRUM-45
 router.post('/:id/archive', JobsController.apiArchiveJob); // S2-014
 router.post('/:id/restore', JobsController.apiRestoreJob); // S2-014
@@ -31,7 +31,6 @@ router.put('/:id/interviews/:interviewId', JobsController.apiUpdateInterview); /
 router.post('/:id/followups', JobsController.apiAddFollowUp); // S2-012
 router.put('/:id/followups/:followUpId', JobsController.apiUpdateFollowUp); // S2-012
 
+router.patch('/:id/research', JobsController.apiUpdateResearchNotes); // S3-012
+
 export default router;
-
-
-
