@@ -48,6 +48,17 @@ const mockCollection = {
             .map((item) => evaluate(item, sourceDocument))
             .reduce((sum, value) => sum + Number(value), 0);
         }
+        if ('$toString' in expr) {
+          const value = evaluate(expr.$toString, sourceDocument);
+          return value == null ? null : String(value);
+        }
+        if ('$concat' in expr) {
+          const values = expr.$concat.map((item) => evaluate(item, sourceDocument));
+          if (values.some((value) => value == null)) {
+            return null;
+          }
+          return values.map((value) => String(value)).join('');
+        }
         if ('$concatArrays' in expr) {
           return expr.$concatArrays.flatMap((item) => evaluate(item, sourceDocument));
         }
@@ -135,10 +146,14 @@ describe('DocumentsDAO.saveDocumentVersion', () => {
     expect(result.versions[0]).toEqual(
       expect.objectContaining({
         version: 1,
+        label: 'Version 1',
         text: 'Edited resume draft text',
         createdAt: expect.any(Date),
+        firebaseUid: 'user-a',
+        type: 'resume',
       })
     );
+    expect(normalizeValue(result.versions[0].jobId)).toBe(normalizeValue(result.jobId));
     expect(storedDocuments).toHaveLength(1);
   });
 
@@ -250,12 +265,27 @@ describe('DocumentsDAO.saveDocumentVersion', () => {
     expect(result.currentVersion).toBe(2);
     expect(result.value).toBeUndefined();
     expect(result.versions).toHaveLength(2);
+    expect(result.versions[0]).toEqual(
+      expect.objectContaining({
+        version: 1,
+        label: 'Version 1',
+        createdAt: expect.any(Date),
+        firebaseUid: 'user-a',
+        type: 'coverLetter',
+      })
+    );
+    expect(normalizeValue(result.versions[0].jobId)).toBe(normalizeValue(result.jobId));
     expect(result.versions[1]).toEqual(
       expect.objectContaining({
         version: 2,
+        label: 'Version 2',
         text: 'Second draft',
+        createdAt: expect.any(Date),
+        firebaseUid: 'user-a',
+        type: 'coverLetter',
       })
     );
+    expect(normalizeValue(result.versions[1].jobId)).toBe(normalizeValue(result.jobId));
     expect(result.createdAt.getTime()).toBe(firstVersion.createdAt.getTime());
     expect(result.updatedAt).toBeInstanceOf(Date);
     expect(storedDocuments).toHaveLength(1);

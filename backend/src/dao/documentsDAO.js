@@ -75,6 +75,9 @@ export default class DocumentsDAO {
     const normalizedTags = normalizeTags(tags);
     const now = new Date();
     const nextVersionExpr = { $add: [{ $ifNull: ['$currentVersion', 0] }, 1] };
+    const versionLabelExpr = {
+      $concat: ['Version ', { $toString: nextVersionExpr }],
+    };
 
     const updated = await documents.findOneAndUpdate(
       {
@@ -114,8 +117,12 @@ export default class DocumentsDAO {
                 [
                   {
                     version: nextVersionExpr,
+                    label: versionLabelExpr,
                     text: { $literal: text },
                     createdAt: { $literal: now },
+                    firebaseUid: { $literal: firebaseUid },
+                    jobId: { $literal: normalizedJobId },
+                    type: { $literal: type },
                   },
                 ],
               ],
