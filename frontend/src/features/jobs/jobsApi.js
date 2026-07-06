@@ -10,6 +10,33 @@ export async function getAllDocuments(token) {
   return { documents: data.documents };
 }
 
+export async function uploadDocument(token, { file, type, title, jobId }) {
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('type', type);
+
+  if (title?.trim()) {
+    formData.append('title', title.trim());
+  }
+
+  if (jobId?.trim()) {
+    formData.append('jobId', jobId.trim());
+  }
+
+  const res = await fetch(`${API_URL}/api/documents/upload`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: formData,
+  });
+
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(data.error || 'Failed to upload document');
+  }
+
+  return { document: data.document };
+}
+
 // Resolves to { job } on success (200), or
 // { requiresConfirmation, fromStage, toStage } on a 409 non-forward block.
 // Throws on network/500 so the hook routes it to the error state.

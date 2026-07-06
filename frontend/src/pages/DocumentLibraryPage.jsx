@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../features/auth/useAuth';
-import { getAllDocuments } from '../features/jobs/jobsApi';
+import { getAllDocuments, uploadDocument } from '../features/jobs/jobsApi';
 
 const TYPE_LABEL = {
   resume: 'Resume',
@@ -11,6 +11,8 @@ const TYPE_STYLE = {
   resume: 'bg-blue-500/10 text-blue-300 border border-blue-500/20',
   coverLetter: 'bg-purple-500/10 text-purple-300 border border-purple-500/20',
 };
+
+const ALLOWED_FILE_EXTENSIONS = ['pdf', 'docx', 'txt'];
 
 function formatDate(dateStr) {
   if (!dateStr) return '-';
@@ -27,16 +29,73 @@ export default function DocumentLibraryPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [filterType, setFilterType] = useState('');
+  const [uploadType, setUploadType] = useState('resume');
+  const [uploadTitle, setUploadTitle] = useState('');
+  const [uploadJobId, setUploadJobId] = useState('');
+  const [uploadFile, setUploadFile] = useState(null);
+  const [uploadError, setUploadError] = useState('');
+  const [uploadSuccess, setUploadSuccess] = useState('');
+  const [isUploading, setIsUploading] = useState(false);
+
+  async function loadDocuments(token) {
+    const { documents: docs } = await getAllDocuments(token);
+    setDocuments(docs);
+  }
 
   useEffect(() => {
     if (!currentUser) return;
     currentUser.getIdToken().then((token) =>
-      getAllDocuments(token)
-        .then(({ documents: docs }) => setDocuments(docs))
+      loadDocuments(token)
         .catch(() => setError('Could not load documents'))
         .finally(() => setLoading(false))
     );
   }, [currentUser]);
+
+  function validateSelectedFile(file) {
+    if (!file) {
+      return 'Please choose a file to upload.';
+    }
+
+    const lowerName = file.name.toLowerCase();
+    const extension = lowerName.includes('.') ? lowerName.split('.').pop() : '';
+    if (!ALLOWED_FILE_EXTENSIONS.includes(extension)) {
+      return 'Unsupported file format. Supported formats are PDF, DOCX, and TXT.';
+    }
+
+    return '';
+  }
+
+  async function handleUpload(event) {
+    event.preventDefault();
+    setUploadError('');
+    setUploadSuccess('');
+
+    const fileValidationError = validateSelectedFile(uploadFile);
+    if (fileValidationError) {
+      setUploadError(fileValidationError);
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      const token = await currentUser.getIdToken();
+      await uploadDocument(token, {
+        file: uploadFile,
+        type: uploadType,
+        title: uploadTitle,
+        jobId: uploadJobId,
+      });
+      await loadDocuments(token);
+      setUploadSuccess('Document uploaded successfully.');
+      setUploadTitle('');
+      setUploadJobId('');
+      setUploadFile(null);
+    } catch (uploadErr) {
+      setUploadError(uploadErr?.message || 'Failed to upload document');
+    } finally {
+      setIsUploading(false);
+    }
+  }
 
   const visible = filterType
     ? documents.filter((d) => d.type === filterType)
@@ -53,6 +112,71 @@ export default function DocumentLibraryPage() {
           <p className="mt-2 text-white/50">All your saved resumes and cover letters.</p>
         </div>
       </div>
+
+      <section className="rounded-3xl border border-white/10 bg-white/[0.03] p-6 md:p-8 mb-6">
+        <h2 className="text-xl font-semibold text-white">Upload Document</h2>
+        <p className="text-sm text-white/50 mt-1">Accepted formats: PDF, DOCX, TXT</p>
+
+        <form onSubmit={handleUpload} className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <label className="flex flex-col gap-2">
+            <span className="text-sm text-white/70">Document Type</span>
+            <select
+              value={uploadType}
+              onChange={(e) => setUploadType(e.target.value)}
+              className="rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-white"
+            >
+              <option value="resume">Resume</option>
+              <option value="coverLetter">Cover Letter</option>
+            </select>
+          </label>
+
+          <label className="flex flex-col gap-2">
+            <span className="text-sm text-white/70">Title (optional)</span>
+            <input
+              value={uploadTitle}
+              onChange={(e) => setUploadTitle(e.target.value)}
+              placeholder="Senior Engineer Resume"
+              className="rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-white placeholder:text-white/30"
+            />
+          </label>
+
+          <label className="flex flex-col gap-2">
+            <span className="text-sm text-white/70">Job ID (optional)</span>
+            <input
+              value={uploadJobId}
+              onChange={(e) => setUploadJobId(e.target.value)}
+              placeholder="Link to job if needed"
+              className="rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-white placeholder:text-white/30"
+            />
+          </label>
+
+          <label className="flex flex-col gap-2">
+            <span className="text-sm text-white/70">File</span>
+            <input
+              type="file"
+              accept=".pdf,.docx,.txt,application/pdf,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+              onChange={(e) => {
+                setUploadSuccess('');
+                setUploadError('');
+                setUploadFile(e.target.files?.[0] || null);
+              }}
+              className="rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-white"
+            />
+          </label>
+
+          <div className="md:col-span-2 flex items-center gap-3">
+            <button
+              type="submit"
+              disabled={isUploading}
+              className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isUploading ? 'Uploading...' : 'Upload'}
+            </button>
+            {uploadSuccess ? <p className="text-sm text-emerald-300">{uploadSuccess}</p> : null}
+            {uploadError ? <p className="text-sm text-red-400">{uploadError}</p> : null}
+          </div>
+        </form>
+      </section>
 
       {/* Stats */}
       <div className="grid grid-cols-2 gap-4 mb-8">
