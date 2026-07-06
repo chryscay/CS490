@@ -402,3 +402,87 @@ describe('DocumentsDAO.saveDocumentVersion', () => {
     expect(docs).toEqual([]);
   });
 });
+
+describe('DocumentsDAO.findAllForOwner', () => {
+  beforeEach(async () => {
+    storedDocuments.length = 0;
+    await DocumentsDAO.injectDB(mockConn);
+  });
+
+  it('returns only documents belonging to the caller (cross-user isolation)', async () => {
+    await DocumentsDAO.saveDocumentVersion({
+      firebaseUid: 'user-a',
+      jobId: '507f1f77bcf86cd799439011',
+      type: 'resume',
+      title: 'My Resume',
+      text: 'user-a text',
+    });
+    await DocumentsDAO.saveDocumentVersion({
+      firebaseUid: 'user-b',
+      jobId: '507f1f77bcf86cd799439011',
+      type: 'coverLetter',
+      title: 'Other Cover Letter',
+      text: 'user-b text',
+    });
+
+    const docs = await DocumentsDAO.findAllForOwner('user-a');
+
+    expect(docs).toHaveLength(1);
+    expect(docs[0].title).toBe('My Resume');
+  });
+
+  it('returns the correct metadata shape without text or versions fields', async () => {
+    await DocumentsDAO.saveDocumentVersion({
+      firebaseUid: 'user-a',
+      jobId: '507f1f77bcf86cd799439011',
+      type: 'resume',
+      title: 'My Resume',
+      text: 'draft text',
+    });
+
+    const docs = await DocumentsDAO.findAllForOwner('user-a');
+
+    expect(docs).toHaveLength(1);
+    expect(docs[0]).toMatchObject({
+      type: 'resume',
+      title: 'My Resume',
+      currentVersion: 1,
+    });
+    expect(docs[0]._id).toBeDefined();
+    expect(docs[0].jobId).toBeDefined();
+    expect(docs[0].updatedAt).toBeDefined();
+    expect(docs[0].text).toBeUndefined();
+    expect(docs[0].versions).toBeUndefined();
+  });
+
+  it('returns empty array when the user has no documents', async () => {
+    await DocumentsDAO.saveDocumentVersion({
+      firebaseUid: 'user-a',
+      jobId: '507f1f77bcf86cd799439011',
+      type: 'resume',
+      title: 'Resume',
+      text: 'text',
+    });
+
+    const docs = await DocumentsDAO.findAllForOwner('user-b');
+
+    expect(docs).toEqual([]);
+  });
+
+  it('excludes documents with unsupported types', async () => {
+    storedDocuments.push({
+      _id: new ObjectId(),
+      firebaseUid: 'user-a',
+      jobId: new ObjectId('507f1f77bcf86cd799439011'),
+      type: 'other',
+      title: 'Bad doc',
+      currentVersion: 1,
+      updatedAt: new Date(),
+      versions: [],
+    });
+
+    const docs = await DocumentsDAO.findAllForOwner('user-a');
+
+    expect(docs).toHaveLength(0);
+  });
+});
