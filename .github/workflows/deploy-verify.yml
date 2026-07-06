@@ -1,0 +1,40 @@
+name: Deploy Verify
+
+# Runs after a merge to main. Render and Vercel auto-deploy on the same push;
+# this job waits for the backend deploy to come up, then verifies the live
+# health endpoint. It does not gate the merge (that's ci.yml) — it verifies
+# that what landed on main actually deployed and is serving.
+on:
+  push:
+    branches: [main]
+
+jobs:
+  verify-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Wait for Render to build and deploy the new commit
+        # Render's free tier builds + deploys the pushed commit, which takes
+        # a couple of minutes. Give it a head start before we start polling.
+        run: sleep 120
+
+      - name: Health check the deployed backend (with retries for cold start)
+        run: |
+          URL="https://cs490-5kqw.onrender.com/api/health"
+          # Free-tier instances also cold-start, so poll with backoff rather
+          # than failing on the first slow/waking response.
+          for i in $(seq 1 10); do
+            echo "Attempt $i: GET $URL"
+            BODY=$(curl -s --max-time 60 -w "\n%{http_code}" "$URL" || true)
+            CODE=$(echo "$BODY" | tail -n1)
+            JSON=$(echo "$BODY" | sed '$d')
+            echo "  status=$CODE body=$JSON"
+            if [ "$CODE" = "200" ] && echo "$JSON" | grep -q '"status":"ok"'; then
+              echo "Backend is live and healthy."
+              exit 0
+            fi
+            echo "  not healthy yet, waiting 30s..."
+            sleep 30
+          done
+          echo "Backend did not become healthy within the retry window."
+          exit 1
