@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, User, Settings, LogOut, Menu, X } from 'lucide-react';
+import { LayoutDashboard, FileText, User, Settings, LogOut, Menu, X } from 'lucide-react';
 import { useAuth } from '../features/auth/useAuth.js';
 
 export default function AppShell() {
@@ -99,6 +99,17 @@ export default function AppShell() {
           >
             <LayoutDashboard size={18} />
             Dashboard
+          </NavLink>
+
+          <NavLink
+            to="/documents"
+            onClick={() => setMobileOpen(false)}
+            className={({ isActive }) =>
+              `${navItem} ${isActive ? 'bg-white/10 text-white' : ''}`
+            }
+          >
+            <FileText size={18} />
+            Documents
           </NavLink>
 
           <NavLink

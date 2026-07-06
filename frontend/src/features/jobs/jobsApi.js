@@ -1,5 +1,15 @@
 const API_URL = import.meta.env.VITE_API_URL ?? '';
 
+// S3-001: fetch all documents (resume + cover letter) across all jobs.
+export async function getAllDocuments(token) {
+  const res = await fetch(`${API_URL}/api/documents`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) throw new Error('Failed to fetch documents');
+  const data = await res.json();
+  return { documents: data.documents };
+}
+
 // Resolves to { job } on success (200), or
 // { requiresConfirmation, fromStage, toStage } on a 409 non-forward block.
 // Throws on network/500 so the hook routes it to the error state.
