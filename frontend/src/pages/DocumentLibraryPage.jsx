@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../features/auth/useAuth';
 import { getAllDocuments, uploadDocument } from '../features/jobs/jobsApi';
 
@@ -36,6 +36,7 @@ export default function DocumentLibraryPage() {
   const [uploadError, setUploadError] = useState('');
   const [uploadSuccess, setUploadSuccess] = useState('');
   const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef(null);
 
   async function loadDocuments(token) {
     const { documents: docs } = await getAllDocuments(token);
@@ -90,6 +91,9 @@ export default function DocumentLibraryPage() {
       setUploadTitle('');
       setUploadJobId('');
       setUploadFile(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     } catch (uploadErr) {
       setUploadError(uploadErr?.message || 'Failed to upload document');
     } finally {
@@ -153,6 +157,7 @@ export default function DocumentLibraryPage() {
           <label className="flex flex-col gap-2">
             <span className="text-sm text-white/70">File</span>
             <input
+              ref={fileInputRef}
               type="file"
               accept=".pdf,.docx,.txt,application/pdf,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
               onChange={(e) => {

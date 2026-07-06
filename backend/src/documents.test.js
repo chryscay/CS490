@@ -136,6 +136,29 @@ describe('POST /api/documents/upload', () => {
     ).toContain('My plain text resume content');
   });
 
+  it('returns 400 when uploaded file is missing', async () => {
+    const res = await request(app)
+      .post('/api/documents/upload')
+      .set('Authorization', 'Bearer faketoken')
+      .field('type', 'resume');
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('A document file is required');
+    expect(DocumentsDAO.saveDocumentVersion).not.toHaveBeenCalled();
+  });
+
+  it('returns 400 when extracted text is empty', async () => {
+    const res = await request(app)
+      .post('/api/documents/upload')
+      .set('Authorization', 'Bearer faketoken')
+      .field('type', 'resume')
+      .attach('file', Buffer.from('   \n\t'), 'resume.txt');
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('Uploaded file must contain extractable text');
+    expect(DocumentsDAO.saveDocumentVersion).not.toHaveBeenCalled();
+  });
+
   it('rejects unsupported file formats with a clear validation message', async () => {
     const res = await request(app)
       .post('/api/documents/upload')
@@ -147,6 +170,35 @@ describe('POST /api/documents/upload', () => {
     expect(res.body.error).toBe(
       'Unsupported file format. Supported formats are PDF, DOCX, and TXT.'
     );
+    expect(DocumentsDAO.saveDocumentVersion).not.toHaveBeenCalled();
+  });
+
+  it('rejects unsupported extension even when MIME type is spoofed as text/plain', async () => {
+    const res = await request(app)
+      .post('/api/documents/upload')
+      .set('Authorization', 'Bearer faketoken')
+      .field('type', 'resume')
+      .attach('file', Buffer.from('not a txt file'), {
+        filename: 'resume.png',
+        contentType: 'text/plain',
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe(
+      'Unsupported file format. Supported formats are PDF, DOCX, and TXT.'
+    );
+    expect(DocumentsDAO.saveDocumentVersion).not.toHaveBeenCalled();
+  });
+
+  it('returns 400 when file exceeds upload size limit', async () => {
+    const res = await request(app)
+      .post('/api/documents/upload')
+      .set('Authorization', 'Bearer faketoken')
+      .field('type', 'resume')
+      .attach('file', Buffer.alloc(6 * 1024 * 1024, 'a'), 'resume.txt');
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('Uploaded file exceeds the 5MB limit');
     expect(DocumentsDAO.saveDocumentVersion).not.toHaveBeenCalled();
   });
 

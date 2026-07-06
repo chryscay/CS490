@@ -134,6 +134,11 @@ describe('DocumentLibraryPage', () => {
 
     const file = new File(['Resume body'], 'resume.txt', { type: 'text/plain' });
     const fileInput = screen.getByLabelText(/file/i);
+    const titleInput = screen.getByPlaceholderText('Senior Engineer Resume');
+    const jobIdInput = screen.getByPlaceholderText('Link to job if needed');
+
+    await user.type(titleInput, 'My Resume Upload');
+    await user.type(jobIdInput, 'job-42');
     await user.upload(fileInput, file);
 
     await user.click(screen.getByRole('button', { name: /^upload$/i }));
@@ -144,6 +149,9 @@ describe('DocumentLibraryPage', () => {
     expect(uploadDocument).toHaveBeenCalledTimes(1);
     expect(getAllDocuments).toHaveBeenCalledTimes(2);
     expect(screen.getByText('Uploaded Resume')).toBeInTheDocument();
+    expect(titleInput).toHaveValue('');
+    expect(jobIdInput).toHaveValue('');
+    expect(fileInput).toHaveValue('');
   });
 
   it('shows clear upload error for unsupported format', async () => {

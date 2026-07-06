@@ -18,16 +18,31 @@ function resolveUploadFormat(file) {
   const extension = getExtension(file?.originalname);
   const mime = (file?.mimetype || '').toLowerCase();
 
-  if (extension === '.txt' || mime === 'text/plain') {
+  if (extension) {
+    if (extension === '.txt') {
+      return 'txt';
+    }
+
+    if (extension === '.pdf') {
+      return 'pdf';
+    }
+
+    if (extension === '.docx') {
+      return 'docx';
+    }
+
+    return null;
+  }
+
+  if (mime === 'text/plain') {
     return 'txt';
   }
 
-  if (extension === '.pdf' || mime === 'application/pdf') {
+  if (mime === 'application/pdf') {
     return 'pdf';
   }
 
   if (
-    extension === '.docx' ||
     mime === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
   ) {
     return 'docx';
