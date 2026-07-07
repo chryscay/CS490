@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import DocumentLibraryPage from '../pages/DocumentLibraryPage';
@@ -9,10 +9,11 @@ vi.mock('../features/auth/useAuth', () => ({
 
 vi.mock('../features/jobs/jobsApi', () => ({
   getAllDocuments: vi.fn(),
+  uploadDocument: vi.fn(),
 }));
 
 import { useAuth } from '../features/auth/useAuth';
-import { getAllDocuments } from '../features/jobs/jobsApi';
+import { getAllDocuments, uploadDocument } from '../features/jobs/jobsApi';
 
 const mockUser = {
   getIdToken: vi.fn().mockResolvedValue('fake-token'),
@@ -38,8 +39,18 @@ const sampleDocs = [
 ];
 
 beforeEach(() => {
+  vi.clearAllMocks();
   useAuth.mockReturnValue({ currentUser: mockUser });
   getAllDocuments.mockResolvedValue({ documents: sampleDocs });
+  uploadDocument.mockResolvedValue({
+    document: {
+      _id: 'doc-3',
+      type: 'resume',
+      title: 'Uploaded Resume',
+      currentVersion: 1,
+      updatedAt: '2026-07-01T00:00:00.000Z',
+    },
+  });
 });
 
 describe('DocumentLibraryPage', () => {
@@ -98,5 +109,68 @@ describe('DocumentLibraryPage', () => {
     await userEvent.click(screen.getByRole('button', { name: /^resume$/i }));
     expect(screen.getByText('Engineer Resume')).toBeInTheDocument();
     expect(screen.queryByText('Engineer Cover Letter')).not.toBeInTheDocument();
+  });
+
+  it('uploads a document successfully and shows success message', async () => {
+    getAllDocuments
+      .mockResolvedValueOnce({ documents: sampleDocs })
+      .mockResolvedValueOnce({
+        documents: [
+          ...sampleDocs,
+          {
+            _id: 'doc-3',
+            type: 'resume',
+            title: 'Uploaded Resume',
+            currentVersion: 1,
+            updatedAt: '2026-07-01T00:00:00.000Z',
+          },
+        ],
+      });
+
+    const user = userEvent.setup();
+    render(<DocumentLibraryPage />);
+
+    await waitFor(() => expect(screen.getByText('Engineer Resume')).toBeInTheDocument());
+
+    const file = new File(['Resume body'], 'resume.txt', { type: 'text/plain' });
+    const fileInput = screen.getByLabelText(/file/i);
+    const titleInput = screen.getByPlaceholderText('Senior Engineer Resume');
+    const jobIdInput = screen.getByPlaceholderText('Link to job if needed');
+
+    await user.type(titleInput, 'My Resume Upload');
+    await user.type(jobIdInput, 'job-42');
+    await user.upload(fileInput, file);
+
+    await user.click(screen.getByRole('button', { name: /^upload$/i }));
+
+    await waitFor(() =>
+      expect(screen.getByText(/document uploaded successfully/i)).toBeInTheDocument()
+    );
+    expect(uploadDocument).toHaveBeenCalledTimes(1);
+    expect(getAllDocuments).toHaveBeenCalledTimes(2);
+    expect(screen.getByText('Uploaded Resume')).toBeInTheDocument();
+    expect(titleInput).toHaveValue('');
+    expect(jobIdInput).toHaveValue('');
+    expect(fileInput).toHaveValue('');
+  });
+
+  it('shows clear upload error for unsupported format', async () => {
+    const user = userEvent.setup();
+    render(<DocumentLibraryPage />);
+
+    await waitFor(() => expect(screen.getByText('Engineer Resume')).toBeInTheDocument());
+
+    const file = new File(['PNG bytes'], 'resume.png', { type: 'image/png' });
+    const fileInput = screen.getByLabelText(/file/i);
+    fireEvent.change(fileInput, { target: { files: [file] } });
+
+    await user.click(screen.getByRole('button', { name: /^upload$/i }));
+
+    expect(
+      screen.getByText(
+        'Unsupported file format. Supported formats are PDF, DOCX, and TXT.'
+      )
+    ).toBeInTheDocument();
+    expect(uploadDocument).not.toHaveBeenCalled();
   });
 });
