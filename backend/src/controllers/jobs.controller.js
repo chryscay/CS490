@@ -8,7 +8,6 @@ import {
   isOutcomeStage,
 } from '../lib/stageTransitions.js';
 import * as AiDraftService from '../services/aiDraft.service.js';
-import { error } from 'console';
 const VALID_STAGES = [
   'Interested',
   'Applied',
