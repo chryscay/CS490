@@ -26,6 +26,7 @@ router
   .route('/:id/documents')
   .post(JobsController.apiSaveDraftDocument)
   .get(JobsController.apiGetJobDocuments);
+router.get('/:id/documents/:documentId/export', JobsController.apiExportJobDocument); // S3-005
 router.post('/:id/interviews', JobsController.apiAddInterview); // S2-011
 router.put('/:id/interviews/:interviewId', JobsController.apiUpdateInterview); // S2-011
 router.post('/:id/followups', JobsController.apiAddFollowUp); // S2-012
@@ -34,3 +35,9 @@ router.put('/:id/followups/:followUpId', JobsController.apiUpdateFollowUp); // S
 router.patch('/:id/research', JobsController.apiUpdateResearchNotes); // S3-012
 
 export default router;
+
+
+
+
+
+

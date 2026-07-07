@@ -8,6 +8,7 @@ import {
   isOutcomeStage,
 } from '../lib/stageTransitions.js';
 import * as AiDraftService from '../services/aiDraft.service.js';
+import { buildExport, isValidExportFormat } from '../lib/documentExport.js';
 const VALID_STAGES = [
   'Interested',
   'Applied',
@@ -625,6 +626,7 @@ export default class JobsController {
     }
   }
 
+
   static async apiUpdateResearchNotes(req, res) {
     try {
       const { researchNotes } = req.body;
@@ -659,6 +661,56 @@ export default class JobsController {
       });
     }
   }
+
+
+  // S3-005: export a specific document version as txt or pdf, owner-scoped.
+  static async apiExportJobDocument(req, res) {
+    try {
+      const { id, documentId } = req.params;
+      const { format = 'txt', version } = req.query;
+
+      if (!isValidExportFormat(format)) {
+        return res.status(400).json({ error: 'Unsupported export format' });
+      }
+
+      // Confirm the job is owned (consistent with the other document handlers).
+      const job = await JobsDAO.findByIdForOwner(id, req.user.uid);
+      if (!job) {
+        return res.status(404).json({ error: 'Job not found' });
+      }
+
+      const doc = await DocumentsDAO.findVersionForOwner(
+        req.user.uid,
+        documentId,
+        version
+      );
+      if (!doc) {
+        return res.status(404).json({ error: 'Document version not found' });
+      }
+
+      const { buffer, contentType, filename } = await buildExport({
+        format,
+        title: doc.title,
+        version: doc.version,
+        text: doc.text,
+      });
+
+      res.setHeader('Content-Type', contentType);
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename="${filename}"`
+      );
+      res.setHeader('Content-Length', buffer.length);
+      return res.status(200).send(buffer);
+    } catch (error) {
+      console.error('apiExportJobDocument error:', error);
+      return res.status(500).json({ error: 'Failed to export document' });
+    }
+  }
+
+
+
+
 }
 
 export { VALID_STAGES };

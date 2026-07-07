@@ -159,6 +159,7 @@ export default class DocumentsDAO {
     });
   }
 
+
   // S3-001: all documents across all jobs for a user (resume + coverLetter only).
   static async findAllForOwner(firebaseUid) {
     const docs = await documents.find({ firebaseUid }).toArray();
@@ -174,4 +175,54 @@ export default class DocumentsDAO {
         updatedAt: doc.updatedAt,
       }));
   }
+
+  // S3-005: fetch a specific version's text for export, owner-scoped.
+  // If version is omitted, returns the latest. Ownership is enforced in the
+  // query (firebaseUid), so cross-owner access returns null -> 404 upstream.
+  static async findVersionForOwner(firebaseUid, documentId, version) {
+    const _id = ObjectId.isValid(documentId)
+      ? new ObjectId(documentId)
+      : documentId;
+
+    const doc = await documents.findOne({ _id, firebaseUid });
+    if (!doc) {
+      return null;
+    }
+
+    const versions = doc.versions ?? [];
+    if (versions.length === 0) {
+      return null;
+    }
+
+    let selected;
+    if (version === undefined || version === null || version === '') {
+      selected = versions[versions.length - 1];
+    } else {
+      const wanted = Number(version);
+      selected = versions.find((v) => v.version === wanted);
+      if (!selected) {
+        return null;
+      }
+    }
+
+    return {
+      _id: doc._id,
+      type: doc.type,
+      title: doc.title,
+      version: selected.version,
+      text: selected.text ?? '',
+    };
+
+
+
+  }
+
+
+
+
+
+
+
+
+ 
 }
