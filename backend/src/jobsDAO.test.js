@@ -32,7 +32,11 @@ describe('JobsDAO.addInterview', () => {
       interviews: [entry],
     });
 
-    const result = await JobsDAO.addInterview('507f1f77bcf86cd799439011', 'user-a', entry);
+    const result = await JobsDAO.addInterview(
+      '507f1f77bcf86cd799439011',
+      'user-a',
+      entry
+    );
 
     expect(mockFindOneAndUpdate).toHaveBeenCalledWith(
       { _id: expect.any(Object), firebaseUid: 'user-a' },
@@ -71,10 +75,19 @@ describe('JobsDAO.updateInterview', () => {
       interviews: [{ id: 'iv-1', ...fields }],
     });
 
-    await JobsDAO.updateInterview('507f1f77bcf86cd799439011', 'user-a', 'iv-1', fields);
+    await JobsDAO.updateInterview(
+      '507f1f77bcf86cd799439011',
+      'user-a',
+      'iv-1',
+      fields
+    );
 
     expect(mockFindOneAndUpdate).toHaveBeenCalledWith(
-      { _id: expect.any(Object), firebaseUid: 'user-a', 'interviews.id': 'iv-1' },
+      {
+        _id: expect.any(Object),
+        firebaseUid: 'user-a',
+        'interviews.id': 'iv-1',
+      },
       {
         $set: {
           'interviews.$.roundType': fields.roundType,
@@ -88,7 +101,12 @@ describe('JobsDAO.updateInterview', () => {
   });
 
   it('returns null for an invalid job id', async () => {
-    const result = await JobsDAO.updateInterview('bad-id', 'user-a', 'iv-1', {});
+    const result = await JobsDAO.updateInterview(
+      'bad-id',
+      'user-a',
+      'iv-1',
+      {}
+    );
     expect(result).toBeNull();
     expect(mockFindOneAndUpdate).not.toHaveBeenCalled();
   });
@@ -115,7 +133,11 @@ describe('JobsDAO.addFollowUp', () => {
       followUps: [entry],
     });
 
-    const result = await JobsDAO.addFollowUp('507f1f77bcf86cd799439011', 'user-a', entry);
+    const result = await JobsDAO.addFollowUp(
+      '507f1f77bcf86cd799439011',
+      'user-a',
+      entry
+    );
 
     expect(mockFindOneAndUpdate).toHaveBeenCalledWith(
       { _id: expect.any(Object), firebaseUid: 'user-a' },
@@ -154,10 +176,19 @@ describe('JobsDAO.updateFollowUp', () => {
       followUps: [{ id: 'fu-1', ...fields }],
     });
 
-    await JobsDAO.updateFollowUp('507f1f77bcf86cd799439011', 'user-a', 'fu-1', fields);
+    await JobsDAO.updateFollowUp(
+      '507f1f77bcf86cd799439011',
+      'user-a',
+      'fu-1',
+      fields
+    );
 
     expect(mockFindOneAndUpdate).toHaveBeenCalledWith(
-      { _id: expect.any(Object), firebaseUid: 'user-a', 'followUps.id': 'fu-1' },
+      {
+        _id: expect.any(Object),
+        firebaseUid: 'user-a',
+        'followUps.id': 'fu-1',
+      },
       {
         $set: {
           'followUps.$.title': fields.title,
@@ -178,7 +209,12 @@ describe('JobsDAO.updateFollowUp', () => {
       followUps: [{ id: 'fu-1', completedAt: null }],
     });
 
-    await JobsDAO.updateFollowUp('507f1f77bcf86cd799439011', 'user-a', 'fu-1', fields);
+    await JobsDAO.updateFollowUp(
+      '507f1f77bcf86cd799439011',
+      'user-a',
+      'fu-1',
+      fields
+    );
 
     const setArg = mockFindOneAndUpdate.mock.calls[0][1].$set;
     expect(setArg['followUps.$.completedAt']).toBeNull();
@@ -292,6 +328,90 @@ describe('JobsDAO.appendStageTransition', () => {
         }),
         $push: {
           stageHistory: entry,
+        },
+      },
+      {
+        returnDocument: 'after',
+      }
+    );
+  });
+});
+
+describe('JobsDAO.updateResearchNotes', () => {
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    await JobsDAO.injectDB(mockConn);
+  });
+
+  it('updates research notes and sets timestamps', async () => {
+    const notes =
+      'Company focuses on AI research, cloud infrastructure, and developer tools.';
+
+    mockFindOneAndUpdate.mockResolvedValue({
+      _id: '507f1f77bcf86cd799439011',
+      firebaseUid: 'user-a',
+      researchNotes: notes,
+      researchUpdatedAt: new Date(),
+    });
+
+    const result = await JobsDAO.updateResearchNotes(
+      '507f1f77bcf86cd799439011',
+      'user-a',
+      notes
+    );
+
+    expect(mockFindOneAndUpdate).toHaveBeenCalledWith(
+      {
+        _id: expect.any(Object),
+        firebaseUid: 'user-a',
+      },
+      {
+        $set: {
+          researchNotes: notes,
+          researchUpdatedAt: expect.any(Date),
+          lastActivityAt: expect.any(Date),
+        },
+      },
+      {
+        returnDocument: 'after',
+      }
+    );
+
+    expect(result.researchNotes).toBe(notes);
+  });
+
+  it('returns null for an invalid job id', async () => {
+    const result = await JobsDAO.updateResearchNotes(
+      'bad-id',
+      'user-a',
+      'Some research notes'
+    );
+
+    expect(result).toBeNull();
+    expect(mockFindOneAndUpdate).not.toHaveBeenCalled();
+  });
+
+  it('returns null when the job is not owned by the user', async () => {
+    mockFindOneAndUpdate.mockResolvedValue(null);
+
+    const result = await JobsDAO.updateResearchNotes(
+      '507f1f77bcf86cd799439011',
+      'wrong-user',
+      'Some research notes'
+    );
+
+    expect(result).toBeNull();
+
+    expect(mockFindOneAndUpdate).toHaveBeenCalledWith(
+      {
+        _id: expect.any(Object),
+        firebaseUid: 'wrong-user',
+      },
+      {
+        $set: {
+          researchNotes: 'Some research notes',
+          researchUpdatedAt: expect.any(Date),
+          lastActivityAt: expect.any(Date),
         },
       },
       {

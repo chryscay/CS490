@@ -25,6 +25,7 @@ vi.mock('./dao/jobsDAO.js', () => ({
     findByOwner: vi.fn(),
     findByIdForOwner: vi.fn(),
     updateJob: vi.fn(),
+    updateResearchNotes: vi.fn(),
     deleteJob: vi.fn(),
     appendStageTransition: vi.fn(),
     addInterview: vi.fn(),
@@ -58,10 +59,15 @@ describe('POST /api/jobs/:id/transition', () => {
 
   it('performs a forward transition without confirmation (happy path)', async () => {
     JobsDAO.findByIdForOwner.mockResolvedValue({
-      _id: ID, firebaseUid: 'user-a', stage: 'Interested',
+      _id: ID,
+      firebaseUid: 'user-a',
+      stage: 'Interested',
     });
     JobsDAO.appendStageTransition.mockResolvedValue({
-      _id: ID, firebaseUid: 'user-a', stage: 'Applied', stageHistory: [{}],
+      _id: ID,
+      firebaseUid: 'user-a',
+      stage: 'Applied',
+      stageHistory: [{}],
     });
 
     const res = await request(app)
@@ -89,10 +95,15 @@ describe('POST /api/jobs/:id/transition', () => {
   // S2-013: forward into an outcome stage keeps the note (happy path)
   it('preserves the note transitioning into an outcome stage', async () => {
     JobsDAO.findByIdForOwner.mockResolvedValue({
-      _id: ID, firebaseUid: 'user-a', stage: 'Interview',
+      _id: ID,
+      firebaseUid: 'user-a',
+      stage: 'Interview',
     });
     JobsDAO.appendStageTransition.mockResolvedValue({
-      _id: ID, firebaseUid: 'user-a', stage: 'Offer', stageHistory: [{}],
+      _id: ID,
+      firebaseUid: 'user-a',
+      stage: 'Offer',
+      stageHistory: [{}],
     });
 
     const res = await request(app)
@@ -110,10 +121,15 @@ describe('POST /api/jobs/:id/transition', () => {
   // S2-013: forward into a non-outcome stage drops the note (gating boundary)
   it('discards the note transitioning into a non-outcome stage', async () => {
     JobsDAO.findByIdForOwner.mockResolvedValue({
-      _id: ID, firebaseUid: 'user-a', stage: 'Interested',
+      _id: ID,
+      firebaseUid: 'user-a',
+      stage: 'Interested',
     });
     JobsDAO.appendStageTransition.mockResolvedValue({
-      _id: ID, firebaseUid: 'user-a', stage: 'Applied', stageHistory: [{}],
+      _id: ID,
+      firebaseUid: 'user-a',
+      stage: 'Applied',
+      stageHistory: [{}],
     });
 
     const res = await request(app)
@@ -128,10 +144,15 @@ describe('POST /api/jobs/:id/transition', () => {
   // S2-013: the entry handed to the writer carries note + identity (persistence)
   it('hands the outcome note + identity to the DAO writer', async () => {
     JobsDAO.findByIdForOwner.mockResolvedValue({
-      _id: ID, firebaseUid: 'user-a', stage: 'Applied',
+      _id: ID,
+      firebaseUid: 'user-a',
+      stage: 'Applied',
     });
     JobsDAO.appendStageTransition.mockResolvedValue({
-      _id: ID, firebaseUid: 'user-a', stage: 'Rejected', stageHistory: [{}],
+      _id: ID,
+      firebaseUid: 'user-a',
+      stage: 'Rejected',
+      stageHistory: [{}],
     });
 
     await request(app)
@@ -152,7 +173,9 @@ describe('POST /api/jobs/:id/transition', () => {
 
   it('blocks a non-forward transition until confirmed (409)', async () => {
     JobsDAO.findByIdForOwner.mockResolvedValue({
-      _id: ID, firebaseUid: 'user-a', stage: 'Applied',
+      _id: ID,
+      firebaseUid: 'user-a',
+      stage: 'Applied',
     });
 
     const res = await request(app)
@@ -167,16 +190,25 @@ describe('POST /api/jobs/:id/transition', () => {
 
   it('writes an override entry when confirmed (logs identity + note)', async () => {
     JobsDAO.findByIdForOwner.mockResolvedValue({
-      _id: ID, firebaseUid: 'user-a', stage: 'Applied',
+      _id: ID,
+      firebaseUid: 'user-a',
+      stage: 'Applied',
     });
     JobsDAO.appendStageTransition.mockResolvedValue({
-      _id: ID, firebaseUid: 'user-a', stage: 'Interested', stageHistory: [{}],
+      _id: ID,
+      firebaseUid: 'user-a',
+      stage: 'Interested',
+      stageHistory: [{}],
     });
 
     const res = await request(app)
       .post(`/api/jobs/${ID}/transition`)
       .set('Authorization', 'Bearer faketoken')
-      .send({ toStage: 'Interested', confirmOverride: true, note: 'reopening' });
+      .send({
+        toStage: 'Interested',
+        confirmOverride: true,
+        note: 'reopening',
+      });
 
     expect(res.status).toBe(200);
     expect(JobsDAO.appendStageTransition).toHaveBeenCalledWith(
@@ -194,7 +226,9 @@ describe('POST /api/jobs/:id/transition', () => {
 
   it('treats leaving Archived as an override (terminal stage, S2-BR-006)', async () => {
     JobsDAO.findByIdForOwner.mockResolvedValue({
-      _id: ID, firebaseUid: 'user-a', stage: 'Archived',
+      _id: ID,
+      firebaseUid: 'user-a',
+      stage: 'Archived',
     });
 
     const res = await request(app)
@@ -220,7 +254,9 @@ describe('POST /api/jobs/:id/transition', () => {
 
   it('rejects a no-op transition to the same stage (400)', async () => {
     JobsDAO.findByIdForOwner.mockResolvedValue({
-      _id: ID, firebaseUid: 'user-a', stage: 'Interested',
+      _id: ID,
+      firebaseUid: 'user-a',
+      stage: 'Interested',
     });
 
     const res = await request(app)
@@ -304,7 +340,9 @@ describe('POST /api/jobs/:id/ai/draft', () => {
       summary: 'Experienced backend engineer',
       skills: [{ name: 'Node.js' }],
     });
-    AiDraftService.generateAiDraft.mockResolvedValue('Generated cover letter draft');
+    AiDraftService.generateAiDraft.mockResolvedValue(
+      'Generated cover letter draft'
+    );
 
     const res = await request(app)
       .post(`/api/jobs/${ID}/ai/draft`)
@@ -344,7 +382,9 @@ describe('POST /api/jobs/:id/ai/draft', () => {
       jobPostingBody: 'Build services',
     });
     UsersDAO.getProfile.mockResolvedValue({});
-    AiDraftService.generateAiDraft.mockRejectedValue(new Error('OpenAI unreachable'));
+    AiDraftService.generateAiDraft.mockRejectedValue(
+      new Error('OpenAI unreachable')
+    );
 
     const res = await request(app)
       .post(`/api/jobs/${ID}/ai/draft`)
@@ -455,7 +495,9 @@ describe('POST /api/jobs/:id/ai/rewrite', () => {
       jobPostingBody: 'Build services',
     });
     UsersDAO.getProfile.mockResolvedValue({});
-    AiDraftService.rewriteAiDraft.mockRejectedValue(new Error('OpenAI unreachable'));
+    AiDraftService.rewriteAiDraft.mockRejectedValue(
+      new Error('OpenAI unreachable')
+    );
 
     const res = await request(app)
       .post(`/api/jobs/${ID}/ai/rewrite`)
@@ -839,7 +881,6 @@ describe('GET /api/jobs/:id', () => {
     expect(res.status).toBe(200);
     expect(res.body.job.company).toBe('Acme');
   });
-
 });
 
 describe('PUT /api/jobs/:id', () => {
@@ -935,8 +976,6 @@ describe('PUT /api/jobs/:id', () => {
   });
 });
 
-
-
 describe('POST /api/jobs/:id/interviews', () => {
   const ID = '507f1f77bcf86cd799439011';
   const validBody = {
@@ -951,7 +990,12 @@ describe('POST /api/jobs/:id/interviews', () => {
   });
 
   it('adds an interview entry (happy path)', async () => {
-    const updatedJob = { _id: ID, firebaseUid: 'user-a', stage: 'Interview', interviews: [{ id: 'uuid', ...validBody }] };
+    const updatedJob = {
+      _id: ID,
+      firebaseUid: 'user-a',
+      stage: 'Interview',
+      interviews: [{ id: 'uuid', ...validBody }],
+    };
     JobsDAO.addInterview.mockResolvedValue(updatedJob);
 
     const res = await request(app)
@@ -1030,7 +1074,12 @@ describe('PUT /api/jobs/:id/interviews/:interviewId', () => {
   });
 
   it('updates an interview entry (happy path)', async () => {
-    const updatedJob = { _id: ID, firebaseUid: 'user-a', stage: 'Interview', interviews: [{ id: INTERVIEW_ID, ...validBody }] };
+    const updatedJob = {
+      _id: ID,
+      firebaseUid: 'user-a',
+      stage: 'Interview',
+      interviews: [{ id: INTERVIEW_ID, ...validBody }],
+    };
     JobsDAO.updateInterview.mockResolvedValue(updatedJob);
 
     const res = await request(app)
@@ -1094,7 +1143,10 @@ describe('PUT /api/jobs/:id/interviews/:interviewId', () => {
 
 describe('POST /api/jobs/:id/followups', () => {
   const ID = '507f1f77bcf86cd799439011';
-  const validBody = { title: 'Send thank you email', dueAt: '2026-08-03T09:00:00.000Z' };
+  const validBody = {
+    title: 'Send thank you email',
+    dueAt: '2026-08-03T09:00:00.000Z',
+  };
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -1102,7 +1154,10 @@ describe('POST /api/jobs/:id/followups', () => {
   });
 
   it('adds a follow-up (happy path)', async () => {
-    const updatedJob = { _id: ID, followUps: [{ id: 'uuid', ...validBody, completedAt: null }] };
+    const updatedJob = {
+      _id: ID,
+      followUps: [{ id: 'uuid', ...validBody, completedAt: null }],
+    };
     JobsDAO.addFollowUp.mockResolvedValue(updatedJob);
 
     const res = await request(app)
@@ -1165,7 +1220,9 @@ describe('POST /api/jobs/:id/followups', () => {
   });
 
   it('blocks unauthenticated requests (401)', async () => {
-    const res = await request(app).post(`/api/jobs/${ID}/followups`).send(validBody);
+    const res = await request(app)
+      .post(`/api/jobs/${ID}/followups`)
+      .send(validBody);
     expect(res.status).toBe(401);
     expect(JobsDAO.addFollowUp).not.toHaveBeenCalled();
   });
@@ -1174,7 +1231,10 @@ describe('POST /api/jobs/:id/followups', () => {
 describe('PUT /api/jobs/:id/followups/:followUpId', () => {
   const ID = '507f1f77bcf86cd799439011';
   const FU_ID = 'followup-uuid-1';
-  const validBody = { title: 'Follow up on application', dueAt: '2026-08-10T10:00:00.000Z' };
+  const validBody = {
+    title: 'Follow up on application',
+    dueAt: '2026-08-10T10:00:00.000Z',
+  };
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -1182,7 +1242,10 @@ describe('PUT /api/jobs/:id/followups/:followUpId', () => {
   });
 
   it('updates a follow-up (happy path)', async () => {
-    const updatedJob = { _id: ID, followUps: [{ id: FU_ID, ...validBody, completedAt: null }] };
+    const updatedJob = {
+      _id: ID,
+      followUps: [{ id: FU_ID, ...validBody, completedAt: null }],
+    };
     JobsDAO.updateFollowUp.mockResolvedValue(updatedJob);
 
     const res = await request(app)
@@ -1192,14 +1255,22 @@ describe('PUT /api/jobs/:id/followups/:followUpId', () => {
 
     expect(res.status).toBe(200);
     expect(JobsDAO.updateFollowUp).toHaveBeenCalledWith(
-      ID, 'user-a', FU_ID,
-      expect.objectContaining({ title: 'Follow up on application', completedAt: null })
+      ID,
+      'user-a',
+      FU_ID,
+      expect.objectContaining({
+        title: 'Follow up on application',
+        completedAt: null,
+      })
     );
   });
 
   it('marks a follow-up complete when completedAt is provided', async () => {
     const completedAt = '2026-08-05T14:00:00.000Z';
-    JobsDAO.updateFollowUp.mockResolvedValue({ _id: ID, followUps: [{ id: FU_ID, completedAt }] });
+    JobsDAO.updateFollowUp.mockResolvedValue({
+      _id: ID,
+      followUps: [{ id: FU_ID, completedAt }],
+    });
 
     const res = await request(app)
       .put(`/api/jobs/${ID}/followups/${FU_ID}`)
@@ -1207,7 +1278,9 @@ describe('PUT /api/jobs/:id/followups/:followUpId', () => {
       .send({ ...validBody, completedAt });
 
     expect(res.status).toBe(200);
-    expect(JobsDAO.updateFollowUp.mock.calls[0][3].completedAt).toBe(completedAt);
+    expect(JobsDAO.updateFollowUp.mock.calls[0][3].completedAt).toBe(
+      completedAt
+    );
   });
 
   it('rejects invalid completedAt (400)', async () => {
@@ -1231,7 +1304,9 @@ describe('PUT /api/jobs/:id/followups/:followUpId', () => {
   });
 
   it('blocks unauthenticated requests (401)', async () => {
-    const res = await request(app).put(`/api/jobs/${ID}/followups/${FU_ID}`).send(validBody);
+    const res = await request(app)
+      .put(`/api/jobs/${ID}/followups/${FU_ID}`)
+      .send(validBody);
     expect(res.status).toBe(401);
     expect(JobsDAO.updateFollowUp).not.toHaveBeenCalled();
   });
@@ -1246,8 +1321,15 @@ describe('POST /api/jobs/:id/archive', () => {
   });
 
   it('archives a job in a non-forward stage (Applied -> Archived)', async () => {
-    JobsDAO.findByIdForOwner.mockResolvedValue({ _id: ID, stage: 'Applied', stageHistory: [] });
-    JobsDAO.appendStageTransition.mockResolvedValue({ _id: ID, stage: 'Archived' });
+    JobsDAO.findByIdForOwner.mockResolvedValue({
+      _id: ID,
+      stage: 'Applied',
+      stageHistory: [],
+    });
+    JobsDAO.appendStageTransition.mockResolvedValue({
+      _id: ID,
+      stage: 'Archived',
+    });
 
     const res = await request(app)
       .post(`/api/jobs/${ID}/archive`)
@@ -1263,8 +1345,15 @@ describe('POST /api/jobs/:id/archive', () => {
   });
 
   it('archives a job on the forward path (Offer -> Archived)', async () => {
-    JobsDAO.findByIdForOwner.mockResolvedValue({ _id: ID, stage: 'Offer', stageHistory: [] });
-    JobsDAO.appendStageTransition.mockResolvedValue({ _id: ID, stage: 'Archived' });
+    JobsDAO.findByIdForOwner.mockResolvedValue({
+      _id: ID,
+      stage: 'Offer',
+      stageHistory: [],
+    });
+    JobsDAO.appendStageTransition.mockResolvedValue({
+      _id: ID,
+      stage: 'Archived',
+    });
 
     const res = await request(app)
       .post(`/api/jobs/${ID}/archive`)
@@ -1277,7 +1366,11 @@ describe('POST /api/jobs/:id/archive', () => {
   });
 
   it('returns 400 when job is already archived', async () => {
-    JobsDAO.findByIdForOwner.mockResolvedValue({ _id: ID, stage: 'Archived', stageHistory: [] });
+    JobsDAO.findByIdForOwner.mockResolvedValue({
+      _id: ID,
+      stage: 'Archived',
+      stageHistory: [],
+    });
 
     const res = await request(app)
       .post(`/api/jobs/${ID}/archive`)
@@ -1320,11 +1413,24 @@ describe('POST /api/jobs/:id/restore', () => {
       _id: ID,
       stage: 'Archived',
       stageHistory: [
-        { id: 'sh-1', fromStage: 'Applied', toStage: 'Interview', changedAt: '2026-06-01T00:00:00.000Z' },
-        { id: 'sh-2', fromStage: 'Interview', toStage: 'Archived', changedAt: '2026-06-10T00:00:00.000Z' },
+        {
+          id: 'sh-1',
+          fromStage: 'Applied',
+          toStage: 'Interview',
+          changedAt: '2026-06-01T00:00:00.000Z',
+        },
+        {
+          id: 'sh-2',
+          fromStage: 'Interview',
+          toStage: 'Archived',
+          changedAt: '2026-06-10T00:00:00.000Z',
+        },
       ],
     });
-    JobsDAO.appendStageTransition.mockResolvedValue({ _id: ID, stage: 'Interview' });
+    JobsDAO.appendStageTransition.mockResolvedValue({
+      _id: ID,
+      stage: 'Interview',
+    });
 
     const res = await request(app)
       .post(`/api/jobs/${ID}/restore`)
@@ -1339,8 +1445,15 @@ describe('POST /api/jobs/:id/restore', () => {
   });
 
   it('restores to Interested when stageHistory has no archive entry', async () => {
-    JobsDAO.findByIdForOwner.mockResolvedValue({ _id: ID, stage: 'Archived', stageHistory: [] });
-    JobsDAO.appendStageTransition.mockResolvedValue({ _id: ID, stage: 'Interested' });
+    JobsDAO.findByIdForOwner.mockResolvedValue({
+      _id: ID,
+      stage: 'Archived',
+      stageHistory: [],
+    });
+    JobsDAO.appendStageTransition.mockResolvedValue({
+      _id: ID,
+      stage: 'Interested',
+    });
 
     const res = await request(app)
       .post(`/api/jobs/${ID}/restore`)
@@ -1353,7 +1466,11 @@ describe('POST /api/jobs/:id/restore', () => {
   });
 
   it('returns 400 when job is not archived', async () => {
-    JobsDAO.findByIdForOwner.mockResolvedValue({ _id: ID, stage: 'Applied', stageHistory: [] });
+    JobsDAO.findByIdForOwner.mockResolvedValue({
+      _id: ID,
+      stage: 'Applied',
+      stageHistory: [],
+    });
 
     const res = await request(app)
       .post(`/api/jobs/${ID}/restore`)
@@ -1393,7 +1510,9 @@ describe('DELETE /api/jobs/:id', () => {
 
   it('deletes an owned job (happy path + ownership scoping)', async () => {
     JobsDAO.deleteJob.mockResolvedValue({
-      _id: ID, firebaseUid: 'user-a', company: 'Acme',
+      _id: ID,
+      firebaseUid: 'user-a',
+      company: 'Acme',
     });
 
     const res = await request(app)
@@ -1424,3 +1543,100 @@ describe('DELETE /api/jobs/:id', () => {
   });
 });
 
+describe('PATCH /api/jobs/:id/research', () => {
+  const ID = '507f1f77bcf86cd799439011';
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockVerifyIdToken.mockResolvedValue({
+      uid: 'user-a',
+      email: 'a@test.com',
+    });
+  });
+
+  it('updates company research notes for an owned job (happy path)', async () => {
+    JobsDAO.updateResearchNotes.mockResolvedValue({
+      _id: ID,
+      firebaseUid: 'user-a',
+      researchNotes: 'Company uses AI infrastructure and cloud services.',
+    });
+
+    const res = await request(app)
+      .patch(`/api/jobs/${ID}/research`)
+      .set('Authorization', 'Bearer faketoken')
+      .send({
+        researchNotes: 'Company uses AI infrastructure and cloud services.',
+      });
+
+    expect(res.status).toBe(200);
+
+    expect(res.body.job.researchNotes).toBe(
+      'Company uses AI infrastructure and cloud services.'
+    );
+
+    expect(JobsDAO.updateResearchNotes).toHaveBeenCalledWith(
+      ID,
+      'user-a',
+      'Company uses AI infrastructure and cloud services.'
+    );
+  });
+
+  it('rejects empty research notes (400)', async () => {
+    const res = await request(app)
+      .patch(`/api/jobs/${ID}/research`)
+      .set('Authorization', 'Bearer faketoken')
+      .send({
+        researchNotes: '',
+      });
+
+    expect(res.status).toBe(400);
+
+    expect(JobsDAO.updateResearchNotes).not.toHaveBeenCalled();
+  });
+
+  it('returns 404 when job does not belong to user', async () => {
+    JobsDAO.updateResearchNotes.mockResolvedValue(null);
+
+    const res = await request(app)
+      .patch(`/api/jobs/${ID}/research`)
+      .set('Authorization', 'Bearer faketoken')
+      .send({
+        researchNotes: 'Research information',
+      });
+
+    expect(res.status).toBe(404);
+
+    expect(JobsDAO.updateResearchNotes).toHaveBeenCalledWith(
+      ID,
+      'user-a',
+      'Research information'
+    );
+  });
+
+  it('blocks unauthenticated requests (401)', async () => {
+    const res = await request(app).patch(`/api/jobs/${ID}/research`).send({
+      researchNotes: 'Unauthorized attempt',
+    });
+
+    expect(res.status).toBe(401);
+
+    expect(JobsDAO.updateResearchNotes).not.toHaveBeenCalled();
+  });
+
+  it('returns 500 when updating research notes fails', async () => {
+    JobsDAO.updateResearchNotes.mockRejectedValue(
+      new Error('database failure')
+    );
+
+    const res = await request(app)
+      .patch(`/api/jobs/${ID}/research`)
+      .set('Authorization', 'Bearer faketoken')
+      .send({
+        researchNotes: 'Some research',
+      });
+
+    expect(res.status).toBe(500);
+
+    expect(res.body.error).toBe('Failed to update research notes');
+  });
+});

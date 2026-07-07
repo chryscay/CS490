@@ -165,4 +165,33 @@ export default class JobsDAO {
       }
     );
   }
+
+  static async updateResearchNotes(id, uid, researchNotes) {
+    try {
+      if (!ObjectId.isValid(id)) {
+        return null;
+      }
+
+      const result = await jobs.findOneAndUpdate(
+        {
+          _id: new ObjectId(id),
+          firebaseUid: uid,
+        },
+        {
+          $set: {
+            researchNotes,
+            researchUpdatedAt: new Date(),
+            lastActivityAt: new Date(),
+          },
+        },
+        {
+          returnDocument: 'after',
+        }
+      );
+
+      return result;
+    } catch (e) {
+      console.error(`Unable to update research notes: ${e}`);
+    }
+  }
 }
