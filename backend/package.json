@@ -11,7 +11,13 @@
     "test": "vitest run",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "seed": "node seed.js"
+    "seed": "node seed.js",
+    "migrate": "node migrate.js",
+    "migrate:status": "node migrate.js status",
+    "migrate:up": "node migrate.js up",
+    "migrate:down": "node migrate.js down",
+    "migrate:create": "node migrate.js create",
+    "migrate:verify": "node migrate.js verify"
   },
   "dependencies": {
     "cors": "^2.8.6",
