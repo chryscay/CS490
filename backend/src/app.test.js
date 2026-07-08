@@ -1,6 +1,7 @@
 import request from 'supertest';
 import express from 'express';
 import authMiddleware from './middleware/auth.middleware.js';
+import { errorHandler } from './middleware/error.middleware.js';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import app from './app.js';
 import UsersDAO from './dao/usersDAO.js';
@@ -33,6 +34,7 @@ const testApp = express();
 testApp.get('/protected', authMiddleware, (req, res) => {
   res.json(req.user);
 });
+testApp.use(errorHandler);
 
 //
 
@@ -153,6 +155,7 @@ describe('auth middleware (S1-014)', () => {
   it('blocks requests with no Authorization header (401)', async () => {
     const res = await request(testApp).get('/protected');
     expect(res.status).toBe(401);
+    expect(res.body.error).toBe('Authorization required');
   });
 
   it('rejects invalid or expired token (401)', async () => {
@@ -162,6 +165,7 @@ describe('auth middleware (S1-014)', () => {
       .get('/protected')
       .set('Authorization', 'Bearer badtoken');
     expect(res.status).toBe(401);
+    expect(res.body.error).toBe('Invalid or expired token Expired Token');
   });
 
   it('allows valid token and attaches req.user', async () => {
