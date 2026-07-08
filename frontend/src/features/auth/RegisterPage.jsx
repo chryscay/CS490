@@ -39,11 +39,12 @@ export default function RegisterPage() {
         <div className="w-full max-w-md rounded-2xl border border-white/10 bg-white/[0.03] p-8">
           <form onSubmit={handleRegister} className="space-y-6">
             <div>
-              <label className="block text-sm font-medium text-white/70 mb-2">
+              <label htmlFor="register-username" className="block text-sm font-medium text-white/70 mb-2">
                 Username*
               </label>
 
               <input
+                id="register-username"
                 type="text"
                 placeholder="Enter your username"
                 value={username}
@@ -67,11 +68,12 @@ export default function RegisterPage() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-white/70 mb-2">
+              <label htmlFor="register-email" className="block text-sm font-medium text-white/70 mb-2">
                 Email*
               </label>
 
               <input
+                id="register-email"
                 type="email"
                 placeholder="Enter your email"
                 value={email}
@@ -96,10 +98,11 @@ export default function RegisterPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-white/70 mb-2">
+              <label htmlFor="register-password" className="block text-sm font-medium text-white/70 mb-2">
                 Password*
               </label>
               <input
+                id="register-password"
                 type="password"
                 placeholder="Create a password"
                 value={password}

@@ -177,7 +177,7 @@ export default function CareerPreferencesSection({ profile, onSaved }) {
         {/* Target Roles */}
         <div>
           <div className="flex items-center justify-between gap-4 mb-4">
-            <label className={LABEL_CLASS + ' mb-0'}>Target Roles</label>
+          <span className={LABEL_CLASS + ' mb-0'}>Target Roles</span>
             <button
               type="button"
               onClick={addTargetRole}
@@ -228,7 +228,7 @@ export default function CareerPreferencesSection({ profile, onSaved }) {
         {/* Locations */}
         <div>
           <div className="flex items-center justify-between gap-4 mb-4">
-            <label className={LABEL_CLASS + ' mb-0'}>Location Preferences</label>
+          <span className={LABEL_CLASS + ' mb-0'}>Location Preferences</span>
             <button
               type="button"
               onClick={addLocation}
