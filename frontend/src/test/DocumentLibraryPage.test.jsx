@@ -111,6 +111,53 @@ describe('DocumentLibraryPage', () => {
     expect(screen.queryByText('Engineer Cover Letter')).not.toBeInTheDocument();
   });
 
+  it('filters by status — shows only archived documents when Archived is selected', async () => {
+    getAllDocuments.mockResolvedValue({
+      documents: [
+        { ...sampleDocs[0], status: 'active' },
+        { ...sampleDocs[1], status: 'archived' },
+      ],
+    });
+    render(<DocumentLibraryPage />);
+    await waitFor(() => expect(screen.getByText('Engineer Resume')).toBeInTheDocument());
+
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: /filter by status/i }), 'archived');
+    expect(screen.queryByText('Engineer Resume')).not.toBeInTheDocument();
+    expect(screen.getByText('Engineer Cover Letter')).toBeInTheDocument();
+  });
+
+  it('filters by tag — shows only documents that have the selected tag', async () => {
+    getAllDocuments.mockResolvedValue({
+      documents: [
+        { ...sampleDocs[0], tags: ['senior'] },
+        { ...sampleDocs[1], tags: [] },
+      ],
+    });
+    render(<DocumentLibraryPage />);
+    await waitFor(() => expect(screen.getByText('Engineer Resume')).toBeInTheDocument());
+
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: /filter by tag/i }), 'senior');
+    expect(screen.getByText('Engineer Resume')).toBeInTheDocument();
+    expect(screen.queryByText('Engineer Cover Letter')).not.toBeInTheDocument();
+  });
+
+  it('sorts ascending by updated date when Updated ↑ is selected', async () => {
+    getAllDocuments.mockResolvedValue({
+      documents: [
+        { ...sampleDocs[0], updatedAt: '2026-06-01T00:00:00.000Z' },
+        { ...sampleDocs[1], updatedAt: '2026-05-01T00:00:00.000Z' },
+      ],
+    });
+    render(<DocumentLibraryPage />);
+    await waitFor(() => expect(screen.getByText('Engineer Resume')).toBeInTheDocument());
+
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: /sort by date/i }), 'asc');
+
+    const items = screen.getAllByRole('listitem');
+    expect(items[0]).toHaveTextContent('Engineer Cover Letter');
+    expect(items[1]).toHaveTextContent('Engineer Resume');
+  });
+
   it('uploads a document successfully and shows success message', async () => {
     getAllDocuments
       .mockResolvedValueOnce({ documents: sampleDocs })

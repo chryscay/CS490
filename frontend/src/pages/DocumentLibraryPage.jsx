@@ -29,6 +29,9 @@ export default function DocumentLibraryPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [filterType, setFilterType] = useState('');
+  const [filterStatus, setFilterStatus] = useState('');
+  const [filterTag, setFilterTag] = useState('');
+  const [sortDir, setSortDir] = useState('desc');
   const [uploadType, setUploadType] = useState('resume');
   const [uploadTitle, setUploadTitle] = useState('');
   const [uploadJobId, setUploadJobId] = useState('');
@@ -101,9 +104,17 @@ export default function DocumentLibraryPage() {
     }
   }
 
-  const visible = filterType
-    ? documents.filter((d) => d.type === filterType)
-    : documents;
+  const allTags = [...new Set(documents.flatMap((d) => d.tags ?? []))].sort();
+
+  const visible = documents
+    .filter((d) => !filterType || d.type === filterType)
+    .filter((d) => !filterStatus || (d.status ?? 'active') === filterStatus)
+    .filter((d) => !filterTag || (d.tags ?? []).includes(filterTag))
+    .sort((a, b) =>
+      sortDir === 'desc'
+        ? new Date(b.updatedAt) - new Date(a.updatedAt)
+        : new Date(a.updatedAt) - new Date(b.updatedAt)
+    );
 
   const resumeCount = documents.filter((d) => d.type === 'resume').length;
   const coverLetterCount = documents.filter((d) => d.type === 'coverLetter').length;
@@ -195,12 +206,14 @@ export default function DocumentLibraryPage() {
         </div>
       </div>
 
-      {/* Filter */}
-      <div className="flex items-center gap-3 mb-6">
+      {/* Filters + sort */}
+      <div className="flex flex-wrap items-center gap-3 mb-6">
+        {/* Type */}
         {['', 'resume', 'coverLetter'].map((t) => (
           <button
             key={t}
             onClick={() => setFilterType(t)}
+            aria-label={t === '' ? 'All types' : TYPE_LABEL[t]}
             className={`shrink-0 px-4 py-2 rounded-xl text-sm border transition ${
               filterType === t
                 ? 'bg-blue-600 text-white border-blue-600'
@@ -210,6 +223,44 @@ export default function DocumentLibraryPage() {
             {t === '' ? 'All' : TYPE_LABEL[t]}
           </button>
         ))}
+
+        <div className="w-px h-5 bg-white/10 shrink-0" />
+
+        {/* Status */}
+        <select
+          aria-label="Filter by status"
+          value={filterStatus}
+          onChange={(e) => setFilterStatus(e.target.value)}
+          className="shrink-0 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          <option value="">All statuses</option>
+          <option value="active">Active</option>
+          <option value="archived">Archived</option>
+        </select>
+
+        {/* Tag */}
+        <select
+          aria-label="Filter by tag"
+          value={filterTag}
+          onChange={(e) => setFilterTag(e.target.value)}
+          className="shrink-0 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          <option value="">All tags</option>
+          {allTags.map((tag) => (
+            <option key={tag} value={tag}>{tag}</option>
+          ))}
+        </select>
+
+        {/* Sort by updated date */}
+        <select
+          aria-label="Sort by date"
+          value={sortDir}
+          onChange={(e) => setSortDir(e.target.value)}
+          className="shrink-0 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          <option value="desc">Updated ↓</option>
+          <option value="asc">Updated ↑</option>
+        </select>
       </div>
 
       {/* List */}
@@ -238,11 +289,21 @@ export default function DocumentLibraryPage() {
                 key={doc._id}
                 className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.03] px-5 py-4"
               >
-                <div className="flex items-center gap-4 min-w-0">
+                <div className="flex items-center gap-3 min-w-0 flex-wrap">
                   <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium ${TYPE_STYLE[doc.type] ?? ''}`}>
                     {TYPE_LABEL[doc.type] ?? doc.type}
                   </span>
+                  {(doc.status ?? 'active') === 'archived' && (
+                    <span className="shrink-0 rounded-full px-2 py-0.5 text-xs font-medium bg-white/5 text-white/40 border border-white/10">
+                      archived
+                    </span>
+                  )}
                   <span className="text-white font-medium truncate">{doc.title}</span>
+                  {(doc.tags ?? []).map((tag) => (
+                    <span key={tag} className="shrink-0 rounded-full px-2 py-0.5 text-xs bg-white/5 text-white/50 border border-white/10">
+                      {tag}
+                    </span>
+                  ))}
                 </div>
                 <div className="flex items-center gap-6 shrink-0 ml-4">
                   <span className="text-xs text-white/40">v{doc.currentVersion}</span>
