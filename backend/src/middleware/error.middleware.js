@@ -8,7 +8,7 @@ export class ApiError extends Error {
 
 export function asyncHandler(handler) {
   return function wrappedAsyncHandler(req, res, next) {
-    Promise.resolve(handler(req, res, next)).catch(next);
+    return Promise.resolve(handler(req, res, next)).catch(next);
   };
 }
 
@@ -17,8 +17,11 @@ export function errorHandler(error, req, res, next) {
     return next(error);
   }
 
+  const isApiError = error instanceof ApiError;
   const statusCode = Number.isInteger(error?.statusCode) ? error.statusCode : 500;
-  const message = statusCode >= 500 ? 'An unexpected error occurred' : error?.message || 'Request failed';
+  const message = statusCode >= 500 && !isApiError
+    ? 'An unexpected error occurred'
+    : error?.message || 'Request failed';
 
   if (statusCode >= 500) {
     console.error('[errorHandler]', {
