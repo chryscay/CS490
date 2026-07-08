@@ -19,22 +19,32 @@ function formatDate(dateStr) {
 function JobCard({ job, onEdit, onSelect, transition, onTransitioned }) {
   return (
     <li
-      aria-label={`View details for ${job.title}`}
-      onClick={() => onSelect?.(job)}
       className="
         rounded-2xl
         border
         border-white/10
         bg-white/[0.03]
         p-5
-        cursor-pointer
         transition
         hover:border-white/20
         hover:bg-white/[0.05]
       "
     >
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
+        <button
+          type="button"
+          onClick={() => onSelect?.(job)}
+          aria-label={`View details for ${job.title}`}
+          className="
+            flex-1
+            text-left
+            cursor-pointer
+            rounded-xl
+            focus:outline-none
+            focus-visible:ring-2
+            focus-visible:ring-blue-500
+          "
+        >
           <h3 className="text-lg font-semibold text-white">{job.title}</h3>
 
           <p className="mt-1 text-white/60">{job.company}</p>
@@ -56,12 +66,9 @@ function JobCard({ job, onEdit, onSelect, transition, onTransitioned }) {
               Notes: {job.contactNotes}
             </p>
           )}
-        </div>
+        </button>
 
-        <div
-          className="flex items-center gap-3"
-          onClick={(e) => e.stopPropagation()}
-        >
+        <div className="flex items-center gap-3">
           <StageControl
             job={job}
             transition={transition}
