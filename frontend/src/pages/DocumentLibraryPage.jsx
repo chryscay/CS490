@@ -348,7 +348,7 @@ export default function DocumentLibraryPage() {
                   )}
                   {editingId === String(doc._id) ? (
                     <input
-                      autoFocus
+                      ref={(el) => el?.focus()}
                       value={editingTitle}
                       onChange={(e) => setEditingTitle(e.target.value)}
                       onBlur={() => handleRename(doc._id)}
