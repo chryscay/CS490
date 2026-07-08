@@ -76,6 +76,7 @@ describe('GET /api/documents', () => {
     const res = await request(app).get('/api/documents');
 
     expect(res.status).toBe(401);
+    expect(res.body.error).toBe('Authorization required');
     expect(DocumentsDAO.findAllForOwner).not.toHaveBeenCalled();
   });
 

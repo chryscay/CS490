@@ -1,11 +1,12 @@
 import { getAuth } from 'firebase-admin/auth';
+import { ApiError } from './error.middleware.js';
 
 const authMiddleware = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
 
     if (!authHeader) {
-      return res.status(401).json({ error: 'Authorization required' });
+      return next(new ApiError(401, 'Authorization required'));
     }
 
     const token = authHeader.replace('Bearer ', '');
@@ -14,11 +15,9 @@ const authMiddleware = async (req, res, next) => {
 
     req.user = { uid: decoded.uid, email: decoded.email };
 
-    next();
+    return next();
   } catch (e) {
-    return res
-      .status(401)
-      .json({ error: `Invalid or expired token ${e.message}` });
+    return next(new ApiError(401, `Invalid or expired token ${e.message}`));
   }
 };
 

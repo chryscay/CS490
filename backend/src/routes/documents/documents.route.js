@@ -2,6 +2,7 @@ import express from 'express';
 import multer from 'multer';
 import DocumentsController from '../../controllers/documents.controller.js';
 import authMiddleware from '../../middleware/auth.middleware.js';
+import { ApiError } from '../../middleware/error.middleware.js';
 
 const router = express.Router();
 const upload = multer({
@@ -18,14 +19,14 @@ function uploadSingleFile(req, res, next) {
 		}
 
 		if (error instanceof multer.MulterError && error.code === 'LIMIT_FILE_SIZE') {
-			return res.status(400).json({ error: 'Uploaded file exceeds the 5MB limit' });
+			return next(new ApiError(400, 'Uploaded file exceeds the 5MB limit'));
 		}
 
 		if (error instanceof multer.MulterError) {
-			return res.status(400).json({ error: `Upload error: ${error.message}` });
+			return next(new ApiError(400, `Upload error: ${error.message}`));
 		}
 
-		return res.status(400).json({ error: 'Invalid upload payload' });
+		return next(new ApiError(400, 'Invalid upload payload'));
 	});
 }
 
