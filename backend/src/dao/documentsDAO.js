@@ -160,7 +160,8 @@ export default class DocumentsDAO {
   }
 
 
-  // S3-001: all documents across all jobs for a user (resume + coverLetter only).
+  // S3-001/S3-006: all documents across all jobs for a user (resume + coverLetter only).
+  // Returns status and tags so the frontend can filter/sort without a second fetch.
   static async findAllForOwner(firebaseUid) {
     const docs = await documents.find({ firebaseUid }).toArray();
     return docs
@@ -171,6 +172,8 @@ export default class DocumentsDAO {
         jobId: doc.jobId,
         type: doc.type,
         title: doc.title,
+        status: doc.status ?? 'active',
+        tags: doc.tags ?? [],
         currentVersion: doc.currentVersion,
         updatedAt: doc.updatedAt,
       }));

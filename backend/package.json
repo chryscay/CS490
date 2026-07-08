@@ -31,14 +31,9 @@
     "openai": "^4.9.0",
     "pdf-parse": "^1.1.1",
     "pdfkit": "^0.19.1"
-
   },
   "devDependencies": {
     "supertest": "^7.2.2",
     "vitest": "^4.1.8"
   }
 }
-  
-
-
-

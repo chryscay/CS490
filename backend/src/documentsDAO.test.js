@@ -482,13 +482,15 @@ describe('DocumentsDAO.findAllForOwner', () => {
     expect(docs[0].title).toBe('My Resume');
   });
 
-  it('returns the correct metadata shape without text or versions fields', async () => {
+  it('returns the correct metadata shape including status and tags, without text or versions fields', async () => {
     await DocumentsDAO.saveDocumentVersion({
       firebaseUid: 'user-a',
       jobId: '507f1f77bcf86cd799439011',
       type: 'resume',
       title: 'My Resume',
       text: 'draft text',
+      status: 'active',
+      tags: ['senior'],
     });
 
     const docs = await DocumentsDAO.findAllForOwner('user-a');
@@ -498,6 +500,8 @@ describe('DocumentsDAO.findAllForOwner', () => {
       type: 'resume',
       title: 'My Resume',
       currentVersion: 1,
+      status: 'active',
+      tags: ['senior'],
     });
     expect(docs[0]._id).toBeDefined();
     expect(docs[0].jobId).toBeDefined();
