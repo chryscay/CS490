@@ -34,5 +34,7 @@ router.use(authMiddleware);
 
 router.get('/', DocumentsController.apiGetAllDocuments);
 router.post('/upload', uploadSingleFile, DocumentsController.apiUploadDocument);
+router.patch('/:id', DocumentsController.apiRenameDocument);
+router.post('/:id/duplicate', DocumentsController.apiDuplicateDocument);
 
 export default router;

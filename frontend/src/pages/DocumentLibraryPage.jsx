@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../features/auth/useAuth';
-import { getAllDocuments, uploadDocument } from '../features/jobs/jobsApi';
+import { getAllDocuments, uploadDocument, renameDocument, duplicateDocument } from '../features/jobs/jobsApi';
 
 const TYPE_LABEL = {
   resume: 'Resume',
@@ -40,6 +40,10 @@ export default function DocumentLibraryPage() {
   const [uploadSuccess, setUploadSuccess] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef(null);
+  const [editingId, setEditingId] = useState(null);
+  const [editingTitle, setEditingTitle] = useState('');
+  const [actionMsg, setActionMsg] = useState('');
+  const [actionError, setActionError] = useState('');
 
   async function loadDocuments(token) {
     const { documents: docs } = await getAllDocuments(token);
@@ -101,6 +105,42 @@ export default function DocumentLibraryPage() {
       setUploadError(uploadErr?.message || 'Failed to upload document');
     } finally {
       setIsUploading(false);
+    }
+  }
+
+  async function handleRename(documentId) {
+    const trimmed = editingTitle.trim();
+    const original = documents.find((d) => String(d._id) === String(documentId));
+    setEditingId(null);
+    if (!trimmed || trimmed === original?.title) return;
+    try {
+      const token = await currentUser.getIdToken();
+      const { document: updated } = await renameDocument(token, documentId, trimmed);
+      setDocuments((prev) =>
+        prev.map((d) =>
+          String(d._id) === String(documentId)
+            ? { ...d, title: updated.title, updatedAt: updated.updatedAt }
+            : d
+        )
+      );
+    } catch {
+      setActionError('Failed to rename document');
+      setTimeout(() => setActionError(''), 4000);
+    }
+  }
+
+  async function handleDuplicate(documentId) {
+    setActionMsg('');
+    setActionError('');
+    try {
+      const token = await currentUser.getIdToken();
+      const { document: duped } = await duplicateDocument(token, documentId);
+      setDocuments((prev) => [duped, ...prev]);
+      setActionMsg('Document duplicated.');
+      setTimeout(() => setActionMsg(''), 4000);
+    } catch {
+      setActionError('Failed to duplicate document');
+      setTimeout(() => setActionError(''), 4000);
     }
   }
 
@@ -263,6 +303,14 @@ export default function DocumentLibraryPage() {
         </select>
       </div>
 
+      {/* Action feedback */}
+      {(actionMsg || actionError) && (
+        <div className="mb-4">
+          {actionMsg && <p className="text-sm text-emerald-300">{actionMsg}</p>}
+          {actionError && <p className="text-sm text-red-400">{actionError}</p>}
+        </div>
+      )}
+
       {/* List */}
       <section
         aria-label="Document library"
@@ -298,14 +346,42 @@ export default function DocumentLibraryPage() {
                       archived
                     </span>
                   )}
-                  <span className="text-white font-medium truncate">{doc.title}</span>
+                  {editingId === String(doc._id) ? (
+                    <input
+                      autoFocus
+                      value={editingTitle}
+                      onChange={(e) => setEditingTitle(e.target.value)}
+                      onBlur={() => handleRename(doc._id)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleRename(doc._id);
+                        if (e.key === 'Escape') { setEditingId(null); setEditingTitle(''); }
+                      }}
+                      aria-label="Rename document"
+                      className="rounded-lg border border-white/20 bg-white/5 px-2 py-0.5 text-white font-medium text-sm w-48 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    />
+                  ) : (
+                    <button
+                      onClick={() => { setEditingId(String(doc._id)); setEditingTitle(doc.title); }}
+                      aria-label={`Rename ${doc.title}`}
+                      className="text-white font-medium truncate hover:text-blue-300 transition text-left"
+                    >
+                      {doc.title}
+                    </button>
+                  )}
                   {(doc.tags ?? []).map((tag) => (
                     <span key={tag} className="shrink-0 rounded-full px-2 py-0.5 text-xs bg-white/5 text-white/50 border border-white/10">
                       {tag}
                     </span>
                   ))}
                 </div>
-                <div className="flex items-center gap-6 shrink-0 ml-4">
+                <div className="flex items-center gap-4 shrink-0 ml-4">
+                  <button
+                    onClick={() => handleDuplicate(doc._id)}
+                    aria-label={`Duplicate ${doc.title}`}
+                    className="text-xs text-white/40 hover:text-white/80 transition"
+                  >
+                    Copy
+                  </button>
                   <span className="text-xs text-white/40">v{doc.currentVersion}</span>
                   <span className="text-xs text-white/40">{formatDate(doc.updatedAt)}</span>
                 </div>

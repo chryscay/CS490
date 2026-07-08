@@ -21,6 +21,8 @@ vi.mock('./dao/documentsDAO.js', () => ({
     saveDocumentVersion: vi.fn(),
     findByJobForOwner: vi.fn(),
     findAllForOwner: vi.fn(),
+    renameDocument: vi.fn(),
+    duplicateDocument: vi.fn(),
   },
 }));
 
@@ -89,6 +91,114 @@ describe('GET /api/documents', () => {
 
     expect(DocumentsDAO.findAllForOwner).toHaveBeenCalledWith('user-a');
     expect(DocumentsDAO.findAllForOwner).not.toHaveBeenCalledWith('user-b');
+  });
+});
+
+describe('PATCH /api/documents/:id', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockVerifyIdToken.mockResolvedValue({ uid: 'user-a', email: 'a@test.com' });
+  });
+
+  it('returns 200 and the updated document when rename succeeds (happy path)', async () => {
+    DocumentsDAO.renameDocument.mockResolvedValue({
+      _id: 'doc-1',
+      jobId: 'job-1',
+      type: 'resume',
+      title: 'New Title',
+      status: 'active',
+      tags: [],
+      currentVersion: 1,
+      updatedAt: new Date('2026-07-01'),
+    });
+
+    const res = await request(app)
+      .patch('/api/documents/doc-1')
+      .set('Authorization', 'Bearer faketoken')
+      .send({ title: 'New Title' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.document).toMatchObject({ _id: 'doc-1', title: 'New Title' });
+    expect(DocumentsDAO.renameDocument).toHaveBeenCalledWith('user-a', 'doc-1', 'New Title');
+  });
+
+  it('returns 404 when document does not exist or belongs to another user', async () => {
+    DocumentsDAO.renameDocument.mockResolvedValue(null);
+
+    const res = await request(app)
+      .patch('/api/documents/nonexistent')
+      .set('Authorization', 'Bearer faketoken')
+      .send({ title: 'New Title' });
+
+    expect(res.status).toBe(404);
+    expect(res.body.error).toBe('Document not found');
+  });
+
+  it('returns 400 when title is missing or blank', async () => {
+    const res = await request(app)
+      .patch('/api/documents/doc-1')
+      .set('Authorization', 'Bearer faketoken')
+      .send({ title: '   ' });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('Title is required');
+    expect(DocumentsDAO.renameDocument).not.toHaveBeenCalled();
+  });
+
+  it('returns 401 when no authorization token is provided', async () => {
+    const res = await request(app)
+      .patch('/api/documents/doc-1')
+      .send({ title: 'New Title' });
+
+    expect(res.status).toBe(401);
+    expect(DocumentsDAO.renameDocument).not.toHaveBeenCalled();
+  });
+});
+
+describe('POST /api/documents/:id/duplicate', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockVerifyIdToken.mockResolvedValue({ uid: 'user-a', email: 'a@test.com' });
+  });
+
+  it('returns 201 and the duplicated document (happy path)', async () => {
+    DocumentsDAO.duplicateDocument.mockResolvedValue({
+      _id: 'doc-copy',
+      jobId: 'synthetic-job-id',
+      type: 'resume',
+      title: 'Copy of My Resume',
+      status: 'active',
+      tags: [],
+      currentVersion: 1,
+      updatedAt: new Date('2026-07-01'),
+    });
+
+    const res = await request(app)
+      .post('/api/documents/doc-1/duplicate')
+      .set('Authorization', 'Bearer faketoken');
+
+    expect(res.status).toBe(201);
+    expect(res.body.document).toMatchObject({ title: 'Copy of My Resume', currentVersion: 1 });
+    expect(DocumentsDAO.duplicateDocument).toHaveBeenCalledWith('user-a', 'doc-1');
+  });
+
+  it('returns 404 when source document does not exist or belongs to another user', async () => {
+    DocumentsDAO.duplicateDocument.mockResolvedValue(null);
+
+    const res = await request(app)
+      .post('/api/documents/nonexistent/duplicate')
+      .set('Authorization', 'Bearer faketoken');
+
+    expect(res.status).toBe(404);
+    expect(res.body.error).toBe('Document not found');
+  });
+
+  it('returns 401 when no authorization token is provided', async () => {
+    const res = await request(app)
+      .post('/api/documents/doc-1/duplicate');
+
+    expect(res.status).toBe(401);
+    expect(DocumentsDAO.duplicateDocument).not.toHaveBeenCalled();
   });
 });
 

@@ -10,10 +10,12 @@ vi.mock('../features/auth/useAuth', () => ({
 vi.mock('../features/jobs/jobsApi', () => ({
   getAllDocuments: vi.fn(),
   uploadDocument: vi.fn(),
+  renameDocument: vi.fn(),
+  duplicateDocument: vi.fn(),
 }));
 
 import { useAuth } from '../features/auth/useAuth';
-import { getAllDocuments, uploadDocument } from '../features/jobs/jobsApi';
+import { getAllDocuments, uploadDocument, renameDocument, duplicateDocument } from '../features/jobs/jobsApi';
 
 const mockUser = {
   getIdToken: vi.fn().mockResolvedValue('fake-token'),
@@ -49,6 +51,30 @@ beforeEach(() => {
       title: 'Uploaded Resume',
       currentVersion: 1,
       updatedAt: '2026-07-01T00:00:00.000Z',
+    },
+  });
+  renameDocument.mockResolvedValue({
+    document: {
+      _id: 'doc-1',
+      jobId: 'job-1',
+      type: 'resume',
+      title: 'Renamed Resume',
+      status: 'active',
+      tags: [],
+      currentVersion: 1,
+      updatedAt: '2026-07-01T00:00:00.000Z',
+    },
+  });
+  duplicateDocument.mockResolvedValue({
+    document: {
+      _id: 'doc-copy',
+      jobId: 'synthetic',
+      type: 'resume',
+      title: 'Copy of Engineer Resume',
+      status: 'active',
+      tags: [],
+      currentVersion: 1,
+      updatedAt: '2026-07-02T00:00:00.000Z',
     },
   });
 });
@@ -156,6 +182,59 @@ describe('DocumentLibraryPage', () => {
     const items = screen.getAllByRole('listitem');
     expect(items[0]).toHaveTextContent('Engineer Cover Letter');
     expect(items[1]).toHaveTextContent('Engineer Resume');
+  });
+
+  it('clicking a document title enters rename mode (shows input with current title)', async () => {
+    render(<DocumentLibraryPage />);
+    await waitFor(() => expect(screen.getByText('Engineer Resume')).toBeInTheDocument());
+
+    await userEvent.click(screen.getByRole('button', { name: /rename engineer resume/i }));
+
+    const input = screen.getByRole('textbox', { name: /rename document/i });
+    expect(input).toBeInTheDocument();
+    expect(input).toHaveValue('Engineer Resume');
+  });
+
+  it('pressing Escape cancels rename without calling the API', async () => {
+    render(<DocumentLibraryPage />);
+    await waitFor(() => expect(screen.getByText('Engineer Resume')).toBeInTheDocument());
+
+    await userEvent.click(screen.getByRole('button', { name: /rename engineer resume/i }));
+    await userEvent.keyboard('{Escape}');
+
+    expect(renameDocument).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: /rename engineer resume/i })).toBeInTheDocument();
+  });
+
+  it('pressing Enter after editing calls renameDocument and updates the title', async () => {
+    const user = userEvent.setup();
+    render(<DocumentLibraryPage />);
+    await waitFor(() => expect(screen.getByText('Engineer Resume')).toBeInTheDocument());
+
+    await user.click(screen.getByRole('button', { name: /rename engineer resume/i }));
+
+    const input = screen.getByRole('textbox', { name: /rename document/i });
+    await user.clear(input);
+    await user.type(input, 'Senior Engineer Resume');
+    await user.keyboard('{Enter}');
+
+    await waitFor(() => {
+      expect(renameDocument).toHaveBeenCalledWith('fake-token', 'doc-1', 'Senior Engineer Resume');
+    });
+    expect(screen.getByText('Renamed Resume')).toBeInTheDocument();
+  });
+
+  it('clicking Copy calls duplicateDocument and prepends the copy to the list', async () => {
+    render(<DocumentLibraryPage />);
+    await waitFor(() => expect(screen.getByText('Engineer Resume')).toBeInTheDocument());
+
+    const copyButtons = screen.getAllByRole('button', { name: /duplicate/i });
+    await userEvent.click(copyButtons[0]);
+
+    await waitFor(() => {
+      expect(duplicateDocument).toHaveBeenCalledWith('fake-token', 'doc-1');
+      expect(screen.getByText('Copy of Engineer Resume')).toBeInTheDocument();
+    });
   });
 
   it('uploads a document successfully and shows success message', async () => {

@@ -19,12 +19,18 @@ const matchesQuery = (document, query) => {
 
 const mockCollection = {
   createIndex: async () => 'owner_job_type_unique',
- find: (query) => ({
+  find: (query) => ({
     toArray: async () =>
       storedDocuments.filter((document) => matchesQuery(document, query)),
   }),
   findOne: async (query) =>
     storedDocuments.find((document) => matchesQuery(document, query)) ?? null,
+  insertOne: async (doc) => {
+    const stored = { ...doc };
+    if (!stored._id) stored._id = new ObjectId();
+    storedDocuments.push(stored);
+    return { insertedId: stored._id };
+  },
   findOneAndUpdate: async (filter, update, options) => {
     const index = storedDocuments.findIndex((document) => matchesQuery(document, filter));
     if (index === -1 && !options?.upsert) {
@@ -452,6 +458,163 @@ describe('DocumentsDAO.saveDocumentVersion', () => {
 });
 
 
+});
+
+describe('DocumentsDAO.renameDocument', () => {
+  beforeEach(async () => {
+    storedDocuments.length = 0;
+    await DocumentsDAO.injectDB(mockConn);
+  });
+
+  it('updates title without incrementing version or adding a version entry (S3-BR-007)', async () => {
+    const original = await DocumentsDAO.saveDocumentVersion({
+      firebaseUid: 'user-a',
+      jobId: '507f1f77bcf86cd799439011',
+      type: 'resume',
+      title: 'Old Title',
+      text: 'draft text',
+    });
+
+    const result = await DocumentsDAO.renameDocument('user-a', original._id, 'New Title');
+
+    expect(result.title).toBe('New Title');
+    expect(result.currentVersion).toBe(1);
+    expect(storedDocuments[0].versions).toHaveLength(1);
+    expect(storedDocuments).toHaveLength(1);
+  });
+
+  it('returns the updated metadata shape', async () => {
+    const original = await DocumentsDAO.saveDocumentVersion({
+      firebaseUid: 'user-a',
+      jobId: '507f1f77bcf86cd799439011',
+      type: 'coverLetter',
+      title: 'Old Cover Letter',
+      text: 'draft',
+      status: 'archived',
+      tags: ['senior'],
+    });
+
+    const result = await DocumentsDAO.renameDocument('user-a', original._id, 'Renamed Cover Letter');
+
+    expect(result).toMatchObject({
+      type: 'coverLetter',
+      title: 'Renamed Cover Letter',
+      status: 'archived',
+      tags: ['senior'],
+      currentVersion: 1,
+    });
+    expect(result._id).toBeDefined();
+    expect(result.text).toBeUndefined();
+    expect(result.versions).toBeUndefined();
+  });
+
+  it('returns null when the document does not exist', async () => {
+    const result = await DocumentsDAO.renameDocument('user-a', new ObjectId(), 'New Title');
+    expect(result).toBeNull();
+  });
+
+  it('returns null when the document belongs to a different user (ownership isolation)', async () => {
+    const original = await DocumentsDAO.saveDocumentVersion({
+      firebaseUid: 'user-a',
+      jobId: '507f1f77bcf86cd799439011',
+      type: 'resume',
+      title: 'Resume',
+      text: 'text',
+    });
+
+    const result = await DocumentsDAO.renameDocument('user-b', original._id, 'Stolen Title');
+
+    expect(result).toBeNull();
+    expect(storedDocuments[0].title).toBe('Resume');
+  });
+});
+
+describe('DocumentsDAO.duplicateDocument', () => {
+  beforeEach(async () => {
+    storedDocuments.length = 0;
+    await DocumentsDAO.injectDB(mockConn);
+  });
+
+  it('creates a new document with "Copy of" prefix and does not modify the original', async () => {
+    const original = await DocumentsDAO.saveDocumentVersion({
+      firebaseUid: 'user-a',
+      jobId: '507f1f77bcf86cd799439011',
+      type: 'resume',
+      title: 'My Resume',
+      text: 'v1 text',
+    });
+
+    const duped = await DocumentsDAO.duplicateDocument('user-a', original._id);
+
+    expect(duped.title).toBe('Copy of My Resume');
+    expect(duped.type).toBe('resume');
+    expect(duped.currentVersion).toBe(1);
+    expect(storedDocuments).toHaveLength(2);
+    expect(storedDocuments[0].title).toBe('My Resume');
+  });
+
+  it('new document starts at version 1 with latest text and full version metadata (S3-BR-008)', async () => {
+    await DocumentsDAO.saveDocumentVersion({
+      firebaseUid: 'user-a',
+      jobId: '507f1f77bcf86cd799439011',
+      type: 'resume',
+      title: 'My Resume',
+      text: 'v1 text',
+    });
+    const original = await DocumentsDAO.saveDocumentVersion({
+      firebaseUid: 'user-a',
+      jobId: '507f1f77bcf86cd799439011',
+      type: 'resume',
+      title: 'My Resume',
+      text: 'v2 text',
+    });
+
+    await DocumentsDAO.duplicateDocument('user-a', original._id);
+
+    const duped = storedDocuments[storedDocuments.length - 1];
+    expect(duped.currentVersion).toBe(1);
+    expect(duped.versions).toHaveLength(1);
+    expect(duped.versions[0]).toMatchObject({
+      version: 1,
+      label: 'Version 1',
+      text: 'v2 text',
+      firebaseUid: 'user-a',
+      type: 'resume',
+    });
+    expect(duped.versions[0].createdAt).toBeInstanceOf(Date);
+  });
+
+  it('returns null when the document belongs to a different user (ownership isolation)', async () => {
+    const original = await DocumentsDAO.saveDocumentVersion({
+      firebaseUid: 'user-a',
+      jobId: '507f1f77bcf86cd799439011',
+      type: 'resume',
+      title: 'My Resume',
+      text: 'text',
+    });
+
+    const result = await DocumentsDAO.duplicateDocument('user-b', original._id);
+
+    expect(result).toBeNull();
+    expect(storedDocuments).toHaveLength(1);
+  });
+
+  it('carries tags and status from the original', async () => {
+    const original = await DocumentsDAO.saveDocumentVersion({
+      firebaseUid: 'user-a',
+      jobId: '507f1f77bcf86cd799439011',
+      type: 'resume',
+      title: 'Resume',
+      text: 'text',
+      status: 'archived',
+      tags: ['senior', 'remote'],
+    });
+
+    const duped = await DocumentsDAO.duplicateDocument('user-a', original._id);
+
+    expect(duped.status).toBe('archived');
+    expect(duped.tags).toEqual(['senior', 'remote']);
+  });
 });
 
 describe('DocumentsDAO.findAllForOwner', () => {
