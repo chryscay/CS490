@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { useAuth } from '../auth/useAuth';
 import { generateJobDraft, rewriteJobDraft, saveJobDocument, getJobDocuments } from './jobsApi';
+import { exportJobDocument } from './documentsApi';
 import { getStageStyles, isOutcomeStage } from './stageStyles';
 import DeleteJobDialog from './DeleteJobDialog';
 import ArchiveJobDialog from './ArchiveJobDialog';
@@ -132,6 +133,9 @@ export default function JobDetailPanel({
   const [saveError, setSaveError] = useState('');
   const [saveMessage, setSaveMessage] = useState('');
   const [savedDocs, setSavedDocs] = useState([]);
+  const [exportingId, setExportingId] = useState('');
+  const [exportError, setExportError] = useState('');
+
 
   useEffect(() => {
     let cancelled = false;
@@ -239,7 +243,25 @@ export default function JobDetailPanel({
     } finally {
       setSaveLoading(false);
     }
+
   };
+
+
+  const handleExport = async (doc) => {
+    setExportError('');
+    setExportingId(doc._id);
+    try {
+      const token = await currentUser.getIdToken();
+      await exportJobDocument(job._id, doc._id, token, { format: 'pdf' });
+    } catch (error) {
+      setExportError(error.message || 'Could not export document');
+    } finally {
+      setExportingId('');
+    }
+  };
+
+  
+
 
   const [interviewFormOpen, setInterviewFormOpen] = useState(false);
   const [editingInterview, setEditingInterview] = useState(null);
@@ -577,6 +599,9 @@ export default function JobDetailPanel({
             <h3 className="text-sm font-medium text-white/50 uppercase tracking-wider mb-3">
               Saved Drafts
             </h3>
+            {exportError && (
+                <p className="text-xs text-red-400 mb-3">{exportError}</p>
+              )} 
             <ul className="space-y-3">
               {savedDocs.map((doc) => (
                 <li
@@ -592,20 +617,30 @@ export default function JobDetailPanel({
                       version {doc.currentVersion}
                     </p>
                   </div>
-                  <button
-                    onClick={() => {
-                      setDraftType(doc.type);
-                      setDraftText(doc.text);
-                      setDraftVisible(true);
-                      setDraftError('');
-                      setSaveError('');
-                      setSaveMessage('');
-                    }}
-                    aria-label={`Load saved ${doc.type} draft`}
-                    className="flex-shrink-0 rounded-lg border border-white/10 px-3 py-1.5 text-xs text-white/60 hover:text-white hover:bg-white/5 transition"
-                  >
-                    Load
-                  </button>
+                  <div className="flex-shrink-0 flex items-center gap-2">
+                      <button
+                        onClick={() => {
+                          setDraftType(doc.type);
+                          setDraftText(doc.text);
+                          setDraftVisible(true);
+                          setDraftError('');
+                          setSaveError('');
+                          setSaveMessage('');
+                        }}
+                        aria-label={`Load saved ${doc.type} draft`}
+                        className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-white/60 hover:text-white hover:bg-white/5 transition"
+                      >
+                        Load
+                      </button>
+                      <button
+                        onClick={() => handleExport(doc)}
+                        disabled={exportingId === doc._id}
+                        aria-label={`Download saved ${doc.type} as PDF`}
+                        className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-white/60 hover:text-white hover:bg-white/5 transition disabled:cursor-not-allowed disabled:text-white/30"
+                      >
+                        {exportingId === doc._id ? 'Downloading...' : 'Download'}
+                      </button>
+                    </div>
                 </li>
               ))}
             </ul>

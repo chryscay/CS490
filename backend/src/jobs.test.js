@@ -39,12 +39,15 @@ vi.mock('./dao/usersDAO.js', () => ({
     getProfile: vi.fn(),
   },
 }));
+
 vi.mock('./dao/documentsDAO.js', () => ({
   default: {
     saveDocumentVersion: vi.fn(),
     findByJobForOwner: vi.fn(),
+    findVersionForOwner: vi.fn(),
   },
 }));
+
 vi.mock('./services/aiDraft.service.js', () => ({
   generateAiDraft: vi.fn(),
   rewriteAiDraft: vi.fn(),
@@ -1541,6 +1544,78 @@ describe('DELETE /api/jobs/:id', () => {
     expect(res.status).toBe(401);
     expect(JobsDAO.deleteJob).not.toHaveBeenCalled();
   });
+
+
+
+  describe('GET /api/jobs/:id/documents/:documentId/export', () => {
+  const JOB_ID = '507f1f77bcf86cd799439011';
+  const DOC_ID = '507f1f77bcf86cd799439022';
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockVerifyIdToken.mockResolvedValue({ uid: 'user-a', email: 'a@test.com' });
+  });
+
+  it('exports a document version as txt (happy path)', async () => {
+    JobsDAO.findByIdForOwner.mockResolvedValue({ _id: JOB_ID, firebaseUid: 'user-a' });
+    DocumentsDAO.findVersionForOwner.mockResolvedValue({
+      _id: DOC_ID, type: 'resume', title: 'Backend Resume', version: 2, text: 'Resume body',
+    });
+
+    const res = await request(app)
+      .get(`/api/jobs/${JOB_ID}/documents/${DOC_ID}/export?format=txt&version=2`)
+      .set('Authorization', 'Bearer faketoken');
+
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toContain('text/plain');
+    expect(res.headers['content-disposition']).toContain('attachment');
+    expect(res.headers['content-disposition']).toContain('Backend_Resume_v2.txt');
+    expect(res.text).toBe('Resume body');
+    expect(DocumentsDAO.findVersionForOwner).toHaveBeenCalledWith('user-a', DOC_ID, '2');
+  });
+
+  it('rejects an unsupported format with 400 (non-happy path)', async () => {
+    const res = await request(app)
+      .get(`/api/jobs/${JOB_ID}/documents/${DOC_ID}/export?format=docx`)
+      .set('Authorization', 'Bearer faketoken');
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/format/i);
+    // Bad format is rejected before any DB lookup.
+    expect(JobsDAO.findByIdForOwner).not.toHaveBeenCalled();
+  });
+
+  it('returns 404 when the requested version does not exist', async () => {
+    JobsDAO.findByIdForOwner.mockResolvedValue({ _id: JOB_ID, firebaseUid: 'user-a' });
+    DocumentsDAO.findVersionForOwner.mockResolvedValue(null);
+
+    const res = await request(app)
+      .get(`/api/jobs/${JOB_ID}/documents/${DOC_ID}/export?format=txt&version=99`)
+      .set('Authorization', 'Bearer faketoken');
+
+    expect(res.status).toBe(404);
+    expect(res.body.error).toMatch(/not found/i);
+  });
+
+  it("does not export another owner's job/document (ownership regression)", async () => {
+    // user-a is authenticated, but the job isn't theirs -> DAO returns null -> 404.
+    JobsDAO.findByIdForOwner.mockResolvedValue(null);
+
+    const res = await request(app)
+      .get(`/api/jobs/${JOB_ID}/documents/${DOC_ID}/export?format=txt`)
+      .set('Authorization', 'Bearer faketoken');
+
+    expect(res.status).toBe(404);
+    // Never reaches the document lookup because the job ownership check fails first.
+    expect(DocumentsDAO.findVersionForOwner).not.toHaveBeenCalled();
+  });
+});
+
+
+
+
+
+
 });
 
 describe('PATCH /api/jobs/:id/research', () => {

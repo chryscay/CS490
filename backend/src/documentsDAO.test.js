@@ -19,10 +19,12 @@ const matchesQuery = (document, query) => {
 
 const mockCollection = {
   createIndex: async () => 'owner_job_type_unique',
-  find: (query) => ({
+ find: (query) => ({
     toArray: async () =>
       storedDocuments.filter((document) => matchesQuery(document, query)),
   }),
+  findOne: async (query) =>
+    storedDocuments.find((document) => matchesQuery(document, query)) ?? null,
   findOneAndUpdate: async (filter, update, options) => {
     const index = storedDocuments.findIndex((document) => matchesQuery(document, filter));
     if (index === -1 && !options?.upsert) {
@@ -401,6 +403,55 @@ describe('DocumentsDAO.saveDocumentVersion', () => {
 
     expect(docs).toEqual([]);
   });
+
+
+  describe('DocumentsDAO.findVersionForOwner', () => {
+  beforeEach(async () => {
+    storedDocuments.length = 0;
+    await DocumentsDAO.injectDB(mockConn);
+  });
+
+  const JOB_ID = '507f1f77bcf86cd799439011';
+
+  async function seedTwoVersions(firebaseUid = 'user-a') {
+    await DocumentsDAO.saveDocumentVersion({
+      firebaseUid, jobId: JOB_ID, type: 'resume', title: 'My Resume', text: 'v1 text',
+    });
+    const doc = await DocumentsDAO.saveDocumentVersion({
+      firebaseUid, jobId: JOB_ID, type: 'resume', title: 'My Resume', text: 'v2 text',
+    });
+    return doc._id;
+  }
+
+  it('returns a specific version text for the owner (happy path)', async () => {
+    const docId = await seedTwoVersions();
+    const result = await DocumentsDAO.findVersionForOwner('user-a', docId, 1);
+    expect(result.version).toBe(1);
+    expect(result.text).toBe('v1 text');
+    expect(result.title).toBe('My Resume');
+  });
+
+  it('defaults to the latest version when none is specified', async () => {
+    const docId = await seedTwoVersions();
+    const result = await DocumentsDAO.findVersionForOwner('user-a', docId);
+    expect(result.version).toBe(2);
+    expect(result.text).toBe('v2 text');
+  });
+
+  it('returns null for a version that does not exist', async () => {
+    const docId = await seedTwoVersions();
+    const result = await DocumentsDAO.findVersionForOwner('user-a', docId, 99);
+    expect(result).toBeNull();
+  });
+
+  it("returns null for another owner's document (ownership isolation)", async () => {
+    const docId = await seedTwoVersions('user-a');
+    const result = await DocumentsDAO.findVersionForOwner('user-b', docId, 1);
+    expect(result).toBeNull();
+  });
+});
+
+
 });
 
 describe('DocumentsDAO.findAllForOwner', () => {
