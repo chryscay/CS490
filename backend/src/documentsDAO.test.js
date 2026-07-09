@@ -3,6 +3,9 @@ import DocumentsDAO from './dao/documentsDAO.js';
 import { ObjectId } from 'mongodb';
 
 const storedDocuments = [];
+let lastFindQuery = null;
+let lastFindOneQuery = null;
+let lastFindOneAndUpdateFilter = null;
 
 const normalizeValue = (value) => {
   if (value && typeof value === 'object' && typeof value.toString === 'function') {
@@ -19,12 +22,17 @@ const matchesQuery = (document, query) => {
 
 const mockCollection = {
   createIndex: async () => 'owner_job_type_unique',
-  find: (query) => ({
+  find: (query) => {
+    lastFindQuery = query;
+    return ({
     toArray: async () =>
       storedDocuments.filter((document) => matchesQuery(document, query)),
-  }),
-  findOne: async (query) =>
-    storedDocuments.find((document) => matchesQuery(document, query)) ?? null,
+    });
+  },
+  findOne: async (query) => {
+    lastFindOneQuery = query;
+    return storedDocuments.find((document) => matchesQuery(document, query)) ?? null;
+  },
   insertOne: async (doc) => {
     const stored = { ...doc };
     if (!stored._id) stored._id = new ObjectId();
@@ -32,6 +40,7 @@ const mockCollection = {
     return { insertedId: stored._id };
   },
   findOneAndUpdate: async (filter, update, options) => {
+    lastFindOneAndUpdateFilter = filter;
     const index = storedDocuments.findIndex((document) => matchesQuery(document, filter));
     if (index === -1 && !options?.upsert) {
       return { value: null };
@@ -124,6 +133,12 @@ const mockConn = {
     collection: () => mockCollection,
   }),
 };
+
+beforeEach(() => {
+  lastFindQuery = null;
+  lastFindOneQuery = null;
+  lastFindOneAndUpdateFilter = null;
+});
 
 describe('DocumentsDAO.saveDocumentVersion', () => {
   beforeEach(async () => {
@@ -410,6 +425,23 @@ describe('DocumentsDAO.saveDocumentVersion', () => {
     expect(docs).toEqual([]);
   });
 
+  it('findByJobForOwner queries by firebaseUid and jobId', async () => {
+    await DocumentsDAO.saveDocumentVersion({
+      firebaseUid: 'user-a',
+      jobId: '507f1f77bcf86cd799439011',
+      type: 'resume',
+      title: 'Resume',
+      text: 'owner text',
+    });
+
+    await DocumentsDAO.findByJobForOwner('user-a', '507f1f77bcf86cd799439011');
+
+    expect(lastFindQuery).toMatchObject({
+      firebaseUid: 'user-a',
+      jobId: expect.any(Object),
+    });
+  });
+
 
   describe('DocumentsDAO.findVersionForOwner', () => {
   beforeEach(async () => {
@@ -454,6 +486,17 @@ describe('DocumentsDAO.saveDocumentVersion', () => {
     const docId = await seedTwoVersions('user-a');
     const result = await DocumentsDAO.findVersionForOwner('user-b', docId, 1);
     expect(result).toBeNull();
+  });
+
+  it('findVersionForOwner includes firebaseUid in the lookup filter', async () => {
+    const docId = await seedTwoVersions('user-a');
+
+    await DocumentsDAO.findVersionForOwner('user-a', docId, 2);
+
+    expect(lastFindOneQuery).toMatchObject({
+      _id: docId,
+      firebaseUid: 'user-a',
+    });
   });
 });
 
@@ -600,6 +643,23 @@ describe('DocumentsDAO.renameDocument', () => {
 
     expect(result).toBeNull();
     expect(storedDocuments[0].title).toBe('Resume');
+  });
+
+  it('scopes rename updates by firebaseUid in the write filter', async () => {
+    const original = await DocumentsDAO.saveDocumentVersion({
+      firebaseUid: 'user-a',
+      jobId: '507f1f77bcf86cd799439011',
+      type: 'resume',
+      title: 'Resume',
+      text: 'text',
+    });
+
+    await DocumentsDAO.renameDocument('user-a', original._id, 'Updated Title');
+
+    expect(lastFindOneAndUpdateFilter).toMatchObject({
+      _id: original._id,
+      firebaseUid: 'user-a',
+    });
   });
 });
 
@@ -776,5 +836,11 @@ describe('DocumentsDAO.findAllForOwner', () => {
     const docs = await DocumentsDAO.findAllForOwner('user-a');
 
     expect(docs).toHaveLength(0);
+  });
+
+  it('queries findAllForOwner with firebaseUid ownership filter', async () => {
+    await DocumentsDAO.findAllForOwner('user-a');
+
+    expect(lastFindQuery).toEqual({ firebaseUid: 'user-a' });
   });
 });

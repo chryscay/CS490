@@ -431,4 +431,14 @@ describe('POST /api/documents/upload', () => {
       expect.objectContaining({ firebaseUid: 'forged-user' })
     );
   });
+
+  it('returns 401 when upload is unauthenticated and does not call DAO', async () => {
+    const res = await request(app)
+      .post('/api/documents/upload')
+      .field('type', 'resume')
+      .attach('file', Buffer.from('Resume body text'), 'resume.txt');
+
+    expect(res.status).toBe(401);
+    expect(DocumentsDAO.saveDocumentVersion).not.toHaveBeenCalled();
+  });
 });
