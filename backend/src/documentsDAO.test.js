@@ -460,6 +460,80 @@ describe('DocumentsDAO.saveDocumentVersion', () => {
 
 });
 
+describe('DocumentsDAO.archiveDocument / restoreDocument', () => {
+  beforeEach(async () => {
+    storedDocuments.length = 0;
+    await DocumentsDAO.injectDB(mockConn);
+  });
+
+  async function seedDoc(overrides = {}) {
+    return DocumentsDAO.saveDocumentVersion({
+      firebaseUid: 'user-a',
+      jobId: '507f1f77bcf86cd799439011',
+      type: 'resume',
+      title: 'My Resume',
+      text: 'draft',
+      ...overrides,
+    });
+  }
+
+  it('archiveDocument sets status to archived and preserves version count (S3-BR-009)', async () => {
+    await seedDoc();
+    const original = await seedDoc(); // 2 versions now
+    const versionCountBefore = storedDocuments[0].versions.length;
+
+    const result = await DocumentsDAO.archiveDocument('user-a', original._id);
+
+    expect(result.status).toBe('archived');
+    expect(storedDocuments[0].versions).toHaveLength(versionCountBefore);
+  });
+
+  it('restoreDocument sets status back to active and preserves version count (S3-BR-009)', async () => {
+    const archived = await DocumentsDAO.saveDocumentVersion({
+      firebaseUid: 'user-a',
+      jobId: '507f1f77bcf86cd799439011',
+      type: 'resume',
+      title: 'My Resume',
+      text: 'draft',
+      status: 'archived',
+    });
+
+    const result = await DocumentsDAO.restoreDocument('user-a', archived._id);
+
+    expect(result.status).toBe('active');
+    expect(storedDocuments[0].versions).toHaveLength(1);
+  });
+
+  it('archiveDocument returns the correct metadata shape', async () => {
+    const doc = await seedDoc({ tags: ['senior'], status: 'active' });
+
+    const result = await DocumentsDAO.archiveDocument('user-a', doc._id);
+
+    expect(result).toMatchObject({
+      type: 'resume',
+      title: 'My Resume',
+      status: 'archived',
+      tags: ['senior'],
+      currentVersion: 1,
+    });
+    expect(result._id).toBeDefined();
+    expect(result.text).toBeUndefined();
+    expect(result.versions).toBeUndefined();
+  });
+
+  it('archiveDocument returns null when document belongs to another user', async () => {
+    const doc = await seedDoc();
+    const result = await DocumentsDAO.archiveDocument('user-b', doc._id);
+    expect(result).toBeNull();
+    expect(storedDocuments[0].status).toBe('active');
+  });
+
+  it('restoreDocument returns null when document does not exist', async () => {
+    const result = await DocumentsDAO.restoreDocument('user-a', new ObjectId());
+    expect(result).toBeNull();
+  });
+});
+
 describe('DocumentsDAO.renameDocument', () => {
   beforeEach(async () => {
     storedDocuments.length = 0;

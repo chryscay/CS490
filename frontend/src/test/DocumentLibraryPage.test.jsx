@@ -12,10 +12,12 @@ vi.mock('../features/jobs/jobsApi', () => ({
   uploadDocument: vi.fn(),
   renameDocument: vi.fn(),
   duplicateDocument: vi.fn(),
+  archiveDocument: vi.fn(),
+  restoreDocument: vi.fn(),
 }));
 
 import { useAuth } from '../features/auth/useAuth';
-import { getAllDocuments, uploadDocument, renameDocument, duplicateDocument } from '../features/jobs/jobsApi';
+import { getAllDocuments, uploadDocument, renameDocument, duplicateDocument, archiveDocument, restoreDocument } from '../features/jobs/jobsApi';
 
 const mockUser = {
   getIdToken: vi.fn().mockResolvedValue('fake-token'),
@@ -52,6 +54,12 @@ beforeEach(() => {
       currentVersion: 1,
       updatedAt: '2026-07-01T00:00:00.000Z',
     },
+  });
+  archiveDocument.mockResolvedValue({
+    document: { ...sampleDocs[0], status: 'archived', updatedAt: '2026-07-09T00:00:00.000Z' },
+  });
+  restoreDocument.mockResolvedValue({
+    document: { ...sampleDocs[1], status: 'active', updatedAt: '2026-07-09T00:00:00.000Z' },
   });
   renameDocument.mockResolvedValue({
     document: {
@@ -182,6 +190,38 @@ describe('DocumentLibraryPage', () => {
     const items = screen.getAllByRole('listitem');
     expect(items[0]).toHaveTextContent('Engineer Cover Letter');
     expect(items[1]).toHaveTextContent('Engineer Resume');
+  });
+
+  it('active document shows Archive button which calls archiveDocument and updates status badge', async () => {
+    render(<DocumentLibraryPage />);
+    await waitFor(() => expect(screen.getByText('Engineer Resume')).toBeInTheDocument());
+
+    await userEvent.click(screen.getByRole('button', { name: /archive engineer resume/i }));
+
+    await waitFor(() => {
+      expect(archiveDocument).toHaveBeenCalledWith('fake-token', 'doc-1');
+    });
+    expect(screen.getByText('archived')).toBeInTheDocument();
+  });
+
+  it('archived document shows Restore button which calls restoreDocument and removes archived badge', async () => {
+    getAllDocuments.mockResolvedValue({
+      documents: [
+        { ...sampleDocs[0], status: 'archived' },
+        sampleDocs[1],
+      ],
+    });
+    render(<DocumentLibraryPage />);
+    await waitFor(() => expect(screen.getByText('Engineer Resume')).toBeInTheDocument());
+
+    expect(screen.getByText('archived')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: /restore engineer resume/i }));
+
+    await waitFor(() => {
+      expect(restoreDocument).toHaveBeenCalledWith('fake-token', 'doc-1');
+      expect(screen.queryByText('archived')).not.toBeInTheDocument();
+    });
   });
 
   it('clicking a document title enters rename mode (shows input with current title)', async () => {

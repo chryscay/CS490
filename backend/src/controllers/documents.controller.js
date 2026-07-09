@@ -81,6 +81,29 @@ function toSafeDocument(document) {
 }
 
 export default class DocumentsController {
+  // S3-008: archive/restore — status only, versions untouched (S3-BR-009).
+  static async apiArchiveDocument(req, res) {
+    try {
+      const doc = await DocumentsDAO.archiveDocument(req.user.uid, req.params.id);
+      if (!doc) return res.status(404).json({ error: 'Document not found' });
+      return res.status(200).json({ document: doc });
+    } catch (error) {
+      console.error('apiArchiveDocument error:', error);
+      return res.status(500).json({ error: 'Failed to archive document' });
+    }
+  }
+
+  static async apiRestoreDocument(req, res) {
+    try {
+      const doc = await DocumentsDAO.restoreDocument(req.user.uid, req.params.id);
+      if (!doc) return res.status(404).json({ error: 'Document not found' });
+      return res.status(200).json({ document: doc });
+    } catch (error) {
+      console.error('apiRestoreDocument error:', error);
+      return res.status(500).json({ error: 'Failed to restore document' });
+    }
+  }
+
   // S3-007: rename document title only — no version created (S3-BR-007).
   static async apiRenameDocument(req, res) {
     try {
