@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import DocumentLibraryPage from '../pages/DocumentLibraryPage';
@@ -264,6 +264,36 @@ describe('DocumentLibraryPage', () => {
     expect(screen.getByText('Renamed Resume')).toBeInTheDocument();
   });
 
+  it('rename updates title only and does not create a new displayed version', async () => {
+    renameDocument.mockResolvedValueOnce({
+      document: {
+        _id: 'doc-1',
+        jobId: 'job-1',
+        type: 'resume',
+        title: 'Retitled Resume',
+        currentVersion: 999,
+        updatedAt: '2026-07-03T00:00:00.000Z',
+      },
+    });
+
+    const user = userEvent.setup();
+    render(<DocumentLibraryPage />);
+    await waitFor(() => expect(screen.getByText('Engineer Resume')).toBeInTheDocument());
+
+    expect(screen.getByText('v2')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /rename engineer resume/i }));
+    const input = screen.getByRole('textbox', { name: /rename document/i });
+    await user.clear(input);
+    await user.type(input, 'Retitled Resume{Enter}');
+
+    await waitFor(() => {
+      expect(renameDocument).toHaveBeenCalledWith('fake-token', 'doc-1', 'Retitled Resume');
+    });
+    expect(screen.getByText('Retitled Resume')).toBeInTheDocument();
+    expect(screen.getByText('v2')).toBeInTheDocument();
+    expect(screen.queryByText('v999')).not.toBeInTheDocument();
+  });
+
   it('clicking Copy calls duplicateDocument and prepends the copy to the list', async () => {
     render(<DocumentLibraryPage />);
     await waitFor(() => expect(screen.getByText('Engineer Resume')).toBeInTheDocument());
@@ -275,6 +305,29 @@ describe('DocumentLibraryPage', () => {
       expect(duplicateDocument).toHaveBeenCalledWith('fake-token', 'doc-1');
       expect(screen.getByText('Copy of Engineer Resume')).toBeInTheDocument();
     });
+
+    const copiedRow = screen
+      .getByRole('button', { name: /rename copy of engineer resume/i })
+      .closest('li');
+    expect(copiedRow).toBeTruthy();
+    expect(within(copiedRow).getByText('v1')).toBeInTheDocument();
+  });
+
+  it('archive/restore toggles status without removing the document or changing displayed version', async () => {
+    const user = userEvent.setup();
+    render(<DocumentLibraryPage />);
+    await waitFor(() => expect(screen.getByText('Engineer Resume')).toBeInTheDocument());
+
+    expect(screen.getByText('v2')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /archive engineer resume/i }));
+    await waitFor(() => expect(screen.getByText('archived')).toBeInTheDocument());
+    expect(screen.getByText('Engineer Resume')).toBeInTheDocument();
+    expect(screen.getByText('v2')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /restore engineer resume/i }));
+    await waitFor(() => expect(screen.queryByText('archived')).not.toBeInTheDocument());
+    expect(screen.getByText('Engineer Resume')).toBeInTheDocument();
+    expect(screen.getByText('v2')).toBeInTheDocument();
   });
 
   it('uploads a document successfully and shows success message', async () => {

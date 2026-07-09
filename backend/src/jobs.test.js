@@ -608,6 +608,37 @@ describe('POST /api/jobs/:id/documents', () => {
     );
   });
 
+  it('uses authenticated ownership for save and ignores forged firebaseUid fields', async () => {
+    JobsDAO.findByIdForOwner.mockResolvedValue({
+      _id: ID,
+      firebaseUid: 'user-a',
+      title: 'Backend Engineer',
+    });
+    DocumentsDAO.saveDocumentVersion.mockResolvedValue({
+      _id: 'doc-3',
+      type: 'resume',
+      currentVersion: 1,
+    });
+
+    const res = await request(app)
+      .post(`/api/jobs/${ID}/documents`)
+      .set('Authorization', 'Bearer faketoken')
+      .send({
+        type: 'resume',
+        text: 'draft',
+        firebaseUid: 'forged-user',
+        uid: 'forged-user',
+      });
+
+    expect(res.status).toBe(201);
+    expect(DocumentsDAO.saveDocumentVersion).toHaveBeenCalledWith(
+      expect.objectContaining({ firebaseUid: 'user-a' })
+    );
+    expect(DocumentsDAO.saveDocumentVersion).not.toHaveBeenCalledWith(
+      expect.objectContaining({ firebaseUid: 'forged-user' })
+    );
+  });
+
   it('returns 400 for unsupported document type', async () => {
     const res = await request(app)
       .post(`/api/jobs/${ID}/documents`)
@@ -1592,10 +1623,9 @@ describe('DELETE /api/jobs/:id', () => {
     expect(res.status).toBe(401);
     expect(JobsDAO.deleteJob).not.toHaveBeenCalled();
   });
+});
 
-
-
-  describe('GET /api/jobs/:id/documents/:documentId/export', () => {
+describe('GET /api/jobs/:id/documents/:documentId/export', () => {
   const JOB_ID = '507f1f77bcf86cd799439011';
   const DOC_ID = '507f1f77bcf86cd799439022';
 
@@ -1622,6 +1652,27 @@ describe('DELETE /api/jobs/:id', () => {
     expect(DocumentsDAO.findVersionForOwner).toHaveBeenCalledWith('user-a', DOC_ID, '2');
   });
 
+  it('exports the latest document version as pdf when version is omitted', async () => {
+    JobsDAO.findByIdForOwner.mockResolvedValue({ _id: JOB_ID, firebaseUid: 'user-a' });
+    DocumentsDAO.findVersionForOwner.mockResolvedValue({
+      _id: DOC_ID,
+      type: 'coverLetter',
+      title: 'Backend Cover Letter',
+      version: 4,
+      text: 'Latest cover letter body',
+    });
+
+    const res = await request(app)
+      .get(`/api/jobs/${JOB_ID}/documents/${DOC_ID}/export?format=pdf`)
+      .set('Authorization', 'Bearer faketoken');
+
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toContain('application/pdf');
+    expect(res.headers['content-disposition']).toContain('Backend_Cover_Letter_v4.pdf');
+    expect(res.body.slice(0, 5).toString()).toBe('%PDF-');
+    expect(DocumentsDAO.findVersionForOwner).toHaveBeenCalledWith('user-a', DOC_ID, undefined);
+  });
+
   it('rejects an unsupported format with 400 (non-happy path)', async () => {
     const res = await request(app)
       .get(`/api/jobs/${JOB_ID}/documents/${DOC_ID}/export?format=docx`)
@@ -1631,6 +1682,7 @@ describe('DELETE /api/jobs/:id', () => {
     expect(res.body.error).toMatch(/format/i);
     // Bad format is rejected before any DB lookup.
     expect(JobsDAO.findByIdForOwner).not.toHaveBeenCalled();
+    expect(DocumentsDAO.findVersionForOwner).not.toHaveBeenCalled();
   });
 
   it('returns 404 when the requested version does not exist', async () => {
@@ -1657,13 +1709,15 @@ describe('DELETE /api/jobs/:id', () => {
     // Never reaches the document lookup because the job ownership check fails first.
     expect(DocumentsDAO.findVersionForOwner).not.toHaveBeenCalled();
   });
-});
 
+  it('blocks unauthenticated export requests (401)', async () => {
+    const res = await request(app)
+      .get(`/api/jobs/${JOB_ID}/documents/${DOC_ID}/export?format=txt`);
 
-
-
-
-
+    expect(res.status).toBe(401);
+    expect(JobsDAO.findByIdForOwner).not.toHaveBeenCalled();
+    expect(DocumentsDAO.findVersionForOwner).not.toHaveBeenCalled();
+  });
 });
 
 describe('PATCH /api/jobs/:id/research', () => {

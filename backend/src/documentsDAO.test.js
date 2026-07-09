@@ -524,11 +524,15 @@ describe('DocumentsDAO.archiveDocument / restoreDocument', () => {
     await seedDoc();
     const original = await seedDoc(); // 2 versions now
     const versionCountBefore = storedDocuments[0].versions.length;
+    const storedIdBefore = normalizeValue(storedDocuments[0]._id);
+    const storedCountBefore = storedDocuments.length;
 
     const result = await DocumentsDAO.archiveDocument('user-a', original._id);
 
     expect(result.status).toBe('archived');
     expect(storedDocuments[0].versions).toHaveLength(versionCountBefore);
+    expect(normalizeValue(storedDocuments[0]._id)).toBe(storedIdBefore);
+    expect(storedDocuments).toHaveLength(storedCountBefore);
   });
 
   it('restoreDocument sets status back to active and preserves version count (S3-BR-009)', async () => {
@@ -540,11 +544,15 @@ describe('DocumentsDAO.archiveDocument / restoreDocument', () => {
       text: 'draft',
       status: 'archived',
     });
+    const storedIdBefore = normalizeValue(storedDocuments[0]._id);
+    const storedCountBefore = storedDocuments.length;
 
     const result = await DocumentsDAO.restoreDocument('user-a', archived._id);
 
     expect(result.status).toBe('active');
     expect(storedDocuments[0].versions).toHaveLength(1);
+    expect(normalizeValue(storedDocuments[0]._id)).toBe(storedIdBefore);
+    expect(storedDocuments).toHaveLength(storedCountBefore);
   });
 
   it('archiveDocument returns the correct metadata shape', async () => {
@@ -716,6 +724,40 @@ describe('DocumentsDAO.duplicateDocument', () => {
       type: 'resume',
     });
     expect(duped.versions[0].createdAt).toBeInstanceOf(Date);
+  });
+
+  it('duplicate creates a distinct document and keeps original version history unchanged', async () => {
+    const original = await DocumentsDAO.saveDocumentVersion({
+      firebaseUid: 'user-a',
+      jobId: '507f1f77bcf86cd799439011',
+      type: 'resume',
+      title: 'Resume',
+      text: 'v1',
+      status: 'archived',
+      tags: ['target-role'],
+    });
+    await DocumentsDAO.saveDocumentVersion({
+      firebaseUid: 'user-a',
+      jobId: '507f1f77bcf86cd799439011',
+      type: 'resume',
+      title: 'Resume',
+      text: 'v2',
+    });
+
+    const duped = await DocumentsDAO.duplicateDocument('user-a', original._id);
+
+    const source = storedDocuments.find((d) => normalizeValue(d._id) === normalizeValue(original._id));
+    const copy = storedDocuments.find((d) => normalizeValue(d._id) === normalizeValue(duped._id));
+
+    expect(normalizeValue(copy._id)).not.toBe(normalizeValue(source._id));
+    expect(normalizeValue(copy.jobId)).not.toBe(normalizeValue(source.jobId));
+    expect(copy.status).toBe('archived');
+    expect(copy.tags).toEqual(['target-role']);
+    expect(copy.currentVersion).toBe(1);
+    expect(copy.versions).toHaveLength(1);
+    expect(copy.versions[0].text).toBe('v2');
+    expect(source.currentVersion).toBe(2);
+    expect(source.versions).toHaveLength(2);
   });
 
   it('returns null when the document belongs to a different user (ownership isolation)', async () => {
