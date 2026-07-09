@@ -134,12 +134,15 @@ const mockConn = {
   }),
 };
 
+beforeEach(() => {
+  lastFindQuery = null;
+  lastFindOneQuery = null;
+  lastFindOneAndUpdateFilter = null;
+});
+
 describe('DocumentsDAO.saveDocumentVersion', () => {
   beforeEach(async () => {
     storedDocuments.length = 0;
-    lastFindQuery = null;
-    lastFindOneQuery = null;
-    lastFindOneAndUpdateFilter = null;
     await DocumentsDAO.injectDB(mockConn);
   });
 
