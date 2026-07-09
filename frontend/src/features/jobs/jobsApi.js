@@ -37,6 +37,32 @@ export async function uploadDocument(token, { file, type, title, jobId }) {
   return { document: data.document };
 }
 
+// S3-007: rename a document title (no new version created).
+export async function renameDocument(token, documentId, newTitle) {
+  const res = await fetch(`${API_URL}/api/documents/${documentId}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ title: newTitle }),
+  });
+  if (!res.ok) throw new Error('Failed to rename document');
+  const data = await res.json();
+  return { document: data.document };
+}
+
+// S3-007: duplicate a document (new record at version 1 with latest text).
+export async function duplicateDocument(token, documentId) {
+  const res = await fetch(`${API_URL}/api/documents/${documentId}/duplicate`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) throw new Error('Failed to duplicate document');
+  const data = await res.json();
+  return { document: data.document };
+}
+
 // Resolves to { job } on success (200), or
 // { requiresConfirmation, fromStage, toStage } on a 409 non-forward block.
 // Throws on network/500 so the hook routes it to the error state.

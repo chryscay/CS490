@@ -182,6 +182,79 @@ export default class DocumentsDAO {
   // S3-005: fetch a specific version's text for export, owner-scoped.
   // If version is omitted, returns the latest. Ownership is enforced in the
   // query (firebaseUid), so cross-owner access returns null -> 404 upstream.
+  // S3-007: rename only — no new version created (S3-BR-007).
+  static async renameDocument(firebaseUid, documentId, newTitle) {
+    const _id = ObjectId.isValid(documentId) ? new ObjectId(documentId) : documentId;
+    const now = new Date();
+    const result = await documents.findOneAndUpdate(
+      { _id, firebaseUid },
+      [{ $set: { title: { $literal: newTitle }, updatedAt: { $literal: now } } }],
+      { returnDocument: 'after' }
+    );
+    const doc = result?.value ?? result ?? null;
+    if (!doc?._id) return null;
+    return {
+      _id: doc._id,
+      jobId: doc.jobId,
+      type: doc.type,
+      title: doc.title,
+      status: doc.status ?? 'active',
+      tags: doc.tags ?? [],
+      currentVersion: doc.currentVersion,
+      updatedAt: doc.updatedAt,
+    };
+  }
+
+  // S3-007: duplicate — new doc starts at version 1 carrying the latest text (S3-BR-008).
+  static async duplicateDocument(firebaseUid, documentId) {
+    const _id = ObjectId.isValid(documentId) ? new ObjectId(documentId) : documentId;
+    const original = await documents.findOne({ _id, firebaseUid });
+    if (!original) return null;
+
+    const versions = original.versions ?? [];
+    const latestVersion = versions.length > 0 ? versions[versions.length - 1] : null;
+    const latestText = latestVersion?.text ?? '';
+
+    const now = new Date();
+    const syntheticJobId = new ObjectId();
+
+    const newDoc = {
+      _id: new ObjectId(),
+      firebaseUid,
+      jobId: syntheticJobId,
+      type: original.type,
+      title: `Copy of ${original.title}`,
+      status: original.status ?? 'active',
+      tags: [...(original.tags ?? [])],
+      currentVersion: 1,
+      versions: [
+        {
+          version: 1,
+          label: 'Version 1',
+          text: latestText,
+          createdAt: now,
+          firebaseUid,
+          jobId: syntheticJobId,
+          type: original.type,
+        },
+      ],
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    await documents.insertOne(newDoc);
+    return {
+      _id: newDoc._id,
+      jobId: newDoc.jobId,
+      type: newDoc.type,
+      title: newDoc.title,
+      status: newDoc.status,
+      tags: newDoc.tags,
+      currentVersion: newDoc.currentVersion,
+      updatedAt: newDoc.updatedAt,
+    };
+  }
+
   static async findVersionForOwner(firebaseUid, documentId, version) {
     const _id = ObjectId.isValid(documentId)
       ? new ObjectId(documentId)

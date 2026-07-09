@@ -81,6 +81,43 @@ function toSafeDocument(document) {
 }
 
 export default class DocumentsController {
+  // S3-007: rename document title only — no version created (S3-BR-007).
+  static async apiRenameDocument(req, res) {
+    try {
+      const uid = req.user.uid;
+      const { id } = req.params;
+      const { title } = req.body;
+      if (!title?.trim()) {
+        return res.status(400).json({ error: 'Title is required' });
+      }
+      const doc = await DocumentsDAO.renameDocument(uid, id, title.trim());
+      if (!doc) {
+        return res.status(404).json({ error: 'Document not found' });
+      }
+      return res.status(200).json({ document: doc });
+    } catch (error) {
+      console.error('apiRenameDocument error:', error);
+      return res.status(500).json({ error: 'Failed to rename document' });
+    }
+  }
+
+  // S3-007: duplicate document — new record at version 1 with latest text.
+  static async apiDuplicateDocument(req, res) {
+    try {
+      const uid = req.user.uid;
+      const { id } = req.params;
+      const doc = await DocumentsDAO.duplicateDocument(uid, id);
+      if (!doc) {
+        return res.status(404).json({ error: 'Document not found' });
+      }
+      return res.status(201).json({ document: doc });
+    } catch (error) {
+      console.error('apiDuplicateDocument error:', error);
+      return res.status(500).json({ error: 'Failed to duplicate document' });
+    }
+  }
+
+
   // S3-001: list all documents for the authenticated user.
   static async apiGetAllDocuments(req, res) {
     try {
