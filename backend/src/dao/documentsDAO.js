@@ -4,6 +4,28 @@ let documents;
 const VALID_DOCUMENT_TYPES = new Set(['resume', 'coverLetter']);
 const VALID_DOCUMENT_STATUSES = new Set(['active', 'archived']);
 
+async function setDocumentStatus(col, firebaseUid, documentId, status) {
+  const _id = ObjectId.isValid(documentId) ? new ObjectId(documentId) : documentId;
+  const now = new Date();
+  const result = await col.findOneAndUpdate(
+    { _id, firebaseUid },
+    [{ $set: { status: { $literal: status }, updatedAt: { $literal: now } } }],
+    { returnDocument: 'after' }
+  );
+  const doc = result?.value ?? result ?? null;
+  if (!doc?._id) return null;
+  return {
+    _id: doc._id,
+    jobId: doc.jobId,
+    type: doc.type,
+    title: doc.title,
+    status: doc.status,
+    tags: doc.tags ?? [],
+    currentVersion: doc.currentVersion,
+    updatedAt: doc.updatedAt,
+  };
+}
+
 function normalizeJobId(jobId) {
   if (ObjectId.isValid(jobId)) {
     return new ObjectId(jobId);
@@ -179,9 +201,15 @@ export default class DocumentsDAO {
       }));
   }
 
-  // S3-005: fetch a specific version's text for export, owner-scoped.
-  // If version is omitted, returns the latest. Ownership is enforced in the
-  // query (firebaseUid), so cross-owner access returns null -> 404 upstream.
+  // S3-008: archive/restore — only status changes, version history preserved (S3-BR-009).
+  static async archiveDocument(firebaseUid, documentId) {
+    return setDocumentStatus(documents, firebaseUid, documentId, 'archived');
+  }
+
+  static async restoreDocument(firebaseUid, documentId) {
+    return setDocumentStatus(documents, firebaseUid, documentId, 'active');
+  }
+
   // S3-007: rename only — no new version created (S3-BR-007).
   static async renameDocument(firebaseUid, documentId, newTitle) {
     const _id = ObjectId.isValid(documentId) ? new ObjectId(documentId) : documentId;

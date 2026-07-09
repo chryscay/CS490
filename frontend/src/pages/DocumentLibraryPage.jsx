@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../features/auth/useAuth';
-import { getAllDocuments, uploadDocument, renameDocument, duplicateDocument } from '../features/jobs/jobsApi';
+import { getAllDocuments, uploadDocument, renameDocument, duplicateDocument, archiveDocument, restoreDocument } from '../features/jobs/jobsApi';
 
 const TYPE_LABEL = {
   resume: 'Resume',
@@ -125,6 +125,44 @@ export default function DocumentLibraryPage() {
       );
     } catch {
       setActionError('Failed to rename document');
+      setTimeout(() => setActionError(''), 4000);
+    }
+  }
+
+  async function handleArchive(documentId) {
+    setActionMsg('');
+    setActionError('');
+    try {
+      const token = await currentUser.getIdToken();
+      const { document: updated } = await archiveDocument(token, documentId);
+      setDocuments((prev) =>
+        prev.map((d) =>
+          String(d._id) === String(documentId)
+            ? { ...d, status: updated.status, updatedAt: updated.updatedAt }
+            : d
+        )
+      );
+    } catch {
+      setActionError('Failed to archive document');
+      setTimeout(() => setActionError(''), 4000);
+    }
+  }
+
+  async function handleRestore(documentId) {
+    setActionMsg('');
+    setActionError('');
+    try {
+      const token = await currentUser.getIdToken();
+      const { document: updated } = await restoreDocument(token, documentId);
+      setDocuments((prev) =>
+        prev.map((d) =>
+          String(d._id) === String(documentId)
+            ? { ...d, status: updated.status, updatedAt: updated.updatedAt }
+            : d
+        )
+      );
+    } catch {
+      setActionError('Failed to restore document');
       setTimeout(() => setActionError(''), 4000);
     }
   }
@@ -375,6 +413,23 @@ export default function DocumentLibraryPage() {
                   ))}
                 </div>
                 <div className="flex items-center gap-4 shrink-0 ml-4">
+                  {(doc.status ?? 'active') === 'active' ? (
+                    <button
+                      onClick={() => handleArchive(doc._id)}
+                      aria-label={`Archive ${doc.title}`}
+                      className="text-xs text-white/40 hover:text-amber-400 transition"
+                    >
+                      Archive
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => handleRestore(doc._id)}
+                      aria-label={`Restore ${doc.title}`}
+                      className="text-xs text-white/40 hover:text-emerald-400 transition"
+                    >
+                      Restore
+                    </button>
+                  )}
                   <button
                     onClick={() => handleDuplicate(doc._id)}
                     aria-label={`Duplicate ${doc.title}`}
