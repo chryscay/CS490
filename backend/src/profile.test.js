@@ -305,6 +305,20 @@ describe('PUT /api/profile', () => {
     expect(writtenFields.education[0].fieldOfStudy).toBe('Mathematics');
     expect(writtenFields.education[0].description).toBe('Focused on math');
   });
+
+  it('blocks unauthenticated profile updates (401)', async () => {
+    const res = await request(app)
+      .put('/api/profile')
+      .send({
+        firstName: 'Ada',
+        lastName: 'Lovelace',
+        summary: 'Mathematician',
+      });
+
+    expect(res.status).toBe(401);
+    expect(UsersDAO.updateProfile).not.toHaveBeenCalled();
+    expect(UsersDAO.getProfile).not.toHaveBeenCalled();
+  });
 });
 
 describe('PUT /api/profile/:section', () => {

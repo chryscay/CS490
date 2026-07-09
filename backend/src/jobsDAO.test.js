@@ -1,15 +1,174 @@
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import JobsDAO from './dao/jobsDAO.js';
 
+const mockInsertOne = vi.fn();
+const mockFind = vi.fn();
+const mockSort = vi.fn();
+const mockToArray = vi.fn();
+const mockFindOne = vi.fn();
 const mockFindOneAndUpdate = vi.fn();
+const mockFindOneAndDelete = vi.fn();
+
+mockFind.mockImplementation(() => ({
+  sort: mockSort,
+}));
+
+mockSort.mockImplementation(() => ({
+  toArray: mockToArray,
+}));
 
 const mockConn = {
   db: () => ({
     collection: () => ({
+      insertOne: mockInsertOne,
+      find: mockFind,
+      findOne: mockFindOne,
       findOneAndUpdate: mockFindOneAndUpdate,
+      findOneAndDelete: mockFindOneAndDelete,
     }),
   }),
 };
+
+describe('JobsDAO.addJob', () => {
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    await JobsDAO.injectDB(mockConn);
+  });
+
+  it('persists firebaseUid ownership on new jobs', async () => {
+    mockInsertOne.mockResolvedValue({ insertedId: 'job-1' });
+
+    await JobsDAO.addJob({
+      firebaseUid: 'user-a',
+      company: 'Acme',
+      title: 'Backend Engineer',
+      jobPostingBody: 'Build services',
+      stage: 'Interested',
+      deadline: '',
+      recruiterName: '',
+      contactNotes: '',
+    });
+
+    expect(mockInsertOne).toHaveBeenCalledWith(
+      expect.objectContaining({ firebaseUid: 'user-a' })
+    );
+  });
+});
+
+describe('JobsDAO.findByOwner', () => {
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    await JobsDAO.injectDB(mockConn);
+  });
+
+  it('filters by firebaseUid when listing jobs', async () => {
+    mockToArray.mockResolvedValue([{ _id: 'job-1', firebaseUid: 'user-a' }]);
+
+    const result = await JobsDAO.findByOwner('user-a');
+
+    expect(mockFind).toHaveBeenCalledWith({ firebaseUid: 'user-a' });
+    expect(mockSort).toHaveBeenCalledWith({ createdAt: -1 });
+    expect(result).toHaveLength(1);
+  });
+});
+
+describe('JobsDAO.findByIdForOwner', () => {
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    await JobsDAO.injectDB(mockConn);
+  });
+
+  it('includes firebaseUid in the ownership lookup filter', async () => {
+    mockFindOne.mockResolvedValue({
+      _id: '507f1f77bcf86cd799439011',
+      firebaseUid: 'user-a',
+    });
+
+    await JobsDAO.findByIdForOwner('507f1f77bcf86cd799439011', 'user-a');
+
+    expect(mockFindOne).toHaveBeenCalledWith({
+      _id: expect.any(Object),
+      firebaseUid: 'user-a',
+    });
+  });
+
+  it('returns null for an invalid job id', async () => {
+    const result = await JobsDAO.findByIdForOwner('bad-id', 'user-a');
+
+    expect(result).toBeNull();
+    expect(mockFindOne).not.toHaveBeenCalled();
+  });
+});
+
+describe('JobsDAO.updateJob', () => {
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    await JobsDAO.injectDB(mockConn);
+  });
+
+  it('includes firebaseUid in the update filter', async () => {
+    mockFindOneAndUpdate.mockResolvedValue({
+      _id: '507f1f77bcf86cd799439011',
+      firebaseUid: 'user-a',
+      company: 'Acme',
+    });
+
+    await JobsDAO.updateJob('507f1f77bcf86cd799439011', 'user-a', {
+      company: 'Acme',
+    });
+
+    expect(mockFindOneAndUpdate).toHaveBeenCalledWith(
+      {
+        _id: expect.any(Object),
+        firebaseUid: 'user-a',
+      },
+      {
+        $set: {
+          company: 'Acme',
+          lastActivityAt: expect.any(Date),
+        },
+      },
+      { returnDocument: 'after' }
+    );
+  });
+
+  it('returns null for an invalid job id', async () => {
+    const result = await JobsDAO.updateJob('bad-id', 'user-a', {
+      company: 'Acme',
+    });
+
+    expect(result).toBeNull();
+    expect(mockFindOneAndUpdate).not.toHaveBeenCalled();
+  });
+});
+
+describe('JobsDAO.deleteJob', () => {
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    await JobsDAO.injectDB(mockConn);
+  });
+
+  it('includes firebaseUid in the delete filter', async () => {
+    mockFindOneAndDelete.mockResolvedValue({
+      _id: '507f1f77bcf86cd799439011',
+      firebaseUid: 'user-a',
+    });
+
+    await JobsDAO.deleteJob('507f1f77bcf86cd799439011', 'user-a');
+
+    expect(mockFindOneAndDelete).toHaveBeenCalledWith({
+      _id: expect.any(Object),
+      firebaseUid: 'user-a',
+    });
+  });
+
+  it('returns null for an invalid job id', async () => {
+    const result = await JobsDAO.deleteJob('bad-id', 'user-a');
+
+    expect(result).toBeNull();
+    expect(mockFindOneAndDelete).not.toHaveBeenCalled();
+  });
+});
 
 describe('JobsDAO.addInterview', () => {
   beforeEach(async () => {

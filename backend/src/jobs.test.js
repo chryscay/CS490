@@ -398,6 +398,17 @@ describe('POST /api/jobs/:id/ai/draft', () => {
     expect(res.body.error).toBe('Failed to generate draft');
   });
 
+  it('blocks unauthenticated draft generation requests (401)', async () => {
+    const res = await request(app)
+      .post(`/api/jobs/${ID}/ai/draft`)
+      .send({ type: 'resume' });
+
+    expect(res.status).toBe(401);
+    expect(JobsDAO.findByIdForOwner).not.toHaveBeenCalled();
+    expect(UsersDAO.getProfile).not.toHaveBeenCalled();
+    expect(AiDraftService.generateAiDraft).not.toHaveBeenCalled();
+  });
+
   it('rejects unsupported draft types with 400', async () => {
     JobsDAO.findByIdForOwner.mockResolvedValue({
       _id: ID,
@@ -513,6 +524,17 @@ describe('POST /api/jobs/:id/ai/rewrite', () => {
 
     expect(res.status).toBe(502);
     expect(res.body.error).toBe('Failed to rewrite draft');
+  });
+
+  it('blocks unauthenticated rewrite requests (401)', async () => {
+    const res = await request(app)
+      .post(`/api/jobs/${ID}/ai/rewrite`)
+      .send({ type: 'resume', text: 'Draft text' });
+
+    expect(res.status).toBe(401);
+    expect(JobsDAO.findByIdForOwner).not.toHaveBeenCalled();
+    expect(UsersDAO.getProfile).not.toHaveBeenCalled();
+    expect(AiDraftService.rewriteAiDraft).not.toHaveBeenCalled();
   });
 });
 
@@ -639,6 +661,16 @@ describe('POST /api/jobs/:id/documents', () => {
 
     expect(res.status).toBe(500);
     expect(res.body.error).toBe('Failed to save document');
+  });
+
+  it('blocks unauthenticated document save requests (401)', async () => {
+    const res = await request(app)
+      .post(`/api/jobs/${ID}/documents`)
+      .send({ type: 'resume', text: 'Draft text' });
+
+    expect(res.status).toBe(401);
+    expect(JobsDAO.findByIdForOwner).not.toHaveBeenCalled();
+    expect(DocumentsDAO.saveDocumentVersion).not.toHaveBeenCalled();
   });
 });
 
@@ -884,6 +916,13 @@ describe('GET /api/jobs/:id', () => {
     expect(res.status).toBe(200);
     expect(res.body.job.company).toBe('Acme');
   });
+
+  it('blocks unauthenticated requests (401)', async () => {
+    const res = await request(app).get('/api/jobs/507f1f77bcf86cd799439011');
+
+    expect(res.status).toBe(401);
+    expect(JobsDAO.findByIdForOwner).not.toHaveBeenCalled();
+  });
 });
 
 describe('PUT /api/jobs/:id', () => {
@@ -975,6 +1014,15 @@ describe('PUT /api/jobs/:id', () => {
       .send({ ...validBody, deadline: 'not-a-date' });
 
     expect(res.status).toBe(400);
+    expect(JobsDAO.updateJob).not.toHaveBeenCalled();
+  });
+
+  it('blocks unauthenticated requests (401)', async () => {
+    const res = await request(app)
+      .put('/api/jobs/507f1f77bcf86cd799439011')
+      .send(validBody);
+
+    expect(res.status).toBe(401);
     expect(JobsDAO.updateJob).not.toHaveBeenCalled();
   });
 });
