@@ -1623,10 +1623,9 @@ describe('DELETE /api/jobs/:id', () => {
     expect(res.status).toBe(401);
     expect(JobsDAO.deleteJob).not.toHaveBeenCalled();
   });
+});
 
-
-
-  describe('GET /api/jobs/:id/documents/:documentId/export', () => {
+describe('GET /api/jobs/:id/documents/:documentId/export', () => {
   const JOB_ID = '507f1f77bcf86cd799439011';
   const DOC_ID = '507f1f77bcf86cd799439022';
 
@@ -1719,13 +1718,6 @@ describe('DELETE /api/jobs/:id', () => {
     expect(JobsDAO.findByIdForOwner).not.toHaveBeenCalled();
     expect(DocumentsDAO.findVersionForOwner).not.toHaveBeenCalled();
   });
-});
-
-
-
-
-
-
 });
 
 describe('PATCH /api/jobs/:id/research', () => {
