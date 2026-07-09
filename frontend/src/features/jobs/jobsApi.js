@@ -37,6 +37,28 @@ export async function uploadDocument(token, { file, type, title, jobId }) {
   return { document: data.document };
 }
 
+// S3-008: archive a document (status → archived, versions preserved).
+export async function archiveDocument(token, documentId) {
+  const res = await fetch(`${API_URL}/api/documents/${documentId}/archive`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) throw new Error('Failed to archive document');
+  const data = await res.json();
+  return { document: data.document };
+}
+
+// S3-008: restore an archived document (status → active, versions preserved).
+export async function restoreDocument(token, documentId) {
+  const res = await fetch(`${API_URL}/api/documents/${documentId}/restore`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) throw new Error('Failed to restore document');
+  const data = await res.json();
+  return { document: data.document };
+}
+
 // S3-007: rename a document title (no new version created).
 export async function renameDocument(token, documentId, newTitle) {
   const res = await fetch(`${API_URL}/api/documents/${documentId}`, {
