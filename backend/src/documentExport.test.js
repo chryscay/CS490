@@ -30,6 +30,10 @@ describe('documentExport', () => {
       expect(buildExportFilename('', 1, 'txt')).toBe('document_v1.txt');
       expect(buildExportFilename(null, undefined, 'txt')).toBe('document.txt');
     });
+
+    it('does not append a version suffix when version is 0', () => {
+      expect(buildExportFilename('Resume', 0, 'txt')).toBe('Resume.txt');
+    });
   });
 
   describe('exportAsTxt', () => {
@@ -60,6 +64,13 @@ describe('documentExport', () => {
     it('throws on an unsupported format', async () => {
       await expect(buildExport({ format: 'docx', title: 'x', version: 1, text: 'y' }))
         .rejects.toThrow('Unsupported export format');
+    });
+
+    it('accepts uppercase format values and normalizes output metadata', async () => {
+      const out = await buildExport({ format: 'TXT', title: 'My Resume', version: 3, text: 'Body' });
+      expect(out.contentType).toBe('text/plain; charset=utf-8');
+      expect(out.filename).toBe('My_Resume_v3.txt');
+      expect(out.buffer.toString()).toBe('Body');
     });
   });
 });

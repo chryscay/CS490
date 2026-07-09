@@ -19,7 +19,12 @@ vi.mock('../features/jobs/jobsApi.js', () => ({
   getJobDocuments: vi.fn(),
 }));
 
+vi.mock('../features/jobs/documentsApi.js', () => ({
+  exportJobDocument: vi.fn(),
+}));
+
 import * as JobsApi from '../features/jobs/jobsApi.js';
+import * as DocumentsApi from '../features/jobs/documentsApi.js';
 import JobDetailPanel from '../features/jobs/JobDetailPanel';
 
 const mockJob = {
@@ -62,6 +67,7 @@ describe('JobDetailPanel', () => {
       document: { currentVersion: 1 },
     });
     JobsApi.getJobDocuments.mockResolvedValue({ documents: [] });
+    DocumentsApi.exportJobDocument.mockResolvedValue({ filename: 'Saved_Resume_v2.pdf' });
   });
   it('renders the job title', () => {
     render(<JobDetailPanel {...defaultProps} />);
@@ -860,6 +866,82 @@ describe('JobDetailPanel — Saved Drafts (SCRUM-64)', () => {
     render(<JobDetailPanel {...defaultProps} />);
     await screen.findByText('Overview');
     expect(screen.queryByText('Saved Drafts')).not.toBeInTheDocument();
+  });
+
+  it('re-fetches and replaces saved drafts when switching to a different job', async () => {
+    const nextJob = {
+      ...mockJob,
+      _id: 'job-2',
+      title: 'Backend Engineer',
+      company: 'Globex',
+    };
+
+    JobsApi.getJobDocuments
+      .mockResolvedValueOnce({
+        documents: [
+          {
+            _id: 'doc-a',
+            type: 'resume',
+            title: 'Frontend Engineer Resume',
+            currentVersion: 1,
+            text: 'frontend draft',
+            updatedAt: '2026-06-21T00:00:00.000Z',
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        documents: [
+          {
+            _id: 'doc-b',
+            type: 'coverLetter',
+            title: 'Backend Engineer Cover Letter',
+            currentVersion: 2,
+            text: 'backend draft',
+            updatedAt: '2026-06-22T00:00:00.000Z',
+          },
+        ],
+      });
+
+    const { rerender } = render(<JobDetailPanel {...defaultProps} />);
+    expect(await screen.findByText('Frontend Engineer Resume')).toBeInTheDocument();
+
+    rerender(<JobDetailPanel {...defaultProps} job={nextJob} />);
+
+    expect(await screen.findByText('Backend Engineer Cover Letter')).toBeInTheDocument();
+    expect(screen.queryByText('Frontend Engineer Resume')).not.toBeInTheDocument();
+    expect(JobsApi.getJobDocuments).toHaveBeenCalledWith('abc123', 'faketoken');
+    expect(JobsApi.getJobDocuments).toHaveBeenCalledWith('job-2', 'faketoken');
+  });
+
+  it('downloads the selected saved draft for the current job and owner token', async () => {
+    const user = userEvent.setup();
+    JobsApi.getJobDocuments.mockResolvedValue({ documents: savedDocuments });
+    render(<JobDetailPanel {...defaultProps} />);
+
+    await user.click(
+      await screen.findByRole('button', { name: /download saved resume as pdf/i })
+    );
+
+    expect(DocumentsApi.exportJobDocument).toHaveBeenCalledWith(
+      'abc123',
+      'doc-1',
+      'faketoken',
+      { format: 'pdf' }
+    );
+  });
+
+  it('surfaces export errors while keeping saved drafts visible', async () => {
+    const user = userEvent.setup();
+    JobsApi.getJobDocuments.mockResolvedValue({ documents: savedDocuments });
+    DocumentsApi.exportJobDocument.mockRejectedValueOnce(new Error('Document version not found'));
+    render(<JobDetailPanel {...defaultProps} />);
+
+    await user.click(
+      await screen.findByRole('button', { name: /download saved resume as pdf/i })
+    );
+
+    expect(await screen.findByText('Document version not found')).toBeInTheDocument();
+    expect(screen.getByText('Frontend Engineer Resume')).toBeInTheDocument();
   });
 });
 

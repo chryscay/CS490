@@ -115,6 +115,7 @@ describe('POST /api/documents/:id/archive', () => {
     expect(res.status).toBe(200);
     expect(res.body.document.status).toBe('archived');
     expect(DocumentsDAO.archiveDocument).toHaveBeenCalledWith('user-a', 'doc-1');
+    expect(DocumentsDAO.saveDocumentVersion).not.toHaveBeenCalled();
   });
 
   it('returns 404 when document does not exist or belongs to another user', async () => {
@@ -154,6 +155,7 @@ describe('POST /api/documents/:id/restore', () => {
     expect(res.status).toBe(200);
     expect(res.body.document.status).toBe('active');
     expect(DocumentsDAO.restoreDocument).toHaveBeenCalledWith('user-a', 'doc-1');
+    expect(DocumentsDAO.saveDocumentVersion).not.toHaveBeenCalled();
   });
 
   it('returns 404 when document does not exist or belongs to another user', async () => {
@@ -200,6 +202,29 @@ describe('PATCH /api/documents/:id', () => {
     expect(res.status).toBe(200);
     expect(res.body.document).toMatchObject({ _id: 'doc-1', title: 'New Title' });
     expect(DocumentsDAO.renameDocument).toHaveBeenCalledWith('user-a', 'doc-1', 'New Title');
+  });
+
+  it('renames metadata only and does not create a new version (S3-BR-007 regression)', async () => {
+    DocumentsDAO.renameDocument.mockResolvedValue({
+      _id: 'doc-1',
+      jobId: 'job-1',
+      type: 'resume',
+      title: 'Retitled Resume',
+      status: 'active',
+      tags: [],
+      currentVersion: 2,
+      updatedAt: new Date('2026-07-02'),
+    });
+
+    const res = await request(app)
+      .patch('/api/documents/doc-1')
+      .set('Authorization', 'Bearer faketoken')
+      .send({ title: 'Retitled Resume' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.document.currentVersion).toBe(2);
+    expect(DocumentsDAO.renameDocument).toHaveBeenCalledTimes(1);
+    expect(DocumentsDAO.saveDocumentVersion).not.toHaveBeenCalled();
   });
 
   it('returns 404 when document does not exist or belongs to another user', async () => {
