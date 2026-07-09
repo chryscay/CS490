@@ -21,6 +21,8 @@ vi.mock('./dao/documentsDAO.js', () => ({
     saveDocumentVersion: vi.fn(),
     findByJobForOwner: vi.fn(),
     findAllForOwner: vi.fn(),
+    archiveDocument: vi.fn(),
+    restoreDocument: vi.fn(),
     renameDocument: vi.fn(),
     duplicateDocument: vi.fn(),
   },
@@ -91,6 +93,84 @@ describe('GET /api/documents', () => {
 
     expect(DocumentsDAO.findAllForOwner).toHaveBeenCalledWith('user-a');
     expect(DocumentsDAO.findAllForOwner).not.toHaveBeenCalledWith('user-b');
+  });
+});
+
+describe('POST /api/documents/:id/archive', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockVerifyIdToken.mockResolvedValue({ uid: 'user-a', email: 'a@test.com' });
+  });
+
+  it('returns 200 and archived document (happy path)', async () => {
+    DocumentsDAO.archiveDocument.mockResolvedValue({
+      _id: 'doc-1', type: 'resume', title: 'My Resume',
+      status: 'archived', tags: [], currentVersion: 1, updatedAt: new Date(),
+    });
+
+    const res = await request(app)
+      .post('/api/documents/doc-1/archive')
+      .set('Authorization', 'Bearer faketoken');
+
+    expect(res.status).toBe(200);
+    expect(res.body.document.status).toBe('archived');
+    expect(DocumentsDAO.archiveDocument).toHaveBeenCalledWith('user-a', 'doc-1');
+  });
+
+  it('returns 404 when document does not exist or belongs to another user', async () => {
+    DocumentsDAO.archiveDocument.mockResolvedValue(null);
+
+    const res = await request(app)
+      .post('/api/documents/nonexistent/archive')
+      .set('Authorization', 'Bearer faketoken');
+
+    expect(res.status).toBe(404);
+    expect(res.body.error).toBe('Document not found');
+  });
+
+  it('returns 401 when no authorization token is provided', async () => {
+    const res = await request(app).post('/api/documents/doc-1/archive');
+    expect(res.status).toBe(401);
+    expect(DocumentsDAO.archiveDocument).not.toHaveBeenCalled();
+  });
+});
+
+describe('POST /api/documents/:id/restore', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockVerifyIdToken.mockResolvedValue({ uid: 'user-a', email: 'a@test.com' });
+  });
+
+  it('returns 200 and restored document (happy path)', async () => {
+    DocumentsDAO.restoreDocument.mockResolvedValue({
+      _id: 'doc-1', type: 'resume', title: 'My Resume',
+      status: 'active', tags: [], currentVersion: 1, updatedAt: new Date(),
+    });
+
+    const res = await request(app)
+      .post('/api/documents/doc-1/restore')
+      .set('Authorization', 'Bearer faketoken');
+
+    expect(res.status).toBe(200);
+    expect(res.body.document.status).toBe('active');
+    expect(DocumentsDAO.restoreDocument).toHaveBeenCalledWith('user-a', 'doc-1');
+  });
+
+  it('returns 404 when document does not exist or belongs to another user', async () => {
+    DocumentsDAO.restoreDocument.mockResolvedValue(null);
+
+    const res = await request(app)
+      .post('/api/documents/nonexistent/restore')
+      .set('Authorization', 'Bearer faketoken');
+
+    expect(res.status).toBe(404);
+    expect(res.body.error).toBe('Document not found');
+  });
+
+  it('returns 401 when no authorization token is provided', async () => {
+    const res = await request(app).post('/api/documents/doc-1/restore');
+    expect(res.status).toBe(401);
+    expect(DocumentsDAO.restoreDocument).not.toHaveBeenCalled();
   });
 });
 
