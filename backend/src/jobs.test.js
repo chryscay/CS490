@@ -32,6 +32,8 @@ vi.mock('./dao/jobsDAO.js', () => ({
     updateInterview: vi.fn(),
     addFollowUp: vi.fn(),
     updateFollowUp: vi.fn(),
+    setLinkedDocument: vi.fn(),
+    clearLinkedDocument: vi.fn(),
   },
 }));
 vi.mock('./dao/usersDAO.js', () => ({
@@ -45,6 +47,7 @@ vi.mock('./dao/documentsDAO.js', () => ({
     saveDocumentVersion: vi.fn(),
     findByJobForOwner: vi.fn(),
     findVersionForOwner: vi.fn(),
+    findOneForOwner: vi.fn(),
   },
 }));
 
@@ -1815,5 +1818,167 @@ describe('PATCH /api/jobs/:id/research', () => {
     expect(res.status).toBe(500);
 
     expect(res.body.error).toBe('Failed to update research notes');
+  });
+});
+
+describe('POST /api/jobs/:id/linked-documents (S3-009)', () => {
+  const JOB_ID = '507f1f77bcf86cd799439011';
+  const DOC_ID = '507f1f77bcf86cd799439012';
+  const OTHER_DOC_ID = '507f1f77bcf86cd799439013';
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockVerifyIdToken.mockResolvedValue({ uid: 'user-a', email: 'a@test.com' });
+    DocumentsDAO.findOneForOwner.mockResolvedValue({
+      _id: DOC_ID, type: 'resume', title: 'My Resume', status: 'active',
+    });
+    JobsDAO.findByIdForOwner.mockResolvedValue({
+      _id: JOB_ID, firebaseUid: 'user-a', title: 'Backend Engineer', linkedDocuments: {},
+    });
+    JobsDAO.setLinkedDocument.mockResolvedValue({
+      _id: JOB_ID, linkedDocuments: { resume: DOC_ID },
+    });
+  });
+
+  it('links a resume document to a job (happy path)', async () => {
+    const res = await request(app)
+      .post(`/api/jobs/${JOB_ID}/linked-documents`)
+      .set('Authorization', 'Bearer faketoken')
+      .send({ type: 'resume', documentId: DOC_ID });
+
+    expect(res.status).toBe(200);
+    expect(res.body.message).toBe('Document linked');
+    expect(JobsDAO.setLinkedDocument).toHaveBeenCalledWith(JOB_ID, 'user-a', 'resume', DOC_ID);
+  });
+
+  it('returns 409 when a different document is already linked (S3-BR-011)', async () => {
+    JobsDAO.findByIdForOwner.mockResolvedValue({
+      _id: JOB_ID, firebaseUid: 'user-a', linkedDocuments: { resume: OTHER_DOC_ID },
+    });
+    DocumentsDAO.findOneForOwner
+      .mockResolvedValueOnce({ _id: DOC_ID, type: 'resume', title: 'My Resume', status: 'active' })
+      .mockResolvedValueOnce({ _id: OTHER_DOC_ID, type: 'resume', title: 'Old Resume', status: 'active' });
+
+    const res = await request(app)
+      .post(`/api/jobs/${JOB_ID}/linked-documents`)
+      .set('Authorization', 'Bearer faketoken')
+      .send({ type: 'resume', documentId: DOC_ID });
+
+    expect(res.status).toBe(409);
+    expect(res.body.requiresConfirmation).toBe(true);
+    expect(res.body.currentDocumentTitle).toBe('Old Resume');
+    expect(JobsDAO.setLinkedDocument).not.toHaveBeenCalled();
+  });
+
+  it('replaces the linked document when confirmReplace is true (S3-BR-011)', async () => {
+    JobsDAO.findByIdForOwner.mockResolvedValue({
+      _id: JOB_ID, firebaseUid: 'user-a', linkedDocuments: { resume: OTHER_DOC_ID },
+    });
+    DocumentsDAO.findOneForOwner.mockResolvedValue({
+      _id: DOC_ID, type: 'resume', title: 'My Resume', status: 'active',
+    });
+
+    const res = await request(app)
+      .post(`/api/jobs/${JOB_ID}/linked-documents`)
+      .set('Authorization', 'Bearer faketoken')
+      .send({ type: 'resume', documentId: DOC_ID, confirmReplace: true });
+
+    expect(res.status).toBe(200);
+    expect(JobsDAO.setLinkedDocument).toHaveBeenCalled();
+  });
+
+  it('returns 400 for an unsupported type', async () => {
+    const res = await request(app)
+      .post(`/api/jobs/${JOB_ID}/linked-documents`)
+      .set('Authorization', 'Bearer faketoken')
+      .send({ type: 'portfolio', documentId: DOC_ID });
+
+    expect(res.status).toBe(400);
+    expect(JobsDAO.setLinkedDocument).not.toHaveBeenCalled();
+  });
+
+  it('returns 404 when the document does not belong to the user (S3-BR-012)', async () => {
+    DocumentsDAO.findOneForOwner.mockResolvedValue(null);
+
+    const res = await request(app)
+      .post(`/api/jobs/${JOB_ID}/linked-documents`)
+      .set('Authorization', 'Bearer faketoken')
+      .send({ type: 'resume', documentId: DOC_ID });
+
+    expect(res.status).toBe(404);
+    expect(res.body.error).toBe('Document not found');
+    expect(JobsDAO.setLinkedDocument).not.toHaveBeenCalled();
+  });
+
+  it('returns 400 when document type does not match requested link type (S3-BR-012)', async () => {
+    DocumentsDAO.findOneForOwner.mockResolvedValue({
+      _id: DOC_ID, type: 'coverLetter', title: 'My Cover Letter', status: 'active',
+    });
+
+    const res = await request(app)
+      .post(`/api/jobs/${JOB_ID}/linked-documents`)
+      .set('Authorization', 'Bearer faketoken')
+      .send({ type: 'resume', documentId: DOC_ID });
+
+    expect(res.status).toBe(400);
+    expect(JobsDAO.setLinkedDocument).not.toHaveBeenCalled();
+  });
+
+  it('returns 401 when no authorization token is provided', async () => {
+    const res = await request(app)
+      .post(`/api/jobs/${JOB_ID}/linked-documents`)
+      .send({ type: 'resume', documentId: DOC_ID });
+
+    expect(res.status).toBe(401);
+    expect(JobsDAO.setLinkedDocument).not.toHaveBeenCalled();
+  });
+});
+
+describe('DELETE /api/jobs/:id/linked-documents/:type (S3-009)', () => {
+  const JOB_ID = '507f1f77bcf86cd799439011';
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockVerifyIdToken.mockResolvedValue({ uid: 'user-a', email: 'a@test.com' });
+    JobsDAO.clearLinkedDocument.mockResolvedValue({
+      _id: JOB_ID, linkedDocuments: { resume: null },
+    });
+  });
+
+  it('unlinks a resume from a job (happy path)', async () => {
+    const res = await request(app)
+      .delete(`/api/jobs/${JOB_ID}/linked-documents/resume`)
+      .set('Authorization', 'Bearer faketoken');
+
+    expect(res.status).toBe(200);
+    expect(res.body.message).toBe('Document unlinked');
+    expect(JobsDAO.clearLinkedDocument).toHaveBeenCalledWith(JOB_ID, 'user-a', 'resume');
+  });
+
+  it('returns 404 when the job does not belong to the user', async () => {
+    JobsDAO.clearLinkedDocument.mockResolvedValue(null);
+
+    const res = await request(app)
+      .delete(`/api/jobs/${JOB_ID}/linked-documents/resume`)
+      .set('Authorization', 'Bearer faketoken');
+
+    expect(res.status).toBe(404);
+  });
+
+  it('returns 400 for an unsupported type', async () => {
+    const res = await request(app)
+      .delete(`/api/jobs/${JOB_ID}/linked-documents/portfolio`)
+      .set('Authorization', 'Bearer faketoken');
+
+    expect(res.status).toBe(400);
+    expect(JobsDAO.clearLinkedDocument).not.toHaveBeenCalled();
+  });
+
+  it('returns 401 when no authorization token is provided', async () => {
+    const res = await request(app)
+      .delete(`/api/jobs/${JOB_ID}/linked-documents/resume`);
+
+    expect(res.status).toBe(401);
+    expect(JobsDAO.clearLinkedDocument).not.toHaveBeenCalled();
   });
 });

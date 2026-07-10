@@ -663,6 +663,78 @@ export default class JobsController {
   }
 
 
+  // S3-009: link a library document to a job (S3-BR-010, S3-BR-011, S3-BR-012).
+  static async apiLinkDocument(req, res) {
+    try {
+      const { type, documentId, confirmReplace = false } = req.body;
+
+      if (type !== 'resume' && type !== 'coverLetter') {
+        return res.status(400).json({ error: 'type must be resume or coverLetter' });
+      }
+      if (!documentId) {
+        return res.status(400).json({ error: 'documentId is required' });
+      }
+
+      // S3-BR-012: validate document ownership and type match before touching the job.
+      const doc = await DocumentsDAO.findOneForOwner(req.user.uid, documentId);
+      if (!doc) {
+        return res.status(404).json({ error: 'Document not found' });
+      }
+      if (doc.type !== type) {
+        return res.status(400).json({ error: 'Document type does not match requested link type' });
+      }
+
+      const job = await JobsDAO.findByIdForOwner(req.params.id, req.user.uid);
+      if (!job) {
+        return res.status(404).json({ error: 'Job not found' });
+      }
+
+      // S3-BR-011: if a *different* document is already linked, require explicit confirmation.
+      const currentLinkedId = job.linkedDocuments?.[type]
+        ? String(job.linkedDocuments[type])
+        : null;
+      if (currentLinkedId && currentLinkedId !== String(documentId) && !confirmReplace) {
+        const currentDoc = await DocumentsDAO.findOneForOwner(req.user.uid, currentLinkedId);
+        return res.status(409).json({
+          error: 'A document is already linked',
+          requiresConfirmation: true,
+          currentDocumentTitle: currentDoc?.title ?? 'the existing document',
+        });
+      }
+
+      const updated = await JobsDAO.setLinkedDocument(req.params.id, req.user.uid, type, documentId);
+      if (!updated) {
+        return res.status(404).json({ error: 'Job not found' });
+      }
+
+      return res.status(200).json({ message: 'Document linked', job: updated });
+    } catch (error) {
+      console.error('apiLinkDocument error:', error);
+      return res.status(500).json({ error: 'Failed to link document' });
+    }
+  }
+
+  // S3-009: remove a linked document from a job.
+  static async apiUnlinkDocument(req, res) {
+    try {
+      const { type } = req.params;
+
+      if (type !== 'resume' && type !== 'coverLetter') {
+        return res.status(400).json({ error: 'type must be resume or coverLetter' });
+      }
+
+      const updated = await JobsDAO.clearLinkedDocument(req.params.id, req.user.uid, type);
+      if (!updated) {
+        return res.status(404).json({ error: 'Job not found' });
+      }
+
+      return res.status(200).json({ message: 'Document unlinked', job: updated });
+    } catch (error) {
+      console.error('apiUnlinkDocument error:', error);
+      return res.status(500).json({ error: 'Failed to unlink document' });
+    }
+  }
+
   // S3-005: export a specific document version as txt or pdf, owner-scoped.
   static async apiExportJobDocument(req, res) {
     try {

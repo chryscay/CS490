@@ -283,6 +283,22 @@ export default class DocumentsDAO {
     };
   }
 
+  // S3-009: fetch metadata for a single owned document for ownership validation.
+  static async findOneForOwner(firebaseUid, documentId) {
+    const _id = ObjectId.isValid(documentId) ? new ObjectId(documentId) : documentId;
+    const doc = await documents.findOne({ _id, firebaseUid });
+    if (!doc || !VALID_DOCUMENT_TYPES.has(doc.type)) return null;
+    return {
+      _id: doc._id,
+      type: doc.type,
+      title: doc.title,
+      status: doc.status ?? 'active',
+      tags: doc.tags ?? [],
+      currentVersion: doc.currentVersion,
+      updatedAt: doc.updatedAt,
+    };
+  }
+
   static async findVersionForOwner(firebaseUid, documentId, version) {
     const _id = ObjectId.isValid(documentId)
       ? new ObjectId(documentId)

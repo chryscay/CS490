@@ -496,6 +496,71 @@ describe('JobsDAO.appendStageTransition', () => {
   });
 });
 
+describe('JobsDAO.setLinkedDocument', () => {
+  const JOB_ID = '507f1f77bcf86cd799439011';
+  const DOC_ID = '507f1f77bcf86cd799439012';
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    await JobsDAO.injectDB(mockConn);
+  });
+
+  it('calls findOneAndUpdate with $set for the correct linkedDocuments field', async () => {
+    mockFindOneAndUpdate.mockResolvedValue({
+      _id: JOB_ID,
+      firebaseUid: 'user-a',
+      linkedDocuments: { resume: DOC_ID },
+    });
+
+    const result = await JobsDAO.setLinkedDocument(JOB_ID, 'user-a', 'resume', DOC_ID);
+
+    expect(mockFindOneAndUpdate).toHaveBeenCalledWith(
+      { _id: expect.any(Object), firebaseUid: 'user-a' },
+      { $set: expect.objectContaining({ 'linkedDocuments.resume': expect.anything() }) },
+      { returnDocument: 'after' }
+    );
+    expect(result).not.toBeNull();
+  });
+
+  it('returns null for an invalid jobId without calling the DB', async () => {
+    const result = await JobsDAO.setLinkedDocument('not-valid', 'user-a', 'resume', DOC_ID);
+    expect(result).toBeNull();
+    expect(mockFindOneAndUpdate).not.toHaveBeenCalled();
+  });
+});
+
+describe('JobsDAO.clearLinkedDocument', () => {
+  const JOB_ID = '507f1f77bcf86cd799439011';
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    await JobsDAO.injectDB(mockConn);
+  });
+
+  it('sets the linked document field to null', async () => {
+    mockFindOneAndUpdate.mockResolvedValue({
+      _id: JOB_ID,
+      firebaseUid: 'user-a',
+      linkedDocuments: { coverLetter: null },
+    });
+
+    const result = await JobsDAO.clearLinkedDocument(JOB_ID, 'user-a', 'coverLetter');
+
+    expect(mockFindOneAndUpdate).toHaveBeenCalledWith(
+      { _id: expect.any(Object), firebaseUid: 'user-a' },
+      { $set: expect.objectContaining({ 'linkedDocuments.coverLetter': null }) },
+      { returnDocument: 'after' }
+    );
+    expect(result).not.toBeNull();
+  });
+
+  it('returns null for an invalid jobId without calling the DB', async () => {
+    const result = await JobsDAO.clearLinkedDocument('bad-id', 'user-a', 'resume');
+    expect(result).toBeNull();
+    expect(mockFindOneAndUpdate).not.toHaveBeenCalled();
+  });
+});
+
 describe('JobsDAO.updateResearchNotes', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
