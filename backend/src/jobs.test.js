@@ -5,6 +5,7 @@ import JobsDAO from './dao/jobsDAO.js';
 import UsersDAO from './dao/usersDAO.js';
 import DocumentsDAO from './dao/documentsDAO.js';
 import * as AiDraftService from './services/aiDraft.service.js';
+import * as AiResearchService from './services/aiResearch.service.js';
 
 const mockVerifyIdToken = vi.fn();
 
@@ -55,6 +56,12 @@ vi.mock('./services/aiDraft.service.js', () => ({
   generateAiDraft: vi.fn(),
   rewriteAiDraft: vi.fn(),
 }));
+
+vi.mock('./services/aiResearch.service.js', () => ({
+  generateCompanyResearch: vi.fn(),
+}));
+
+
 describe('POST /api/jobs/:id/transition', () => {
   const ID = '507f1f77bcf86cd799439011';
 
@@ -433,6 +440,86 @@ describe('POST /api/jobs/:id/ai/draft', () => {
     expect(AiDraftService.generateAiDraft).not.toHaveBeenCalled();
   });
 });
+
+
+describe('POST /api/jobs/:id/ai/research', () => {
+  const ID = '507f1f77bcf86cd799439011';
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockVerifyIdToken.mockResolvedValue({ uid: 'user-a', email: 'a@test.com' });
+  });
+
+  it('returns company research for an owned job (happy path)', async () => {
+    JobsDAO.findByIdForOwner.mockResolvedValue({
+      _id: ID,
+      firebaseUid: 'user-a',
+      company: 'Acme',
+      title: 'Backend Engineer',
+      jobPostingBody: 'Build services',
+    });
+    AiResearchService.generateCompanyResearch.mockResolvedValue('Acme research notes');
+
+    const res = await request(app)
+      .post(`/api/jobs/${ID}/ai/research`)
+      .set('Authorization', 'Bearer faketoken')
+      .send({ userContext: 'Focus on their tech stack' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.research).toBe('Acme research notes');
+    expect(JobsDAO.findByIdForOwner).toHaveBeenCalledWith(ID, 'user-a');
+    expect(AiResearchService.generateCompanyResearch).toHaveBeenCalledWith(
+      expect.objectContaining({ userContext: 'Focus on their tech stack' })
+    );
+  });
+
+  it('denies cross-user access with 404 before calling the AI service', async () => {
+    mockVerifyIdToken.mockResolvedValue({ uid: 'user-b', email: 'b@test.com' });
+    JobsDAO.findByIdForOwner.mockResolvedValue(null);
+
+    const res = await request(app)
+      .post(`/api/jobs/${ID}/ai/research`)
+      .set('Authorization', 'Bearer faketoken')
+      .send({ userContext: 'anything' });
+
+    expect(res.status).toBe(404);
+    expect(JobsDAO.findByIdForOwner).toHaveBeenCalledWith(ID, 'user-b');
+    expect(AiResearchService.generateCompanyResearch).not.toHaveBeenCalled();
+  });
+
+  it('returns 502 when the research service fails', async () => {
+    JobsDAO.findByIdForOwner.mockResolvedValue({
+      _id: ID,
+      firebaseUid: 'user-a',
+      company: 'Acme',
+      title: 'Backend Engineer',
+      jobPostingBody: 'Build services',
+    });
+    AiResearchService.generateCompanyResearch.mockRejectedValue(
+      new Error('OpenAI unreachable')
+    );
+
+    const res = await request(app)
+      .post(`/api/jobs/${ID}/ai/research`)
+      .set('Authorization', 'Bearer faketoken')
+      .send({ userContext: 'anything' });
+
+    expect(res.status).toBe(502);
+    expect(res.body.error).toBe('Failed to generate company research');
+  });
+
+  it('blocks unauthenticated research requests (401)', async () => {
+    const res = await request(app)
+      .post(`/api/jobs/${ID}/ai/research`)
+      .send({ userContext: 'anything' });
+
+    expect(res.status).toBe(401);
+    expect(JobsDAO.findByIdForOwner).not.toHaveBeenCalled();
+    expect(AiResearchService.generateCompanyResearch).not.toHaveBeenCalled();
+  });
+});
+
+
 
 describe('POST /api/jobs/:id/ai/rewrite', () => {
   const ID = '507f1f77bcf86cd799439011';
