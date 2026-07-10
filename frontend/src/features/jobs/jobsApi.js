@@ -290,6 +290,19 @@ export async function saveJobDocument(jobId, token, { type, title, text }) {
   return { document: data.document };
 }
 
+// S3-010: fetch a single library document's latest version text for inline display.
+export async function getDocument(token, documentId) {
+  const res = await fetch(`${API_URL}/api/documents/${documentId}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || 'Failed to fetch document');
+  }
+  const data = await res.json();
+  return { document: data.document };
+}
+
 // S3-009: link a library document to a job (S3-BR-010, S3-BR-011).
 // Returns { job } on success, { requiresConfirmation, currentDocumentTitle } on 409.
 export async function linkDocumentToJob(token, jobId, { type, documentId, confirmReplace = false }) {
