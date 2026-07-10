@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { useAuth } from '../auth/useAuth';
-import { generateJobDraft, rewriteJobDraft, saveJobDocument, getJobDocuments, getAllDocuments, linkDocumentToJob, unlinkDocumentFromJob } from './jobsApi';
+import { generateJobDraft, rewriteJobDraft, saveJobDocument, getJobDocuments, getAllDocuments, getDocument, linkDocumentToJob, unlinkDocumentFromJob } from './jobsApi';
 import { exportJobDocument } from './documentsApi';
 import { getStageStyles, isOutcomeStage } from './stageStyles';
 import DeleteJobDialog from './DeleteJobDialog';
@@ -145,6 +145,7 @@ export default function JobDetailPanel({
   const [pickerType, setPickerType] = useState(null);
   const [pendingReplace, setPendingReplace] = useState(null);
   const [linkError, setLinkError] = useState('');
+  const [docView, setDocView] = useState({ id: null, text: '', loading: false, error: '' });
 
   useEffect(() => {
     let cancelled = false;
@@ -177,6 +178,7 @@ export default function JobDetailPanel({
     setPickerType(null);
     setPendingReplace(null);
     setLinkError('');
+    setDocView({ id: null, text: '', loading: false, error: '' });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [job._id]);
 
@@ -325,8 +327,25 @@ export default function JobDetailPanel({
       const token = await currentUser.getIdToken();
       await unlinkDocumentFromJob(token, job._id, type);
       setLinkedDocs((prev) => ({ ...prev, [type]: null }));
+      setDocView((prev) => prev.id === linkedDocs[type] ? { id: null, text: '', loading: false, error: '' } : prev);
     } catch (err) {
       setLinkError(err.message || 'Failed to unlink document');
+    }
+  };
+
+  // S3-010: toggle inline view of linked document's latest version text.
+  const handleViewDoc = async (docId) => {
+    if (docView.id === docId) {
+      setDocView({ id: null, text: '', loading: false, error: '' });
+      return;
+    }
+    setDocView({ id: docId, text: '', loading: true, error: '' });
+    try {
+      const token = await currentUser.getIdToken();
+      const { document: doc } = await getDocument(token, docId);
+      setDocView({ id: docId, text: doc.text ?? '', loading: false, error: '' });
+    } catch (err) {
+      setDocView({ id: docId, text: '', loading: false, error: err.message || 'Failed to load document' });
     }
   };
 
@@ -663,24 +682,58 @@ export default function JobDetailPanel({
               <div key={type} className="mb-3 last:mb-0">
                 <p className="text-xs text-white/40 uppercase tracking-wider mb-2">{label}</p>
                 {linkedTitle ? (
-                  <div className="flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3">
-                    <span className="text-sm text-white/80 truncate">{linkedTitle}</span>
-                    <div className="flex gap-3 shrink-0 ml-3">
-                      <button
-                        onClick={() => setPickerType(type)}
-                        aria-label={`Change linked ${label.toLowerCase()}`}
-                        className="text-xs text-white/40 hover:text-blue-300 transition"
-                      >
-                        Change
-                      </button>
-                      <button
-                        onClick={() => handleUnlink(type)}
-                        aria-label={`Unlink ${label.toLowerCase()}`}
-                        className="text-xs text-white/40 hover:text-red-400 transition"
-                      >
-                        Unlink
-                      </button>
+                  <div className="rounded-xl border border-white/10 bg-white/[0.03]">
+                    <div className="flex items-center justify-between px-4 py-3">
+                      <div className="min-w-0">
+                        <span className="text-sm text-white/80 truncate">{linkedTitle}</span>
+                        {linkedDoc && (
+                          <span className="text-xs text-white/40 ml-2">
+                            v{linkedDoc.currentVersion} · {formatDate(linkedDoc.updatedAt)}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex gap-3 shrink-0 ml-3">
+                        <button
+                          onClick={() => handleViewDoc(linkedId)}
+                          aria-label={docView.id === linkedId ? `Hide ${label.toLowerCase()} text` : `View ${label.toLowerCase()} text`}
+                          className="text-xs text-white/40 hover:text-blue-300 transition"
+                        >
+                          {docView.id === linkedId ? 'Hide' : 'View'}
+                        </button>
+                        <button
+                          onClick={() => setPickerType(type)}
+                          aria-label={`Change linked ${label.toLowerCase()}`}
+                          className="text-xs text-white/40 hover:text-blue-300 transition"
+                        >
+                          Change
+                        </button>
+                        <button
+                          onClick={() => handleUnlink(type)}
+                          aria-label={`Unlink ${label.toLowerCase()}`}
+                          className="text-xs text-white/40 hover:text-red-400 transition"
+                        >
+                          Unlink
+                        </button>
+                      </div>
                     </div>
+                    {docView.id === linkedId && (
+                      <div className="border-t border-white/10 px-4 pb-3">
+                        {docView.loading && (
+                          <p className="text-xs text-white/40 pt-3">Loading…</p>
+                        )}
+                        {docView.error && (
+                          <p className="text-xs text-red-400 pt-3">{docView.error}</p>
+                        )}
+                        {!docView.loading && !docView.error && (
+                          <pre
+                            aria-label={`${label} document text`}
+                            className="mt-3 max-h-64 overflow-y-auto whitespace-pre-wrap text-sm text-white/70"
+                          >
+                            {docView.text}
+                          </pre>
+                        )}
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className="flex items-center justify-between rounded-xl border border-dashed border-white/10 bg-white/[0.02] px-4 py-3">

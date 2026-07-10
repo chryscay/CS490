@@ -141,6 +141,18 @@ export default class DocumentsController {
   }
 
 
+  // S3-010: fetch a single document's latest version text for display in job detail.
+  static async apiGetDocument(req, res) {
+    try {
+      const doc = await DocumentsDAO.findVersionForOwner(req.user.uid, req.params.id, undefined);
+      if (!doc) return res.status(404).json({ error: 'Document not found' });
+      return res.status(200).json({ document: doc });
+    } catch (error) {
+      console.error('apiGetDocument error:', error);
+      return res.status(500).json({ error: 'Failed to fetch document' });
+    }
+  }
+
   // S3-001: list all documents for the authenticated user.
   static async apiGetAllDocuments(req, res) {
     try {

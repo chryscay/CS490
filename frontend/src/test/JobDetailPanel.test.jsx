@@ -18,6 +18,7 @@ vi.mock('../features/jobs/jobsApi.js', () => ({
   saveJobDocument: vi.fn(),
   getJobDocuments: vi.fn(),
   getAllDocuments: vi.fn(),
+  getDocument: vi.fn(),
   linkDocumentToJob: vi.fn(),
   unlinkDocumentFromJob: vi.fn(),
 }));
@@ -72,6 +73,7 @@ describe('JobDetailPanel', () => {
     });
     JobsApi.getJobDocuments.mockResolvedValue({ documents: [] });
     JobsApi.getAllDocuments.mockResolvedValue({ documents: [] });
+    JobsApi.getDocument.mockResolvedValue({ document: { text: 'Document body text', version: 1 } });
     JobsApi.linkDocumentToJob.mockResolvedValue({ job: { _id: 'abc123' } });
     JobsApi.unlinkDocumentFromJob.mockResolvedValue({ job: { _id: 'abc123' } });
     DocumentsApi.exportJobDocument.mockResolvedValue({ filename: 'Saved_Resume_v2.pdf' });
@@ -1260,6 +1262,55 @@ describe('JobDetailPanel — Linked Documents (S3-009)', () => {
       expect(JobsApi.unlinkDocumentFromJob).toHaveBeenCalledWith('faketoken', 'abc123', 'resume');
     });
     expect(screen.getAllByText(/not linked/i).length).toBeGreaterThan(0);
+  });
+});
+
+describe('JobDetailPanel — Library Visibility (S3-010)', () => {
+  const libraryDocs = [
+    { _id: 'lib-resume-1', type: 'resume', title: 'My Resume', currentVersion: 3, status: 'active', updatedAt: '2026-06-15T00:00:00.000Z' },
+  ];
+
+  beforeEach(() => {
+    JobsApi.getAllDocuments.mockResolvedValue({ documents: libraryDocs });
+    JobsApi.getDocument.mockResolvedValue({ document: { _id: 'lib-resume-1', type: 'resume', title: 'My Resume', version: 3, text: 'Senior engineer resume body.' } });
+  });
+
+  it('shows version badge and date for a linked document (S3-010)', async () => {
+    const jobWithLink = { ...mockJob, linkedDocuments: { resume: 'lib-resume-1' } };
+    render(<JobDetailPanel {...defaultProps} job={jobWithLink} />);
+    expect(await screen.findByText(/v3/)).toBeInTheDocument();
+    expect(screen.getByText(/jun 15, 2026/i)).toBeInTheDocument();
+  });
+
+  it('clicking View fetches the document text and shows it inline', async () => {
+    const user = userEvent.setup();
+    const jobWithLink = { ...mockJob, linkedDocuments: { resume: 'lib-resume-1' } };
+    render(<JobDetailPanel {...defaultProps} job={jobWithLink} />);
+    await screen.findByText('My Resume');
+    await user.click(screen.getByRole('button', { name: /view resume text/i }));
+    expect(await screen.findByText('Senior engineer resume body.')).toBeInTheDocument();
+    expect(JobsApi.getDocument).toHaveBeenCalledWith('faketoken', 'lib-resume-1');
+  });
+
+  it('clicking View again (Hide) collapses the text', async () => {
+    const user = userEvent.setup();
+    const jobWithLink = { ...mockJob, linkedDocuments: { resume: 'lib-resume-1' } };
+    render(<JobDetailPanel {...defaultProps} job={jobWithLink} />);
+    await screen.findByText('My Resume');
+    await user.click(screen.getByRole('button', { name: /view resume text/i }));
+    await screen.findByText('Senior engineer resume body.');
+    await user.click(screen.getByRole('button', { name: /hide resume text/i }));
+    expect(screen.queryByText('Senior engineer resume body.')).not.toBeInTheDocument();
+  });
+
+  it('shows an error message when document fetch fails', async () => {
+    JobsApi.getDocument.mockRejectedValueOnce(new Error('Document not found'));
+    const user = userEvent.setup();
+    const jobWithLink = { ...mockJob, linkedDocuments: { resume: 'lib-resume-1' } };
+    render(<JobDetailPanel {...defaultProps} job={jobWithLink} />);
+    await screen.findByText('My Resume');
+    await user.click(screen.getByRole('button', { name: /view resume text/i }));
+    expect(await screen.findByText('Document not found')).toBeInTheDocument();
   });
 });
 

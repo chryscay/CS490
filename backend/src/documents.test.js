@@ -21,6 +21,7 @@ vi.mock('./dao/documentsDAO.js', () => ({
     saveDocumentVersion: vi.fn(),
     findByJobForOwner: vi.fn(),
     findAllForOwner: vi.fn(),
+    findVersionForOwner: vi.fn(),
     archiveDocument: vi.fn(),
     restoreDocument: vi.fn(),
     renameDocument: vi.fn(),
@@ -465,5 +466,51 @@ describe('POST /api/documents/upload', () => {
 
     expect(res.status).toBe(401);
     expect(DocumentsDAO.saveDocumentVersion).not.toHaveBeenCalled();
+  });
+});
+
+describe('GET /api/documents/:id (S3-010)', () => {
+  const DOC_ID = '507f1f77bcf86cd799439012';
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockVerifyIdToken.mockResolvedValue({ uid: 'user-a', email: 'a@test.com' });
+  });
+
+  it('returns the latest version of an owned document (happy path)', async () => {
+    DocumentsDAO.findVersionForOwner.mockResolvedValue({
+      _id: DOC_ID,
+      type: 'resume',
+      title: 'My Resume',
+      version: 2,
+      text: 'Senior engineer with 10 years experience.',
+    });
+
+    const res = await request(app)
+      .get(`/api/documents/${DOC_ID}`)
+      .set('Authorization', 'Bearer faketoken');
+
+    expect(res.status).toBe(200);
+    expect(res.body.document.text).toBe('Senior engineer with 10 years experience.');
+    expect(res.body.document.version).toBe(2);
+    expect(DocumentsDAO.findVersionForOwner).toHaveBeenCalledWith('user-a', DOC_ID, undefined);
+  });
+
+  it('returns 404 when the document does not exist or belongs to another user', async () => {
+    DocumentsDAO.findVersionForOwner.mockResolvedValue(null);
+
+    const res = await request(app)
+      .get(`/api/documents/${DOC_ID}`)
+      .set('Authorization', 'Bearer faketoken');
+
+    expect(res.status).toBe(404);
+    expect(res.body.error).toBe('Document not found');
+  });
+
+  it('returns 401 when no authorization token is provided', async () => {
+    const res = await request(app).get(`/api/documents/${DOC_ID}`);
+
+    expect(res.status).toBe(401);
+    expect(DocumentsDAO.findVersionForOwner).not.toHaveBeenCalled();
   });
 });
