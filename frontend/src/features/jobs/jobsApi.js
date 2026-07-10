@@ -290,6 +290,48 @@ export async function saveJobDocument(jobId, token, { type, title, text }) {
   return { document: data.document };
 }
 
+// S3-009: link a library document to a job (S3-BR-010, S3-BR-011).
+// Returns { job } on success, { requiresConfirmation, currentDocumentTitle } on 409.
+export async function linkDocumentToJob(token, jobId, { type, documentId, confirmReplace = false }) {
+  const res = await fetch(`${API_URL}/api/jobs/${jobId}/linked-documents`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ type, documentId, confirmReplace }),
+  });
+
+  if (res.status === 409) {
+    const data = await res.json();
+    return { requiresConfirmation: true, currentDocumentTitle: data.currentDocumentTitle };
+  }
+
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || 'Failed to link document');
+  }
+
+  const data = await res.json();
+  return { job: data.job };
+}
+
+// S3-009: remove a linked document from a job.
+export async function unlinkDocumentFromJob(token, jobId, type) {
+  const res = await fetch(`${API_URL}/api/jobs/${jobId}/linked-documents/${type}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || 'Failed to unlink document');
+  }
+
+  const data = await res.json();
+  return { job: data.job };
+}
+
 export async function getJobDocuments(jobId, token) {
   const res = await fetch(`${API_URL}/api/jobs/${jobId}/documents`, {
     method: 'GET',

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { useAuth } from '../auth/useAuth';
-import { generateJobDraft, rewriteJobDraft, saveJobDocument, getJobDocuments } from './jobsApi';
+import { generateJobDraft, rewriteJobDraft, saveJobDocument, getJobDocuments, getAllDocuments, linkDocumentToJob, unlinkDocumentFromJob } from './jobsApi';
 import { exportJobDocument } from './documentsApi';
 import { getStageStyles, isOutcomeStage } from './stageStyles';
 import DeleteJobDialog from './DeleteJobDialog';
@@ -136,6 +136,15 @@ export default function JobDetailPanel({
   const [exportingId, setExportingId] = useState('');
   const [exportError, setExportError] = useState('');
 
+  // S3-009: linked documents state
+  const [linkedDocs, setLinkedDocs] = useState({
+    resume: job.linkedDocuments?.resume ? String(job.linkedDocuments.resume) : null,
+    coverLetter: job.linkedDocuments?.coverLetter ? String(job.linkedDocuments.coverLetter) : null,
+  });
+  const [libraryDocs, setLibraryDocs] = useState([]);
+  const [pickerType, setPickerType] = useState(null);
+  const [pendingReplace, setPendingReplace] = useState(null);
+  const [linkError, setLinkError] = useState('');
 
   useEffect(() => {
     let cancelled = false;
@@ -158,6 +167,35 @@ export default function JobDetailPanel({
   // identity can change each render and would re-fire this effect in a loop.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [job._id, currentUser?.uid]);
+
+  // Reset linked-docs UI and re-sync IDs whenever the displayed job changes.
+  useEffect(() => {
+    setLinkedDocs({
+      resume: job.linkedDocuments?.resume ? String(job.linkedDocuments.resume) : null,
+      coverLetter: job.linkedDocuments?.coverLetter ? String(job.linkedDocuments.coverLetter) : null,
+    });
+    setPickerType(null);
+    setPendingReplace(null);
+    setLinkError('');
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [job._id]);
+
+  // Load the user's full document library once per sign-in session.
+  useEffect(() => {
+    let cancelled = false;
+    async function loadLibraryDocs() {
+      try {
+        const token = await currentUser.getIdToken();
+        const { documents: docs } = await getAllDocuments(token);
+        if (!cancelled) setLibraryDocs(docs ?? []);
+      } catch {
+        // Non-blocking: panel works without the library list.
+      }
+    }
+    if (currentUser) loadLibraryDocs();
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser?.uid]);
 
   const handleGenerateDraft = async (type) => {
     if (rewriteLoading) {
@@ -262,6 +300,35 @@ export default function JobDetailPanel({
 
   
 
+
+  // S3-009: link / unlink handlers
+  const handleLink = async (type, documentId, newTitle, force = false) => {
+    setLinkError('');
+    try {
+      const token = await currentUser.getIdToken();
+      const result = await linkDocumentToJob(token, job._id, { type, documentId, confirmReplace: force });
+      if (result.requiresConfirmation) {
+        setPendingReplace({ type, documentId, newTitle, currentTitle: result.currentDocumentTitle });
+        return;
+      }
+      setLinkedDocs((prev) => ({ ...prev, [type]: documentId }));
+      setPickerType(null);
+      setPendingReplace(null);
+    } catch (err) {
+      setLinkError(err.message || 'Failed to link document');
+    }
+  };
+
+  const handleUnlink = async (type) => {
+    setLinkError('');
+    try {
+      const token = await currentUser.getIdToken();
+      await unlinkDocumentFromJob(token, job._id, type);
+      setLinkedDocs((prev) => ({ ...prev, [type]: null }));
+    } catch (err) {
+      setLinkError(err.message || 'Failed to unlink document');
+    }
+  };
 
   const [interviewFormOpen, setInterviewFormOpen] = useState(false);
   const [editingInterview, setEditingInterview] = useState(null);
@@ -551,6 +618,117 @@ export default function JobDetailPanel({
               </div>
             )}
           </dl>
+        </div>
+
+        {/* Linked Documents (S3-009) */}
+        <div className="px-6 py-5 border-b border-white/10">
+          <h3 className="text-sm font-medium text-white/50 uppercase tracking-wider mb-4">
+            Linked Documents
+          </h3>
+
+          {linkError && (
+            <p className="text-xs text-red-400 mb-3">{linkError}</p>
+          )}
+
+          {pendingReplace && (
+            <div className="mb-4 rounded-xl border border-amber-500/20 bg-amber-500/5 p-4">
+              <p className="text-sm text-amber-200">
+                Replace <span className="font-medium">{pendingReplace.currentTitle}</span> with{' '}
+                <span className="font-medium">{pendingReplace.newTitle}</span>?
+              </p>
+              <div className="flex gap-2 mt-3">
+                <button
+                  onClick={() => handleLink(pendingReplace.type, pendingReplace.documentId, pendingReplace.newTitle, true)}
+                  className="rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-500 transition"
+                >
+                  Replace
+                </button>
+                <button
+                  onClick={() => { setPendingReplace(null); setPickerType(null); }}
+                  className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-white/60 hover:text-white hover:bg-white/5 transition"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+
+          {['resume', 'coverLetter'].map((type) => {
+            const linkedId = linkedDocs[type];
+            const linkedDoc = libraryDocs.find((d) => String(d._id) === linkedId);
+            const linkedTitle = linkedDoc?.title ?? (linkedId ? 'Linked document' : null);
+            const label = type === 'resume' ? 'Resume' : 'Cover Letter';
+
+            return (
+              <div key={type} className="mb-3 last:mb-0">
+                <p className="text-xs text-white/40 uppercase tracking-wider mb-2">{label}</p>
+                {linkedTitle ? (
+                  <div className="flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3">
+                    <span className="text-sm text-white/80 truncate">{linkedTitle}</span>
+                    <div className="flex gap-3 shrink-0 ml-3">
+                      <button
+                        onClick={() => setPickerType(type)}
+                        aria-label={`Change linked ${label.toLowerCase()}`}
+                        className="text-xs text-white/40 hover:text-blue-300 transition"
+                      >
+                        Change
+                      </button>
+                      <button
+                        onClick={() => handleUnlink(type)}
+                        aria-label={`Unlink ${label.toLowerCase()}`}
+                        className="text-xs text-white/40 hover:text-red-400 transition"
+                      >
+                        Unlink
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between rounded-xl border border-dashed border-white/10 bg-white/[0.02] px-4 py-3">
+                    <span className="text-sm text-white/30">Not linked</span>
+                    <button
+                      onClick={() => setPickerType(type)}
+                      aria-label={`Link ${label.toLowerCase()}`}
+                      className="text-xs text-white/40 hover:text-blue-300 transition"
+                    >
+                      Link
+                    </button>
+                  </div>
+                )}
+
+                {pickerType === type && (
+                  <div className="mt-2 rounded-xl border border-white/10 bg-[#0e0e0e] max-h-48 overflow-y-auto">
+                    {libraryDocs.filter((d) => d.type === type && (d.status ?? 'active') === 'active').length === 0 ? (
+                      <p className="text-xs text-white/40 px-4 py-3">
+                        No {label.toLowerCase()}s in your library.
+                      </p>
+                    ) : (
+                      <ul aria-label={`${label} picker`}>
+                        {libraryDocs
+                          .filter((d) => d.type === type && (d.status ?? 'active') === 'active')
+                          .map((doc) => (
+                            <li key={doc._id}>
+                              <button
+                                onClick={() => handleLink(type, String(doc._id), doc.title)}
+                                className="w-full text-left px-4 py-2.5 text-sm text-white/70 hover:text-white hover:bg-white/5 transition flex items-center justify-between"
+                              >
+                                <span className="truncate">{doc.title}</span>
+                                <span className="text-xs text-white/30 ml-2 shrink-0">v{doc.currentVersion}</span>
+                              </button>
+                            </li>
+                          ))}
+                      </ul>
+                    )}
+                    <button
+                      onClick={() => { setPickerType(null); setPendingReplace(null); }}
+                      className="w-full text-center text-xs text-white/30 hover:text-white/60 transition py-2 border-t border-white/5"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
 
         {/* Job Posting Body */}
@@ -1002,6 +1180,10 @@ JobDetailPanel.propTypes = {
     deadline: PropTypes.string,
     recruiterName: PropTypes.string,
     contactNotes: PropTypes.string,
+    linkedDocuments: PropTypes.shape({
+      resume: PropTypes.string,
+      coverLetter: PropTypes.string,
+    }),
     stageHistory: PropTypes.arrayOf(
       PropTypes.shape({
         id: PropTypes.string,

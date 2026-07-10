@@ -166,6 +166,29 @@ export default class JobsDAO {
     );
   }
 
+  // S3-009: link a library document to this job (S3-BR-010, S3-BR-012).
+  static async setLinkedDocument(jobId, uid, type, documentId) {
+    if (!ObjectId.isValid(jobId)) return null;
+    const docOid = ObjectId.isValid(documentId) ? new ObjectId(documentId) : documentId;
+    const result = await jobs.findOneAndUpdate(
+      { _id: new ObjectId(jobId), firebaseUid: uid },
+      { $set: { [`linkedDocuments.${type}`]: docOid, lastActivityAt: new Date() } },
+      { returnDocument: 'after' }
+    );
+    return result?.value ?? result ?? null;
+  }
+
+  // S3-009: remove a library document link from this job.
+  static async clearLinkedDocument(jobId, uid, type) {
+    if (!ObjectId.isValid(jobId)) return null;
+    const result = await jobs.findOneAndUpdate(
+      { _id: new ObjectId(jobId), firebaseUid: uid },
+      { $set: { [`linkedDocuments.${type}`]: null, lastActivityAt: new Date() } },
+      { returnDocument: 'after' }
+    );
+    return result?.value ?? result ?? null;
+  }
+
   static async updateResearchNotes(id, uid, researchNotes) {
     try {
       if (!ObjectId.isValid(id)) {

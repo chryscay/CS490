@@ -886,3 +886,55 @@ describe('DocumentsDAO.findAllForOwner', () => {
     expect(lastFindQuery).toEqual({ firebaseUid: 'user-a' });
   });
 });
+
+describe('DocumentsDAO.findOneForOwner (S3-009)', () => {
+  beforeEach(async () => {
+    storedDocuments.length = 0;
+    await DocumentsDAO.injectDB(mockConn);
+  });
+
+  it('returns metadata shape for an owned document without text or versions', async () => {
+    const saved = await DocumentsDAO.saveDocumentVersion({
+      firebaseUid: 'user-a',
+      jobId: '507f1f77bcf86cd799439011',
+      type: 'resume',
+      title: 'My Resume',
+      text: 'draft text',
+    });
+
+    const result = await DocumentsDAO.findOneForOwner('user-a', saved._id);
+
+    expect(result).toMatchObject({ type: 'resume', title: 'My Resume', status: 'active' });
+    expect(result.text).toBeUndefined();
+    expect(result.versions).toBeUndefined();
+  });
+
+  it('returns null for another user\'s document (S3-BR-012)', async () => {
+    const saved = await DocumentsDAO.saveDocumentVersion({
+      firebaseUid: 'user-a',
+      jobId: '507f1f77bcf86cd799439011',
+      type: 'resume',
+      title: 'My Resume',
+      text: 'draft',
+    });
+
+    const result = await DocumentsDAO.findOneForOwner('user-b', saved._id);
+    expect(result).toBeNull();
+  });
+
+  it('returns null for a document with an unsupported type', async () => {
+    storedDocuments.push({
+      _id: new ObjectId(),
+      firebaseUid: 'user-a',
+      jobId: new ObjectId('507f1f77bcf86cd799439011'),
+      type: 'portfolio',
+      title: 'My Portfolio',
+      currentVersion: 1,
+      updatedAt: new Date(),
+    });
+    const badDoc = storedDocuments[storedDocuments.length - 1];
+
+    const result = await DocumentsDAO.findOneForOwner('user-a', badDoc._id);
+    expect(result).toBeNull();
+  });
+});

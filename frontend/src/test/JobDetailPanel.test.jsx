@@ -17,6 +17,9 @@ vi.mock('../features/jobs/jobsApi.js', () => ({
   rewriteJobDraft: vi.fn(),
   saveJobDocument: vi.fn(),
   getJobDocuments: vi.fn(),
+  getAllDocuments: vi.fn(),
+  linkDocumentToJob: vi.fn(),
+  unlinkDocumentFromJob: vi.fn(),
 }));
 
 vi.mock('../features/jobs/documentsApi.js', () => ({
@@ -24,6 +27,7 @@ vi.mock('../features/jobs/documentsApi.js', () => ({
 }));
 
 import * as JobsApi from '../features/jobs/jobsApi.js';
+import { waitFor } from '@testing-library/react';
 import * as DocumentsApi from '../features/jobs/documentsApi.js';
 import JobDetailPanel from '../features/jobs/JobDetailPanel';
 
@@ -67,6 +71,9 @@ describe('JobDetailPanel', () => {
       document: { currentVersion: 1 },
     });
     JobsApi.getJobDocuments.mockResolvedValue({ documents: [] });
+    JobsApi.getAllDocuments.mockResolvedValue({ documents: [] });
+    JobsApi.linkDocumentToJob.mockResolvedValue({ job: { _id: 'abc123' } });
+    JobsApi.unlinkDocumentFromJob.mockResolvedValue({ job: { _id: 'abc123' } });
     DocumentsApi.exportJobDocument.mockResolvedValue({ filename: 'Saved_Resume_v2.pdf' });
   });
   it('renders the job title', () => {
@@ -1150,6 +1157,109 @@ describe('JobDetailPanel — Timeline (S2-BR-013)', () => {
     render(<JobDetailPanel {...defaultProps} job={jobWithInterview} />);
 
     expect(screen.getByText('Interview: Phone Screen')).toBeInTheDocument();
+  });
+});
+
+describe('JobDetailPanel — Linked Documents (S3-009)', () => {
+  const libraryDocs = [
+    { _id: 'lib-resume-1', type: 'resume', title: 'My Resume', currentVersion: 2, status: 'active' },
+    { _id: 'lib-cl-1', type: 'coverLetter', title: 'My Cover Letter', currentVersion: 1, status: 'active' },
+  ];
+
+  beforeEach(() => {
+    JobsApi.getAllDocuments.mockResolvedValue({ documents: libraryDocs });
+  });
+
+  it('renders the Linked Documents section', async () => {
+    render(<JobDetailPanel {...defaultProps} />);
+    expect(await screen.findByText('Linked Documents')).toBeInTheDocument();
+  });
+
+  it('shows "Not linked" for resume and cover letter by default', async () => {
+    render(<JobDetailPanel {...defaultProps} />);
+    await waitFor(() => {
+      const notLinked = screen.getAllByText(/not linked/i);
+      expect(notLinked).toHaveLength(2);
+    });
+  });
+
+  it('shows the linked resume title when job.linkedDocuments.resume is set', async () => {
+    const jobWithLink = { ...mockJob, linkedDocuments: { resume: 'lib-resume-1' } };
+    render(<JobDetailPanel {...defaultProps} job={jobWithLink} />);
+    expect(await screen.findByText('My Resume')).toBeInTheDocument();
+  });
+
+  it('clicking Link resume button opens picker with active library resumes', async () => {
+    const user = userEvent.setup();
+    render(<JobDetailPanel {...defaultProps} />);
+    await screen.findByText('Linked Documents');
+    await user.click(screen.getByRole('button', { name: /link resume/i }));
+    const picker = await screen.findByRole('list', { name: /resume picker/i });
+    expect(within(picker).getByText('My Resume')).toBeInTheDocument();
+  });
+
+  it('clicking a document in the picker calls linkDocumentToJob and shows the linked title', async () => {
+    const user = userEvent.setup();
+    JobsApi.linkDocumentToJob.mockResolvedValue({ job: { _id: 'abc123' } });
+    render(<JobDetailPanel {...defaultProps} />);
+    await screen.findByText('Linked Documents');
+    await user.click(screen.getByRole('button', { name: /link resume/i }));
+    const picker = await screen.findByRole('list', { name: /resume picker/i });
+    await user.click(within(picker).getByText('My Resume'));
+    await waitFor(() => {
+      expect(JobsApi.linkDocumentToJob).toHaveBeenCalledWith('faketoken', 'abc123', {
+        type: 'resume',
+        documentId: 'lib-resume-1',
+        confirmReplace: false,
+      });
+    });
+    expect(await screen.findByText('My Resume')).toBeInTheDocument();
+  });
+
+  it('shows replacement confirmation when 409 is returned (S3-BR-011)', async () => {
+    const user = userEvent.setup();
+    const jobWithLink = { ...mockJob, linkedDocuments: { resume: 'lib-resume-1' } };
+    JobsApi.linkDocumentToJob.mockResolvedValueOnce({
+      requiresConfirmation: true,
+      currentDocumentTitle: 'My Resume',
+    });
+    render(<JobDetailPanel {...defaultProps} job={jobWithLink} />);
+    await screen.findByText('Linked Documents');
+    await user.click(screen.getByRole('button', { name: /change linked resume/i }));
+    const picker = await screen.findByRole('list', { name: /resume picker/i });
+    await user.click(within(picker).getByText('My Resume'));
+    expect(await screen.findByRole('button', { name: /^replace$/i })).toBeInTheDocument();
+  });
+
+  it('calls linkDocumentToJob with confirmReplace=true when Replace is clicked', async () => {
+    const user = userEvent.setup();
+    const jobWithLink = { ...mockJob, linkedDocuments: { resume: 'lib-resume-1' } };
+    JobsApi.linkDocumentToJob
+      .mockResolvedValueOnce({ requiresConfirmation: true, currentDocumentTitle: 'My Resume' })
+      .mockResolvedValueOnce({ job: { _id: 'abc123' } });
+    render(<JobDetailPanel {...defaultProps} job={jobWithLink} />);
+    await screen.findByText('Linked Documents');
+    await user.click(screen.getByRole('button', { name: /change linked resume/i }));
+    const picker = await screen.findByRole('list', { name: /resume picker/i });
+    await user.click(within(picker).getByText('My Resume'));
+    await user.click(await screen.findByRole('button', { name: /^replace$/i }));
+    expect(JobsApi.linkDocumentToJob).toHaveBeenLastCalledWith('faketoken', 'abc123', {
+      type: 'resume',
+      documentId: 'lib-resume-1',
+      confirmReplace: true,
+    });
+  });
+
+  it('clicking Unlink calls unlinkDocumentFromJob and shows Not linked', async () => {
+    const user = userEvent.setup();
+    const jobWithLink = { ...mockJob, linkedDocuments: { resume: 'lib-resume-1' } };
+    render(<JobDetailPanel {...defaultProps} job={jobWithLink} />);
+    await screen.findByText('My Resume');
+    await user.click(screen.getByRole('button', { name: /unlink resume/i }));
+    await waitFor(() => {
+      expect(JobsApi.unlinkDocumentFromJob).toHaveBeenCalledWith('faketoken', 'abc123', 'resume');
+    });
+    expect(screen.getAllByText(/not linked/i).length).toBeGreaterThan(0);
   });
 });
 
