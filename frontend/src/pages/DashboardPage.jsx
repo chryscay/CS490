@@ -3,10 +3,20 @@ import { useAuth } from '../features/auth/useAuth';
 import JobCard from '../features/jobs/JobCard';
 import JobFormModal from '../features/jobs/JobFormModal';
 import JobDetailPanel from '../features/jobs/JobDetailPanel';
-import { transitionStage, deleteJob, addInterview, updateInterview, addFollowUp, updateFollowUp, archiveJob, restoreJob } from '../features/jobs/jobsApi';
+import {
+  transitionStage,
+  deleteJob,
+  addInterview,
+  updateInterview,
+  addFollowUp,
+  updateFollowUp,
+  archiveJob,
+  restoreJob,
+} from '../features/jobs/jobsApi';
 import { STAGES } from '../features/jobs/stageStyles';
 import { applyFilters } from '../features/jobs/jobFilters';
 import { sortJobs, SORT_OPTIONS } from '../features/jobs/jobSort';
+import JobAnalytics from '../components/JobAnalytics.jsx';
 
 export default function DashboardPage() {
   const { currentUser } = useAuth();
@@ -27,6 +37,7 @@ export default function DashboardPage() {
   const [showArchived, setShowArchived] = useState(false);
   const [itemsPerPage, setItemsPerPage] = useState(6);
   const [currentPage, setCurrentPage] = useState(1);
+  const [analytics, setAnalytics] = useState(null);
 
   const loadJobs = () => {
     if (!currentUser) {
@@ -54,8 +65,41 @@ export default function DashboardPage() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [filterStage, filterLocation, filterDeadlineState, searchTerm, sortBy, sortDir, showArchived, itemsPerPage]);
+  }, [
+    filterStage,
+    filterLocation,
+    filterDeadlineState,
+    searchTerm,
+    sortBy,
+    sortDir,
+    showArchived,
+    itemsPerPage,
+  ]);
 
+  useEffect(() => {
+    async function fetchAnalytics() {
+      if (!currentUser) {
+        return;
+      }
+
+      const token = await currentUser.getIdToken();
+
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL}/api/jobs/analytics`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      const data = await response.json();
+
+      setAnalytics(data);
+    }
+
+    fetchAnalytics();
+  }, [currentUser]);
   const openCreate = () => {
     setEditingJob(null);
     setModalOpen(true);
@@ -96,7 +140,12 @@ export default function DashboardPage() {
 
   const handleUpdateInterview = async (interviewId, entry) => {
     const token = await currentUser.getIdToken();
-    const { job } = await updateInterview(selectedJob._id, interviewId, entry, token);
+    const { job } = await updateInterview(
+      selectedJob._id,
+      interviewId,
+      entry,
+      token
+    );
     handleTransitioned(job);
   };
 
@@ -108,7 +157,12 @@ export default function DashboardPage() {
 
   const handleUpdateFollowUp = async (followUpId, entry) => {
     const token = await currentUser.getIdToken();
-    const { job } = await updateFollowUp(selectedJob._id, followUpId, entry, token);
+    const { job } = await updateFollowUp(
+      selectedJob._id,
+      followUpId,
+      entry,
+      token
+    );
     handleTransitioned(job);
   };
 
@@ -158,15 +212,19 @@ export default function DashboardPage() {
 
   const totalPages = Math.max(1, Math.ceil(visibleJobs.length / itemsPerPage));
   const safePage = Math.min(currentPage, totalPages);
-  const paginatedJobs = visibleJobs.slice((safePage - 1) * itemsPerPage, safePage * itemsPerPage);
+  const paginatedJobs = visibleJobs.slice(
+    (safePage - 1) * itemsPerPage,
+    safePage * itemsPerPage
+  );
 
-
-// SCRUM-62: stage counts + response tracking (S2-BR-022), computed from
+  // SCRUM-62: stage counts + response tracking (S2-BR-022), computed from
   // persisted job records, not UI state (S2-BR-023). Fixes the prior 'Hired'
   // stat, which filtered a non-canonical stage and always read zero.
   const RESPONSE_STAGES = ['Interview', 'Offer', 'Rejected'];
   const countByStage = (stage) => jobs.filter((j) => j.stage === stage).length;
-  const responseCount = jobs.filter((j) => RESPONSE_STAGES.includes(j.stage)).length;
+  const responseCount = jobs.filter((j) =>
+    RESPONSE_STAGES.includes(j.stage)
+  ).length;
 
   const stats = [
     { label: 'Total Jobs', value: jobs.length },
@@ -176,9 +234,8 @@ export default function DashboardPage() {
     { label: 'Responses', value: responseCount },
   ];
 
-
-
-  const selectClass = 'shrink-0 rounded-xl bg-white/5 border border-white/10 px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500';
+  const selectClass =
+    'shrink-0 rounded-xl bg-white/5 border border-white/10 px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500';
 
   return (
     <div className="w-full">
@@ -258,11 +315,15 @@ export default function DashboardPage() {
 
         <button
           onClick={() => setShowArchived((prev) => !prev)}
-          aria-label={showArchived ? 'Hide archived jobs' : 'Show archived jobs'}
+          aria-label={
+            showArchived ? 'Hide archived jobs' : 'Show archived jobs'
+          }
           aria-pressed={showArchived}
           className={`shrink-0 rounded-xl border px-4 py-2.5 text-sm transition whitespace-nowrap ${showArchived ? 'border-white/20 bg-white/10 text-white' : 'border-white/10 bg-transparent text-white/50 hover:text-white hover:bg-white/5'}`}
         >
-          {showArchived ? 'Hide archived' : `Show archived${archivedCount > 0 ? ` (${archivedCount})` : ''}`}
+          {showArchived
+            ? 'Hide archived'
+            : `Show archived${archivedCount > 0 ? ` (${archivedCount})` : ''}`}
         </button>
 
         <select
@@ -276,7 +337,11 @@ export default function DashboardPage() {
           className={selectClass}
         >
           {SORT_OPTIONS.map((opt) => (
-            <optgroup key={opt.value} label={opt.label} className="bg-[#13131f]">
+            <optgroup
+              key={opt.value}
+              label={opt.label}
+              className="bg-[#13131f]"
+            >
               <option value={`${opt.value}|desc`} className="bg-[#13131f]">
                 {opt.label} ↓
               </option>
@@ -313,6 +378,7 @@ export default function DashboardPage() {
           </div>
         ))}
       </div>
+      <JobAnalytics analytics={analytics} />
 
       {/* Job Board */}
       <section
@@ -392,7 +458,9 @@ export default function DashboardPage() {
                 {safePage} / {totalPages}
               </span>
               <button
-                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                onClick={() =>
+                  setCurrentPage((p) => Math.min(totalPages, p + 1))
+                }
                 disabled={safePage === totalPages}
                 className="px-3 py-1.5 rounded-lg text-sm bg-white/5 text-white/60 hover:bg-white/10 hover:text-white transition disabled:opacity-30 disabled:cursor-not-allowed"
               >

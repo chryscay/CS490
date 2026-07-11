@@ -8,6 +8,7 @@ const mockToArray = vi.fn();
 const mockFindOne = vi.fn();
 const mockFindOneAndUpdate = vi.fn();
 const mockFindOneAndDelete = vi.fn();
+const mockAggregate = vi.fn();
 
 mockFind.mockImplementation(() => ({
   sort: mockSort,
@@ -25,6 +26,7 @@ const mockConn = {
       findOne: mockFindOne,
       findOneAndUpdate: mockFindOneAndUpdate,
       findOneAndDelete: mockFindOneAndDelete,
+      aggregate: mockAggregate,
     }),
   }),
 };
@@ -512,18 +514,32 @@ describe('JobsDAO.setLinkedDocument', () => {
       linkedDocuments: { resume: DOC_ID },
     });
 
-    const result = await JobsDAO.setLinkedDocument(JOB_ID, 'user-a', 'resume', DOC_ID);
+    const result = await JobsDAO.setLinkedDocument(
+      JOB_ID,
+      'user-a',
+      'resume',
+      DOC_ID
+    );
 
     expect(mockFindOneAndUpdate).toHaveBeenCalledWith(
       { _id: expect.any(Object), firebaseUid: 'user-a' },
-      { $set: expect.objectContaining({ 'linkedDocuments.resume': expect.anything() }) },
+      {
+        $set: expect.objectContaining({
+          'linkedDocuments.resume': expect.anything(),
+        }),
+      },
       { returnDocument: 'after' }
     );
     expect(result).not.toBeNull();
   });
 
   it('returns null for an invalid jobId without calling the DB', async () => {
-    const result = await JobsDAO.setLinkedDocument('not-valid', 'user-a', 'resume', DOC_ID);
+    const result = await JobsDAO.setLinkedDocument(
+      'not-valid',
+      'user-a',
+      'resume',
+      DOC_ID
+    );
     expect(result).toBeNull();
     expect(mockFindOneAndUpdate).not.toHaveBeenCalled();
   });
@@ -544,18 +560,28 @@ describe('JobsDAO.clearLinkedDocument', () => {
       linkedDocuments: { coverLetter: null },
     });
 
-    const result = await JobsDAO.clearLinkedDocument(JOB_ID, 'user-a', 'coverLetter');
+    const result = await JobsDAO.clearLinkedDocument(
+      JOB_ID,
+      'user-a',
+      'coverLetter'
+    );
 
     expect(mockFindOneAndUpdate).toHaveBeenCalledWith(
       { _id: expect.any(Object), firebaseUid: 'user-a' },
-      { $set: expect.objectContaining({ 'linkedDocuments.coverLetter': null }) },
+      {
+        $set: expect.objectContaining({ 'linkedDocuments.coverLetter': null }),
+      },
       { returnDocument: 'after' }
     );
     expect(result).not.toBeNull();
   });
 
   it('returns null for an invalid jobId without calling the DB', async () => {
-    const result = await JobsDAO.clearLinkedDocument('bad-id', 'user-a', 'resume');
+    const result = await JobsDAO.clearLinkedDocument(
+      'bad-id',
+      'user-a',
+      'resume'
+    );
     expect(result).toBeNull();
     expect(mockFindOneAndUpdate).not.toHaveBeenCalled();
   });
@@ -642,5 +668,144 @@ describe('JobsDAO.updateResearchNotes', () => {
         returnDocument: 'after',
       }
     );
+  });
+});
+
+describe('JobsDAO.getVelocity', () => {
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    await JobsDAO.injectDB(mockConn);
+  });
+
+  it('counts Interested to Applied transitions within the last 7 days', async () => {
+    mockAggregate.mockReturnValue({
+      toArray: vi.fn().mockResolvedValue([
+        {
+          velocity: 3,
+        },
+      ]),
+    });
+
+    const result = await JobsDAO.getVelocity('user-a');
+
+    expect(mockAggregate).toHaveBeenCalledWith([
+      {
+        $match: {
+          firebaseUid: 'user-a',
+        },
+      },
+      {
+        $unwind: '$stageHistory',
+      },
+      {
+        $match: {
+          'stageHistory.fromStage': 'Interested',
+          'stageHistory.toStage': 'Applied',
+          'stageHistory.changedAt': {
+            $gte: expect.any(String),
+          },
+        },
+      },
+      {
+        $count: 'velocity',
+      },
+    ]);
+
+    expect(result).toBe(3);
+  });
+
+  it('returns 0 when there are no velocity events', async () => {
+    mockAggregate.mockReturnValue({
+      toArray: vi.fn().mockResolvedValue([]),
+    });
+
+    const result = await JobsDAO.getVelocity('user-a');
+
+    expect(result).toBe(0);
+  });
+});
+
+describe('JobsDAO.getStageConversion', () => {
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    await JobsDAO.injectDB(mockConn);
+  });
+
+  it('calculates Applied to Interview conversion within 14 days', async () => {
+    mockFind.mockReturnValue({
+      toArray: vi.fn().mockResolvedValue([
+        {
+          firebaseUid: 'user-a',
+          stageHistory: [
+            {
+              fromStage: 'Interested',
+              toStage: 'Applied',
+              changedAt: '2026-07-01T00:00:00.000Z',
+            },
+            {
+              fromStage: 'Applied',
+              toStage: 'Interview',
+              changedAt: '2026-07-05T00:00:00.000Z',
+            },
+          ],
+        },
+      ]),
+    });
+
+    const result = await JobsDAO.getStageConversion('user-a');
+
+    expect(result).toBe(1);
+  });
+
+  it('returns 0 when there are no conversions', async () => {
+    mockFind.mockReturnValue({
+      toArray: vi.fn().mockResolvedValue([
+        {
+          firebaseUid: 'user-a',
+          stageHistory: [
+            {
+              fromStage: 'Interested',
+              toStage: 'Applied',
+              changedAt: '2026-07-01T00:00:00.000Z',
+            },
+          ],
+        },
+      ]),
+    });
+
+    const result = await JobsDAO.getStageConversion('user-a');
+
+    expect(result).toBe(0);
+  });
+});
+
+describe('JobsDAO.getTimeInStage', () => {
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    await JobsDAO.injectDB(mockConn);
+  });
+
+  it('calculates average time spent in each stage', async () => {
+    mockFind.mockReturnValue({
+      toArray: vi.fn().mockResolvedValue([
+        {
+          firebaseUid: 'user-a',
+          stageHistory: [
+            {
+              toStage: 'Applied',
+              changedAt: '2026-07-01T00:00:00.000Z',
+            },
+            {
+              toStage: 'Interview',
+              changedAt: '2026-07-06T00:00:00.000Z',
+            },
+          ],
+        },
+      ]),
+    });
+
+    const result = await JobsDAO.getTimeInStage('user-a');
+
+    expect(result.Applied).toBe(5);
   });
 });
