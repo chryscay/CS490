@@ -1207,40 +1207,7 @@ export default function JobDetailPanel({
         </div>
 
 
-        {/* Interview prep notes (S3-013) */}
-        <div className="px-6 py-5 border-b border-white/10">
-          <h3 className="text-sm font-medium text-white/50 uppercase tracking-wider mb-3">
-            Interview Prep Notes
-          </h3>
-          <textarea
-            value={prepText}
-            onChange={(e) => {
-              setPrepText(e.target.value);
-              setPrepMessage('');
-            }}
-            rows={8}
-            aria-label="Interview prep notes"
-            placeholder="e.g. questions to ask, topics to review, people to research"
-            className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none focus:ring-2 focus:ring-blue-500"
-          />
-          {prepError && (
-            <p className="mt-3 text-xs text-red-400">{prepError}</p>
-          )}
-          <div className="mt-3 flex items-center gap-3">
-            <button
-              onClick={handleSaveInterviewPrep}
-              disabled={prepSaving || !prepText.trim()}
-              aria-label="Save interview prep notes"
-              className="rounded-lg border border-white/10 px-4 py-2 text-sm text-white/70 hover:text-white hover:border-white/20 hover:bg-white/5 transition disabled:cursor-not-allowed disabled:text-white/30"
-            >
-              {prepSaving ? 'Saving...' : 'Save prep notes'}
-            </button>
-            {prepMessage && (
-              <span className="text-xs text-white/40">{prepMessage}</span>
-            )}
-          </div>
-        </div>
-
+        
 
 
 
