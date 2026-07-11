@@ -361,3 +361,48 @@ export async function getJobDocuments(jobId, token) {
   const data = await res.json();
   return { documents: data.documents };
 }
+
+
+// S3-011: generate AI-assisted company research using user-provided context.
+export async function generateCompanyResearch(id, token, { userContext } = {}) {
+  const res = await fetch(`${API_URL}/api/jobs/${id}/ai/research`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ userContext }),
+  });
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || 'Failed to generate company research');
+  }
+
+  const data = await res.json();
+  return { research: data.research };
+}
+
+// S3-012 persistence: save (edited) research notes onto the job record.
+export async function updateResearchNotes(id, token, researchNotes) {
+  const res = await fetch(`${API_URL}/api/jobs/${id}/research`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ researchNotes }),
+  });
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || 'Failed to save research notes');
+  }
+
+  const data = await res.json();
+  return { job: data.job };
+}
+
+
+
+

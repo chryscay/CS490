@@ -8,6 +8,7 @@ import {
   isOutcomeStage,
 } from '../lib/stageTransitions.js';
 import * as AiDraftService from '../services/aiDraft.service.js';
+import * as AiResearchService from '../services/aiResearch.service.js';
 import { buildExport, isValidExportFormat } from '../lib/documentExport.js';
 const VALID_STAGES = [
   'Interested',
@@ -525,6 +526,31 @@ export default class JobsController {
       return res.status(502).json({ error: 'Failed to generate draft' });
     }
   }
+
+
+
+  // S3-011: generate AI-assisted company research using user-provided context.
+  static async apiResearchCompany(req, res) {
+    try {
+      const { userContext } = req.body;
+
+      const job = await JobsDAO.findByIdForOwner(req.params.id, req.user.uid);
+      if (!job) {
+        return res.status(404).json({ error: 'Job not found' });
+      }
+
+      const research = await AiResearchService.generateCompanyResearch({
+        job,
+        userContext,
+      });
+
+      return res.status(200).json({ research });
+    } catch (error) {
+      console.error('apiResearchCompany error:', error);
+      return res.status(502).json({ error: 'Failed to generate company research' });
+    }
+  }
+
 
   static async apiRewriteDraft(req, res) {
     try {

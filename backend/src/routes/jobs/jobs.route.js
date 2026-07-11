@@ -22,6 +22,7 @@ router.post('/:id/archive', JobsController.apiArchiveJob); // S2-014
 router.post('/:id/restore', JobsController.apiRestoreJob); // S2-014
 router.post('/:id/ai/draft', JobsController.apiDraftJob);
 router.post('/:id/ai/rewrite', JobsController.apiRewriteDraft);
+router.post('/:id/ai/research', JobsController.apiResearchCompany); // S3-011
 router
   .route('/:id/documents')
   .post(JobsController.apiSaveDraftDocument)

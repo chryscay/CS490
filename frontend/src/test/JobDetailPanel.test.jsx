@@ -21,6 +21,8 @@ vi.mock('../features/jobs/jobsApi.js', () => ({
   getDocument: vi.fn(),
   linkDocumentToJob: vi.fn(),
   unlinkDocumentFromJob: vi.fn(),
+  generateCompanyResearch: vi.fn(),
+  updateResearchNotes: vi.fn(),
 }));
 
 vi.mock('../features/jobs/documentsApi.js', () => ({
@@ -1419,3 +1421,54 @@ describe('JobDetailPanel — Archive and Restore (S2-014)', () => {
     expect(within(dialog).getByText(/interview/i)).toBeInTheDocument();
   });
 });
+describe('Company Research (S3-011)', () => {
+    it('generates and displays company research from user context', async () => {
+      JobsApi.generateCompanyResearch.mockResolvedValue({
+        research: 'Acme builds developer tools. They value speed and ownership.',
+      });
+      const user = userEvent.setup();
+      render(<JobDetailPanel {...defaultProps} />);
+
+      await user.type(
+        screen.getByLabelText(/company research context/i),
+        'Focus on their tech stack'
+      );
+      await user.click(screen.getByRole('button', { name: /research acme corp/i }));
+
+      expect(await screen.findByDisplayValue(/developer tools/i)).toBeInTheDocument();
+      expect(JobsApi.generateCompanyResearch).toHaveBeenCalledWith(
+        'abc123',
+        'faketoken',
+        expect.objectContaining({ userContext: 'Focus on their tech stack' })
+      );
+    });
+
+    it('saves edited research notes', async () => {
+      JobsApi.generateCompanyResearch.mockResolvedValue({ research: 'Some research' });
+      JobsApi.updateResearchNotes.mockResolvedValue({ job: { ...mockJob, researchNotes: 'Some research' } });
+      const user = userEvent.setup();
+      render(<JobDetailPanel {...defaultProps} />);
+
+      await user.click(screen.getByRole('button', { name: /research acme corp/i }));
+      await screen.findByDisplayValue('Some research');
+      await user.click(screen.getByRole('button', { name: /save research notes/i }));
+
+      expect(JobsApi.updateResearchNotes).toHaveBeenCalledWith(
+        'abc123',
+        'faketoken',
+        'Some research'
+      );
+      expect(await screen.findByText(/research notes saved/i)).toBeInTheDocument();
+    });
+
+    it('shows an error when research generation fails', async () => {
+      JobsApi.generateCompanyResearch.mockRejectedValue(new Error('Could not generate company research'));
+      const user = userEvent.setup();
+      render(<JobDetailPanel {...defaultProps} />);
+
+      await user.click(screen.getByRole('button', { name: /research acme corp/i }));
+
+      expect(await screen.findByText(/could not generate company research/i)).toBeInTheDocument();
+    });
+  });
+

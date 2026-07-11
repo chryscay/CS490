@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { useAuth } from '../auth/useAuth';
-import { generateJobDraft, rewriteJobDraft, saveJobDocument, getJobDocuments, getAllDocuments, getDocument, linkDocumentToJob, unlinkDocumentFromJob } from './jobsApi';
+import { generateJobDraft, rewriteJobDraft, saveJobDocument, getJobDocuments, getAllDocuments, getDocument, linkDocumentToJob, unlinkDocumentFromJob, generateCompanyResearch, updateResearchNotes } from './jobsApi';
 import { exportJobDocument } from './documentsApi';
 import { getStageStyles, isOutcomeStage } from './stageStyles';
 import DeleteJobDialog from './DeleteJobDialog';
@@ -125,6 +125,12 @@ export default function JobDetailPanel({
   const [draftText, setDraftText] = useState('');
   const [draftVisible, setDraftVisible] = useState(false);
   const [draftType, setDraftType] = useState('resume');
+  const [researchContext, setResearchContext] = useState('');
+  const [researchText, setResearchText] = useState(job.researchNotes ?? '');
+  const [researchLoading, setResearchLoading] = useState(false);
+  const [researchSaving, setResearchSaving] = useState(false);
+  const [researchError, setResearchError] = useState('');
+  const [researchMessage, setResearchMessage] = useState('');
   const [rewriteLoading, setRewriteLoading] = useState(false);
   const [rewriteError, setRewriteError] = useState('');
   const [rewriteInstruction, setRewriteInstruction] = useState('');
@@ -229,6 +235,44 @@ export default function JobDetailPanel({
       setDraftLoading(false);
     }
   };
+
+
+  const handleResearchCompany = async () => {
+    setResearchError('');
+    setResearchMessage('');
+    setResearchLoading(true);
+    try {
+      const token = await currentUser.getIdToken();
+      const result = await generateCompanyResearch(job._id, token, {
+        userContext: researchContext,
+      });
+      setResearchText(result.research);
+    } catch (error) {
+      setResearchError(error.message || 'Could not generate company research');
+    } finally {
+      setResearchLoading(false);
+    }
+  };
+
+  const handleSaveResearch = async () => {
+    if (!researchText.trim()) {
+      return;
+    }
+    setResearchError('');
+    setResearchMessage('');
+    setResearchSaving(true);
+    try {
+      const token = await currentUser.getIdToken();
+      await updateResearchNotes(job._id, token, researchText.trim());
+      setResearchMessage('Research notes saved');
+    } catch (error) {
+      setResearchError(error.message || 'Could not save research notes');
+    } finally {
+      setResearchSaving(false);
+    }
+  };
+
+
 
   const handleRewriteDraft = async () => {
     setRewriteError('');
@@ -824,6 +868,72 @@ export default function JobDetailPanel({
           </div>
         )}
 
+        {/* Company research (S3-011) */}
+        <div className="px-6 py-5 border-b border-white/10">
+          <h3 className="text-sm font-medium text-white/50 uppercase tracking-wider mb-3">
+            Company Research
+          </h3>
+
+          <label className="block">
+            <span className="text-xs text-white/50 uppercase tracking-wider">
+              Research context (optional)
+            </span>
+            <textarea
+              value={researchContext}
+              onChange={(e) => setResearchContext(e.target.value)}
+              disabled={researchLoading}
+              rows={3}
+              aria-label="Company research context"
+              placeholder="Example: I'm interviewing for a backend role. Focus on their tech stack and recent product direction."
+              className="mt-2 w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </label>
+
+          <div className="mt-3 flex items-center gap-3">
+            <button
+              onClick={handleResearchCompany}
+              disabled={researchLoading}
+              aria-label={`Research ${job.company}`}
+              className="rounded-lg border border-white/10 px-4 py-2 text-sm text-white/70 hover:text-white hover:border-white/20 hover:bg-white/5 transition disabled:cursor-not-allowed disabled:text-white/30"
+            >
+              {researchLoading ? 'Researching...' : 'Research company'}
+            </button>
+          </div>
+
+          {researchError && (
+            <p className="mt-3 text-xs text-red-400">{researchError}</p>
+          )}
+
+          {(researchText || researchLoading) && (
+            <div className="mt-4">
+              <textarea
+                value={researchText}
+                onChange={(e) => {
+                  setResearchText(e.target.value);
+                  setResearchMessage('');
+                }}
+                rows={10}
+                aria-label="Editable company research notes"
+                placeholder="Research notes will appear here."
+                className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <div className="mt-3 flex items-center gap-3">
+                <button
+                  onClick={handleSaveResearch}
+                  disabled={researchSaving || !researchText.trim()}
+                  aria-label="Save research notes"
+                  className="rounded-lg border border-white/10 px-4 py-2 text-sm text-white/70 hover:text-white hover:border-white/20 hover:bg-white/5 transition disabled:cursor-not-allowed disabled:text-white/30"
+                >
+                  {researchSaving ? 'Saving...' : 'Save research'}
+                </button>
+                {researchMessage && (
+                  <span className="text-xs text-white/40">{researchMessage}</span>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
         {/* Saved drafts (SCRUM-XX) — reload persisted document versions */}
         {savedDocs.length > 0 && (
           <div className="px-6 py-5 border-b border-white/10">
@@ -1224,6 +1334,7 @@ export default function JobDetailPanel({
 JobDetailPanel.propTypes = {
   job: PropTypes.shape({
     _id: PropTypes.string,
+    researchNotes: PropTypes.string,
     title: PropTypes.string.isRequired,
     company: PropTypes.string.isRequired,
     stage: PropTypes.string.isRequired,
