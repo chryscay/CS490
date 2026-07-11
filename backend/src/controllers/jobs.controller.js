@@ -662,6 +662,41 @@ export default class JobsController {
     }
   }
 
+  // S3-013: save interview prep notes on the job (freeform, timestamped per S3-BR-003).
+  static async apiUpdateInterviewPrepNotes(req, res) {
+    try {
+      const { interviewPrepNotes } = req.body;
+
+      if (!interviewPrepNotes?.trim()) {
+        return res.status(400).json({
+          error: 'Interview prep notes are required',
+        });
+      }
+
+      const updated = await JobsDAO.updateInterviewPrepNotes(
+        req.params.id,
+        req.user.uid,
+        interviewPrepNotes.trim()
+      );
+
+      if (!updated) {
+        return res.status(404).json({
+          error: 'Job not found',
+        });
+      }
+
+      return res.status(200).json({
+        message: 'Interview prep notes updated',
+        job: updated,
+      });
+    } catch (error) {
+      console.error('apiUpdateInterviewPrepNotes error:', error);
+
+      return res.status(500).json({
+        error: 'Failed to update interview prep notes',
+      });
+    }
+  }
 
   // S3-009: link a library document to a job (S3-BR-010, S3-BR-011, S3-BR-012).
   static async apiLinkDocument(req, res) {

@@ -217,4 +217,39 @@ export default class JobsDAO {
       console.error(`Unable to update research notes: ${e}`);
     }
   }
+
+  // S3-013: save interview prep notes on the job, owner-scoped.
+  // Sets interviewPrepUpdatedAt for audit-friendly timestamps (S3-BR-003) and
+  // bumps lastActivityAt, mirroring the research-notes persistence.
+  static async updateInterviewPrepNotes(id, uid, interviewPrepNotes) {
+    try {
+      if (!ObjectId.isValid(id)) {
+        return null;
+      }
+
+      const result = await jobs.findOneAndUpdate(
+        {
+          _id: new ObjectId(id),
+          firebaseUid: uid,
+        },
+        {
+          $set: {
+            interviewPrepNotes,
+            interviewPrepUpdatedAt: new Date(),
+            lastActivityAt: new Date(),
+          },
+        },
+        { returnDocument: 'after' }
+      );
+
+      return result.value ?? result ?? null;
+    } catch (error) {
+      console.error('updateInterviewPrepNotes error:', error);
+      return null;
+    }
+  }
+  
+
+  
+
 }

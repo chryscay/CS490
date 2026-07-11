@@ -14,6 +14,7 @@ vi.mock('../features/auth/useAuth.js', () => ({
 
 vi.mock('../features/jobs/jobsApi.js', () => ({
   generateJobDraft: vi.fn(),
+  updateInterviewPrepNotes: vi.fn(),
   rewriteJobDraft: vi.fn(),
   saveJobDocument: vi.fn(),
   getJobDocuments: vi.fn(),
@@ -76,6 +77,7 @@ describe('JobDetailPanel', () => {
     JobsApi.getDocument.mockResolvedValue({ document: { text: 'Document body text', version: 1 } });
     JobsApi.linkDocumentToJob.mockResolvedValue({ job: { _id: 'abc123' } });
     JobsApi.unlinkDocumentFromJob.mockResolvedValue({ job: { _id: 'abc123' } });
+    JobsApi.updateInterviewPrepNotes.mockResolvedValue({ job: { _id: 'abc123' } });
     DocumentsApi.exportJobDocument.mockResolvedValue({ filename: 'Saved_Resume_v2.pdf' });
   });
   it('renders the job title', () => {
@@ -1419,3 +1421,42 @@ describe('JobDetailPanel — Archive and Restore (S2-014)', () => {
     expect(within(dialog).getByText(/interview/i)).toBeInTheDocument();
   });
 });
+
+describe('Interview Prep Notes (S3-013)', () => {
+    it('saves interview prep notes', async () => {
+      JobsApi.updateInterviewPrepNotes.mockResolvedValue({
+        job: { ...mockJob, interviewPrepNotes: 'Ask about oncall rotation' },
+      });
+      const user = userEvent.setup();
+      render(<JobDetailPanel {...defaultProps} />);
+
+      const textarea = screen.getByLabelText(/interview prep notes/i);
+      await user.type(textarea, 'Ask about oncall rotation');
+      await user.click(screen.getByRole('button', { name: /save interview prep notes/i }));
+
+      expect(JobsApi.updateInterviewPrepNotes).toHaveBeenCalledWith(
+        'abc123',
+        'faketoken',
+        'Ask about oncall rotation'
+      );
+      expect(await screen.findByText(/interview prep notes saved/i)).toBeInTheDocument();
+    });
+
+    it('shows an error when saving prep notes fails', async () => {
+      JobsApi.updateInterviewPrepNotes.mockRejectedValue(
+        new Error('Could not save interview prep notes')
+      );
+      const user = userEvent.setup();
+      render(<JobDetailPanel {...defaultProps} />);
+
+      await user.type(screen.getByLabelText(/interview prep notes/i), 'Some notes');
+      await user.click(screen.getByRole('button', { name: /save interview prep notes/i }));
+
+      expect(await screen.findByText(/could not save interview prep notes/i)).toBeInTheDocument();
+    });
+  });
+
+
+
+  
+

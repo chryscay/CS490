@@ -1821,6 +1821,69 @@ describe('PATCH /api/jobs/:id/research', () => {
   });
 });
 
+describe('PATCH /api/jobs/:id/interview-prep', () => {
+  const ID = '507f1f77bcf86cd799439011';
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockVerifyIdToken.mockResolvedValue({ uid: 'user-a', email: 'a@test.com' });
+  });
+
+  it('saves interview prep notes for an owned job (happy path)', async () => {
+    JobsDAO.updateInterviewPrepNotes.mockResolvedValue({
+      _id: ID,
+      firebaseUid: 'user-a',
+      interviewPrepNotes: 'Ask about the team structure',
+    });
+
+    const res = await request(app)
+      .patch(`/api/jobs/${ID}/interview-prep`)
+      .set('Authorization', 'Bearer faketoken')
+      .send({ interviewPrepNotes: 'Ask about the team structure' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.job.interviewPrepNotes).toBe('Ask about the team structure');
+    expect(JobsDAO.updateInterviewPrepNotes).toHaveBeenCalledWith(
+      ID,
+      'user-a',
+      'Ask about the team structure'
+    );
+  });
+
+  it('rejects empty notes with 400', async () => {
+    const res = await request(app)
+      .patch(`/api/jobs/${ID}/interview-prep`)
+      .set('Authorization', 'Bearer faketoken')
+      .send({ interviewPrepNotes: '   ' });
+
+    expect(res.status).toBe(400);
+    expect(JobsDAO.updateInterviewPrepNotes).not.toHaveBeenCalled();
+  });
+
+  it('returns 404 when the job is not owned by the requester', async () => {
+    mockVerifyIdToken.mockResolvedValue({ uid: 'user-b', email: 'b@test.com' });
+    JobsDAO.updateInterviewPrepNotes.mockResolvedValue(null);
+
+    const res = await request(app)
+      .patch(`/api/jobs/${ID}/interview-prep`)
+      .set('Authorization', 'Bearer faketoken')
+      .send({ interviewPrepNotes: 'anything' });
+
+    expect(res.status).toBe(404);
+    expect(JobsDAO.updateInterviewPrepNotes).toHaveBeenCalledWith(ID, 'user-b', 'anything');
+  });
+
+  it('blocks unauthenticated requests (401)', async () => {
+    const res = await request(app)
+      .patch(`/api/jobs/${ID}/interview-prep`)
+      .send({ interviewPrepNotes: 'anything' });
+
+    expect(res.status).toBe(401);
+    expect(JobsDAO.updateInterviewPrepNotes).not.toHaveBeenCalled();
+  });
+});
+
+
 describe('POST /api/jobs/:id/linked-documents (S3-009)', () => {
   const JOB_ID = '507f1f77bcf86cd799439011';
   const DOC_ID = '507f1f77bcf86cd799439012';

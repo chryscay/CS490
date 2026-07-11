@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { useAuth } from '../auth/useAuth';
-import { generateJobDraft, rewriteJobDraft, saveJobDocument, getJobDocuments, getAllDocuments, getDocument, linkDocumentToJob, unlinkDocumentFromJob } from './jobsApi';
+import { generateJobDraft, rewriteJobDraft, saveJobDocument, getJobDocuments, getAllDocuments, getDocument, linkDocumentToJob, unlinkDocumentFromJob, updateInterviewPrepNotes } from './jobsApi';
 import { exportJobDocument } from './documentsApi';
 import { getStageStyles, isOutcomeStage } from './stageStyles';
 import DeleteJobDialog from './DeleteJobDialog';
@@ -135,6 +135,18 @@ export default function JobDetailPanel({
   const [savedDocs, setSavedDocs] = useState([]);
   const [exportingId, setExportingId] = useState('');
   const [exportError, setExportError] = useState('');
+  const [prepText, setPrepText] = useState(job.interviewPrepNotes ?? '');
+  const [prepSaving, setPrepSaving] = useState(false);
+  const [prepError, setPrepError] = useState('');
+  const [prepMessage, setPrepMessage] = useState('');
+
+
+
+
+
+
+
+
 
   // S3-009: linked documents state
   const [linkedDocs, setLinkedDocs] = useState({
@@ -479,6 +491,29 @@ export default function JobDetailPanel({
       // toggling is fire-and-forget; parent will surface errors if needed
     }
   };
+
+
+  const handleSaveInterviewPrep = async () => {
+    if (!prepText.trim()) {
+      return;
+    }
+    setPrepError('');
+    setPrepMessage('');
+    setPrepSaving(true);
+    try {
+      const token = await currentUser.getIdToken();
+      await updateInterviewPrepNotes(job._id, token, prepText.trim());
+      setPrepMessage('Interview prep notes saved');
+    } catch (error) {
+      setPrepError(error.message || 'Could not save interview prep notes');
+    } finally {
+      setPrepSaving(false);
+    }
+  };
+
+
+
+
 
   const sortedFollowUps = [...followUps].sort((a, b) => {
     // pending first, then sort by dueAt
@@ -1051,6 +1086,42 @@ export default function JobDetailPanel({
           </div>
         )}
 
+        {/* Interview prep notes (S3-013) */}
+        <div className="px-6 py-5 border-b border-white/10">
+          <h3 className="text-sm font-medium text-white/50 uppercase tracking-wider mb-3">
+            Interview Prep Notes
+          </h3>
+          <textarea
+            value={prepText}
+            onChange={(e) => {
+              setPrepText(e.target.value);
+              setPrepMessage('');
+            }}
+            rows={8}
+            aria-label="Interview prep notes"
+            placeholder="e.g. questions to ask, topics to review, people to research"
+            className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          {prepError && (
+            <p className="mt-3 text-xs text-red-400">{prepError}</p>
+          )}
+          <div className="mt-3 flex items-center gap-3">
+            <button
+              onClick={handleSaveInterviewPrep}
+              disabled={prepSaving || !prepText.trim()}
+              aria-label="Save interview prep notes"
+              className="rounded-lg border border-white/10 px-4 py-2 text-sm text-white/70 hover:text-white hover:border-white/20 hover:bg-white/5 transition disabled:cursor-not-allowed disabled:text-white/30"
+            >
+              {prepSaving ? 'Saving...' : 'Save prep notes'}
+            </button>
+            {prepMessage && (
+              <span className="text-xs text-white/40">{prepMessage}</span>
+            )}
+          </div>
+        </div>
+
+  
+
         {/* Follow-ups (S2-012) — always visible, tied to the job (S2-BR-012) */}
         <div className="px-6 py-5 border-b border-white/10">
           <div className="flex items-center justify-between mb-4">
@@ -1134,6 +1205,49 @@ export default function JobDetailPanel({
             </ul>
           )}
         </div>
+
+
+        {/* Interview prep notes (S3-013) */}
+        <div className="px-6 py-5 border-b border-white/10">
+          <h3 className="text-sm font-medium text-white/50 uppercase tracking-wider mb-3">
+            Interview Prep Notes
+          </h3>
+          <textarea
+            value={prepText}
+            onChange={(e) => {
+              setPrepText(e.target.value);
+              setPrepMessage('');
+            }}
+            rows={8}
+            aria-label="Interview prep notes"
+            placeholder="e.g. questions to ask, topics to review, people to research"
+            className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          {prepError && (
+            <p className="mt-3 text-xs text-red-400">{prepError}</p>
+          )}
+          <div className="mt-3 flex items-center gap-3">
+            <button
+              onClick={handleSaveInterviewPrep}
+              disabled={prepSaving || !prepText.trim()}
+              aria-label="Save interview prep notes"
+              className="rounded-lg border border-white/10 px-4 py-2 text-sm text-white/70 hover:text-white hover:border-white/20 hover:bg-white/5 transition disabled:cursor-not-allowed disabled:text-white/30"
+            >
+              {prepSaving ? 'Saving...' : 'Save prep notes'}
+            </button>
+            {prepMessage && (
+              <span className="text-xs text-white/40">{prepMessage}</span>
+            )}
+          </div>
+        </div>
+
+
+
+
+
+
+
+
 
         {/* Timeline (S2-BR-013) — stage changes + follow-up activity in chronological order */}
         <div className="px-6 py-5">
@@ -1224,6 +1338,7 @@ export default function JobDetailPanel({
 JobDetailPanel.propTypes = {
   job: PropTypes.shape({
     _id: PropTypes.string,
+    interviewPrepNotes: PropTypes.string,
     title: PropTypes.string.isRequired,
     company: PropTypes.string.isRequired,
     stage: PropTypes.string.isRequired,

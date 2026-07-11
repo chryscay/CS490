@@ -361,3 +361,33 @@ export async function getJobDocuments(jobId, token) {
   const data = await res.json();
   return { documents: data.documents };
 }
+
+
+// S3-013: save interview prep notes onto the job record (freeform, timestamped).
+export async function updateInterviewPrepNotes(jobId, token, interviewPrepNotes) {
+  const res = await fetch(`${API_URL}/api/jobs/${jobId}/interview-prep`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ interviewPrepNotes }),
+  });
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || 'Failed to save interview prep notes');
+  }
+
+  const data = await res.json();
+  return { job: data.job };
+}
+
+
+
+
+
+
+
+
+
