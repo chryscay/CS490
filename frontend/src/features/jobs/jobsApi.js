@@ -403,6 +403,26 @@ export async function updateResearchNotes(id, token, researchNotes) {
   return { job: data.job };
 }
 
+// S3-013 persistence: save interview prep notes onto the job record.
+export async function updateInterviewPrepNotes(id, token, interviewPrepNotes) {
+  const res = await fetch(`${API_URL}/api/jobs/${id}/interview-prep`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ interviewPrepNotes }),
+  });
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || 'Failed to save interview prep notes');
+  }
+
+  const data = await res.json();
+  return { job: data.job };
+}
+
 
 
 

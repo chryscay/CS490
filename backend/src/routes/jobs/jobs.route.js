@@ -39,6 +39,7 @@ router.post('/:id/followups', JobsController.apiAddFollowUp); // S2-012
 router.put('/:id/followups/:followUpId', JobsController.apiUpdateFollowUp); // S2-012
 
 router.patch('/:id/research', JobsController.apiUpdateResearchNotes); // S3-012
+router.patch('/:id/interview-prep', JobsController.apiUpdateInterviewPrepNotes); // S3-013
 router.post('/:id/linked-documents', JobsController.apiLinkDocument); // S3-009
 router.delete('/:id/linked-documents/:type', JobsController.apiUnlinkDocument); // S3-009
 
