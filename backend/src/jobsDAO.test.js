@@ -754,6 +754,10 @@ describe('JobsDAO.getStageConversion', () => {
 
     const result = await JobsDAO.getStageConversion('user-a');
 
+    expect(mockFind).toHaveBeenCalledWith({
+      firebaseUid: 'user-a',
+    });
+
     expect(result).toBe(1);
   });
 
@@ -774,6 +778,10 @@ describe('JobsDAO.getStageConversion', () => {
     });
 
     const result = await JobsDAO.getStageConversion('user-a');
+
+    expect(mockFind).toHaveBeenCalledWith({
+      firebaseUid: 'user-a',
+    });
 
     expect(result).toBe(0);
   });
@@ -805,6 +813,10 @@ describe('JobsDAO.getTimeInStage', () => {
     });
 
     const result = await JobsDAO.getTimeInStage('user-a');
+
+    expect(mockFind).toHaveBeenCalledWith({
+      firebaseUid: 'user-a',
+    });
 
     expect(result.Applied).toBe(5);
   });

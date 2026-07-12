@@ -35,6 +35,9 @@ vi.mock('./dao/jobsDAO.js', () => ({
     updateFollowUp: vi.fn(),
     setLinkedDocument: vi.fn(),
     clearLinkedDocument: vi.fn(),
+    getVelocity: vi.fn(),
+    getStageConversion: vi.fn(),
+    getTimeInStage: vi.fn(),
   },
 }));
 vi.mock('./dao/usersDAO.js', () => ({
@@ -60,7 +63,6 @@ vi.mock('./services/aiDraft.service.js', () => ({
 vi.mock('./services/aiResearch.service.js', () => ({
   generateCompanyResearch: vi.fn(),
 }));
-
 
 describe('POST /api/jobs/:id/transition', () => {
   const ID = '507f1f77bcf86cd799439011';
@@ -441,7 +443,6 @@ describe('POST /api/jobs/:id/ai/draft', () => {
   });
 });
 
-
 describe('POST /api/jobs/:id/ai/research', () => {
   const ID = '507f1f77bcf86cd799439011';
 
@@ -458,7 +459,9 @@ describe('POST /api/jobs/:id/ai/research', () => {
       title: 'Backend Engineer',
       jobPostingBody: 'Build services',
     });
-    AiResearchService.generateCompanyResearch.mockResolvedValue('Acme research notes');
+    AiResearchService.generateCompanyResearch.mockResolvedValue(
+      'Acme research notes'
+    );
 
     const res = await request(app)
       .post(`/api/jobs/${ID}/ai/research`)
@@ -518,8 +521,6 @@ describe('POST /api/jobs/:id/ai/research', () => {
     expect(AiResearchService.generateCompanyResearch).not.toHaveBeenCalled();
   });
 });
-
-
 
 describe('POST /api/jobs/:id/ai/rewrite', () => {
   const ID = '507f1f77bcf86cd799439011';
@@ -1725,25 +1726,43 @@ describe('GET /api/jobs/:id/documents/:documentId/export', () => {
   });
 
   it('exports a document version as txt (happy path)', async () => {
-    JobsDAO.findByIdForOwner.mockResolvedValue({ _id: JOB_ID, firebaseUid: 'user-a' });
+    JobsDAO.findByIdForOwner.mockResolvedValue({
+      _id: JOB_ID,
+      firebaseUid: 'user-a',
+    });
     DocumentsDAO.findVersionForOwner.mockResolvedValue({
-      _id: DOC_ID, type: 'resume', title: 'Backend Resume', version: 2, text: 'Resume body',
+      _id: DOC_ID,
+      type: 'resume',
+      title: 'Backend Resume',
+      version: 2,
+      text: 'Resume body',
     });
 
     const res = await request(app)
-      .get(`/api/jobs/${JOB_ID}/documents/${DOC_ID}/export?format=txt&version=2`)
+      .get(
+        `/api/jobs/${JOB_ID}/documents/${DOC_ID}/export?format=txt&version=2`
+      )
       .set('Authorization', 'Bearer faketoken');
 
     expect(res.status).toBe(200);
     expect(res.headers['content-type']).toContain('text/plain');
     expect(res.headers['content-disposition']).toContain('attachment');
-    expect(res.headers['content-disposition']).toContain('Backend_Resume_v2.txt');
+    expect(res.headers['content-disposition']).toContain(
+      'Backend_Resume_v2.txt'
+    );
     expect(res.text).toBe('Resume body');
-    expect(DocumentsDAO.findVersionForOwner).toHaveBeenCalledWith('user-a', DOC_ID, '2');
+    expect(DocumentsDAO.findVersionForOwner).toHaveBeenCalledWith(
+      'user-a',
+      DOC_ID,
+      '2'
+    );
   });
 
   it('exports the latest document version as pdf when version is omitted', async () => {
-    JobsDAO.findByIdForOwner.mockResolvedValue({ _id: JOB_ID, firebaseUid: 'user-a' });
+    JobsDAO.findByIdForOwner.mockResolvedValue({
+      _id: JOB_ID,
+      firebaseUid: 'user-a',
+    });
     DocumentsDAO.findVersionForOwner.mockResolvedValue({
       _id: DOC_ID,
       type: 'coverLetter',
@@ -1758,9 +1777,15 @@ describe('GET /api/jobs/:id/documents/:documentId/export', () => {
 
     expect(res.status).toBe(200);
     expect(res.headers['content-type']).toContain('application/pdf');
-    expect(res.headers['content-disposition']).toContain('Backend_Cover_Letter_v4.pdf');
+    expect(res.headers['content-disposition']).toContain(
+      'Backend_Cover_Letter_v4.pdf'
+    );
     expect(res.body.slice(0, 5).toString()).toBe('%PDF-');
-    expect(DocumentsDAO.findVersionForOwner).toHaveBeenCalledWith('user-a', DOC_ID, undefined);
+    expect(DocumentsDAO.findVersionForOwner).toHaveBeenCalledWith(
+      'user-a',
+      DOC_ID,
+      undefined
+    );
   });
 
   it('rejects an unsupported format with 400 (non-happy path)', async () => {
@@ -1776,11 +1801,16 @@ describe('GET /api/jobs/:id/documents/:documentId/export', () => {
   });
 
   it('returns 404 when the requested version does not exist', async () => {
-    JobsDAO.findByIdForOwner.mockResolvedValue({ _id: JOB_ID, firebaseUid: 'user-a' });
+    JobsDAO.findByIdForOwner.mockResolvedValue({
+      _id: JOB_ID,
+      firebaseUid: 'user-a',
+    });
     DocumentsDAO.findVersionForOwner.mockResolvedValue(null);
 
     const res = await request(app)
-      .get(`/api/jobs/${JOB_ID}/documents/${DOC_ID}/export?format=txt&version=99`)
+      .get(
+        `/api/jobs/${JOB_ID}/documents/${DOC_ID}/export?format=txt&version=99`
+      )
       .set('Authorization', 'Bearer faketoken');
 
     expect(res.status).toBe(404);
@@ -1801,8 +1831,9 @@ describe('GET /api/jobs/:id/documents/:documentId/export', () => {
   });
 
   it('blocks unauthenticated export requests (401)', async () => {
-    const res = await request(app)
-      .get(`/api/jobs/${JOB_ID}/documents/${DOC_ID}/export?format=txt`);
+    const res = await request(app).get(
+      `/api/jobs/${JOB_ID}/documents/${DOC_ID}/export?format=txt`
+    );
 
     expect(res.status).toBe(401);
     expect(JobsDAO.findByIdForOwner).not.toHaveBeenCalled();
@@ -1917,13 +1948,20 @@ describe('POST /api/jobs/:id/linked-documents (S3-009)', () => {
     vi.clearAllMocks();
     mockVerifyIdToken.mockResolvedValue({ uid: 'user-a', email: 'a@test.com' });
     DocumentsDAO.findOneForOwner.mockResolvedValue({
-      _id: DOC_ID, type: 'resume', title: 'My Resume', status: 'active',
+      _id: DOC_ID,
+      type: 'resume',
+      title: 'My Resume',
+      status: 'active',
     });
     JobsDAO.findByIdForOwner.mockResolvedValue({
-      _id: JOB_ID, firebaseUid: 'user-a', title: 'Backend Engineer', linkedDocuments: {},
+      _id: JOB_ID,
+      firebaseUid: 'user-a',
+      title: 'Backend Engineer',
+      linkedDocuments: {},
     });
     JobsDAO.setLinkedDocument.mockResolvedValue({
-      _id: JOB_ID, linkedDocuments: { resume: DOC_ID },
+      _id: JOB_ID,
+      linkedDocuments: { resume: DOC_ID },
     });
   });
 
@@ -1935,16 +1973,33 @@ describe('POST /api/jobs/:id/linked-documents (S3-009)', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.message).toBe('Document linked');
-    expect(JobsDAO.setLinkedDocument).toHaveBeenCalledWith(JOB_ID, 'user-a', 'resume', DOC_ID);
+    expect(JobsDAO.setLinkedDocument).toHaveBeenCalledWith(
+      JOB_ID,
+      'user-a',
+      'resume',
+      DOC_ID
+    );
   });
 
   it('returns 409 when a different document is already linked (S3-BR-011)', async () => {
     JobsDAO.findByIdForOwner.mockResolvedValue({
-      _id: JOB_ID, firebaseUid: 'user-a', linkedDocuments: { resume: OTHER_DOC_ID },
+      _id: JOB_ID,
+      firebaseUid: 'user-a',
+      linkedDocuments: { resume: OTHER_DOC_ID },
     });
     DocumentsDAO.findOneForOwner
-      .mockResolvedValueOnce({ _id: DOC_ID, type: 'resume', title: 'My Resume', status: 'active' })
-      .mockResolvedValueOnce({ _id: OTHER_DOC_ID, type: 'resume', title: 'Old Resume', status: 'active' });
+      .mockResolvedValueOnce({
+        _id: DOC_ID,
+        type: 'resume',
+        title: 'My Resume',
+        status: 'active',
+      })
+      .mockResolvedValueOnce({
+        _id: OTHER_DOC_ID,
+        type: 'resume',
+        title: 'Old Resume',
+        status: 'active',
+      });
 
     const res = await request(app)
       .post(`/api/jobs/${JOB_ID}/linked-documents`)
@@ -1959,10 +2014,15 @@ describe('POST /api/jobs/:id/linked-documents (S3-009)', () => {
 
   it('replaces the linked document when confirmReplace is true (S3-BR-011)', async () => {
     JobsDAO.findByIdForOwner.mockResolvedValue({
-      _id: JOB_ID, firebaseUid: 'user-a', linkedDocuments: { resume: OTHER_DOC_ID },
+      _id: JOB_ID,
+      firebaseUid: 'user-a',
+      linkedDocuments: { resume: OTHER_DOC_ID },
     });
     DocumentsDAO.findOneForOwner.mockResolvedValue({
-      _id: DOC_ID, type: 'resume', title: 'My Resume', status: 'active',
+      _id: DOC_ID,
+      type: 'resume',
+      title: 'My Resume',
+      status: 'active',
     });
 
     const res = await request(app)
@@ -1999,7 +2059,10 @@ describe('POST /api/jobs/:id/linked-documents (S3-009)', () => {
 
   it('returns 400 when document type does not match requested link type (S3-BR-012)', async () => {
     DocumentsDAO.findOneForOwner.mockResolvedValue({
-      _id: DOC_ID, type: 'coverLetter', title: 'My Cover Letter', status: 'active',
+      _id: DOC_ID,
+      type: 'coverLetter',
+      title: 'My Cover Letter',
+      status: 'active',
     });
 
     const res = await request(app)
@@ -2028,7 +2091,8 @@ describe('DELETE /api/jobs/:id/linked-documents/:type (S3-009)', () => {
     vi.clearAllMocks();
     mockVerifyIdToken.mockResolvedValue({ uid: 'user-a', email: 'a@test.com' });
     JobsDAO.clearLinkedDocument.mockResolvedValue({
-      _id: JOB_ID, linkedDocuments: { resume: null },
+      _id: JOB_ID,
+      linkedDocuments: { resume: null },
     });
   });
 
@@ -2039,7 +2103,11 @@ describe('DELETE /api/jobs/:id/linked-documents/:type (S3-009)', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.message).toBe('Document unlinked');
-    expect(JobsDAO.clearLinkedDocument).toHaveBeenCalledWith(JOB_ID, 'user-a', 'resume');
+    expect(JobsDAO.clearLinkedDocument).toHaveBeenCalledWith(
+      JOB_ID,
+      'user-a',
+      'resume'
+    );
   });
 
   it('returns 404 when the job does not belong to the user', async () => {
@@ -2062,10 +2130,97 @@ describe('DELETE /api/jobs/:id/linked-documents/:type (S3-009)', () => {
   });
 
   it('returns 401 when no authorization token is provided', async () => {
-    const res = await request(app)
-      .delete(`/api/jobs/${JOB_ID}/linked-documents/resume`);
+    const res = await request(app).delete(
+      `/api/jobs/${JOB_ID}/linked-documents/resume`
+    );
 
     expect(res.status).toBe(401);
     expect(JobsDAO.clearLinkedDocument).not.toHaveBeenCalled();
+  });
+});
+
+describe('GET /api/jobs/analytics', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+
+    mockVerifyIdToken.mockResolvedValue({
+      uid: 'user-a',
+      email: 'a@test.com',
+    });
+  });
+
+  it('returns analytics for the authenticated user (happy path)', async () => {
+    JobsDAO.getVelocity.mockResolvedValue(5);
+    JobsDAO.getStageConversion.mockResolvedValue(0.4);
+    JobsDAO.getTimeInStage.mockResolvedValue({
+      Interested: 2,
+      Applied: 4,
+      Interview: 3,
+    });
+
+    const res = await request(app)
+      .get('/api/jobs/analytics')
+      .set('Authorization', 'Bearer faketoken');
+
+    expect(res.status).toBe(200);
+
+    expect(res.body.velocity).toBe(5);
+    expect(res.body.stageConversion).toBe(0.4);
+    expect(res.body.timeInStage).toEqual({
+      Interested: 2,
+      Applied: 4,
+      Interview: 3,
+    });
+
+    expect(JobsDAO.getVelocity).toHaveBeenCalledWith('user-a');
+    expect(JobsDAO.getStageConversion).toHaveBeenCalledWith('user-a');
+    expect(JobsDAO.getTimeInStage).toHaveBeenCalledWith('user-a');
+  });
+
+  it('returns empty analytics values when user has no data', async () => {
+    JobsDAO.getVelocity.mockResolvedValue(0);
+    JobsDAO.getStageConversion.mockResolvedValue(0);
+    JobsDAO.getTimeInStage.mockResolvedValue({});
+
+    const res = await request(app)
+      .get('/api/jobs/analytics')
+      .set('Authorization', 'Bearer faketoken');
+
+    expect(res.status).toBe(200);
+
+    expect(res.body.velocity).toBe(0);
+    expect(res.body.stageConversion).toBe(0);
+    expect(res.body.timeInStage).toEqual({});
+  });
+
+  it('blocks unauthenticated analytics requests (401)', async () => {
+    const res = await request(app).get('/api/jobs/analytics');
+
+    expect(res.status).toBe(401);
+
+    expect(JobsDAO.getVelocity).not.toHaveBeenCalled();
+    expect(JobsDAO.getStageConversion).not.toHaveBeenCalled();
+    expect(JobsDAO.getTimeInStage).not.toHaveBeenCalled();
+  });
+
+  it('passes the authenticated user to analytics DAO methods', async () => {
+    mockVerifyIdToken.mockResolvedValue({
+      uid: 'user-b',
+      email: 'b@test.com',
+    });
+
+    JobsDAO.getVelocity.mockResolvedValue(2);
+    JobsDAO.getStageConversion.mockResolvedValue(0.5);
+    JobsDAO.getTimeInStage.mockResolvedValue({
+      Applied: 7,
+    });
+
+    await request(app)
+      .get('/api/jobs/analytics')
+      .set('Authorization', 'Bearer faketoken');
+
+    expect(JobsDAO.getVelocity).toHaveBeenCalledWith('user-b');
+    expect(JobsDAO.getStageConversion).toHaveBeenCalledWith('user-b');
+    expect(JobsDAO.getTimeInStage).toHaveBeenCalledWith('user-b');
   });
 });
