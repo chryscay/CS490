@@ -527,8 +527,6 @@ export default class JobsController {
     }
   }
 
-
-
   // S3-011: generate AI-assisted company research using user-provided context.
   static async apiResearchCompany(req, res) {
     try {
@@ -547,10 +545,11 @@ export default class JobsController {
       return res.status(200).json({ research });
     } catch (error) {
       console.error('apiResearchCompany error:', error);
-      return res.status(502).json({ error: 'Failed to generate company research' });
+      return res
+        .status(502)
+        .json({ error: 'Failed to generate company research' });
     }
   }
-
 
   static async apiRewriteDraft(req, res) {
     try {
@@ -652,7 +651,6 @@ export default class JobsController {
     }
   }
 
-
   static async apiUpdateResearchNotes(req, res) {
     try {
       const { researchNotes } = req.body;
@@ -688,14 +686,15 @@ export default class JobsController {
     }
   }
 
-
   // S3-009: link a library document to a job (S3-BR-010, S3-BR-011, S3-BR-012).
   static async apiLinkDocument(req, res) {
     try {
       const { type, documentId, confirmReplace = false } = req.body;
 
       if (type !== 'resume' && type !== 'coverLetter') {
-        return res.status(400).json({ error: 'type must be resume or coverLetter' });
+        return res
+          .status(400)
+          .json({ error: 'type must be resume or coverLetter' });
       }
       if (!documentId) {
         return res.status(400).json({ error: 'documentId is required' });
@@ -707,7 +706,9 @@ export default class JobsController {
         return res.status(404).json({ error: 'Document not found' });
       }
       if (doc.type !== type) {
-        return res.status(400).json({ error: 'Document type does not match requested link type' });
+        return res
+          .status(400)
+          .json({ error: 'Document type does not match requested link type' });
       }
 
       const job = await JobsDAO.findByIdForOwner(req.params.id, req.user.uid);
@@ -719,8 +720,15 @@ export default class JobsController {
       const currentLinkedId = job.linkedDocuments?.[type]
         ? String(job.linkedDocuments[type])
         : null;
-      if (currentLinkedId && currentLinkedId !== String(documentId) && !confirmReplace) {
-        const currentDoc = await DocumentsDAO.findOneForOwner(req.user.uid, currentLinkedId);
+      if (
+        currentLinkedId &&
+        currentLinkedId !== String(documentId) &&
+        !confirmReplace
+      ) {
+        const currentDoc = await DocumentsDAO.findOneForOwner(
+          req.user.uid,
+          currentLinkedId
+        );
         return res.status(409).json({
           error: 'A document is already linked',
           requiresConfirmation: true,
@@ -728,7 +736,12 @@ export default class JobsController {
         });
       }
 
-      const updated = await JobsDAO.setLinkedDocument(req.params.id, req.user.uid, type, documentId);
+      const updated = await JobsDAO.setLinkedDocument(
+        req.params.id,
+        req.user.uid,
+        type,
+        documentId
+      );
       if (!updated) {
         return res.status(404).json({ error: 'Job not found' });
       }
@@ -746,15 +759,23 @@ export default class JobsController {
       const { type } = req.params;
 
       if (type !== 'resume' && type !== 'coverLetter') {
-        return res.status(400).json({ error: 'type must be resume or coverLetter' });
+        return res
+          .status(400)
+          .json({ error: 'type must be resume or coverLetter' });
       }
 
-      const updated = await JobsDAO.clearLinkedDocument(req.params.id, req.user.uid, type);
+      const updated = await JobsDAO.clearLinkedDocument(
+        req.params.id,
+        req.user.uid,
+        type
+      );
       if (!updated) {
         return res.status(404).json({ error: 'Job not found' });
       }
 
-      return res.status(200).json({ message: 'Document unlinked', job: updated });
+      return res
+        .status(200)
+        .json({ message: 'Document unlinked', job: updated });
     } catch (error) {
       console.error('apiUnlinkDocument error:', error);
       return res.status(500).json({ error: 'Failed to unlink document' });
@@ -806,9 +827,27 @@ export default class JobsController {
     }
   }
 
+  static async apiGetAnalytics(req, res) {
+    try {
+      const velocity = await JobsDAO.getVelocity(req.user.uid);
 
+      const stageConversion = await JobsDAO.getStageConversion(req.user.uid);
 
+      const timeInStage = await JobsDAO.getTimeInStage(req.user.uid);
 
+      return res.status(200).json({
+        velocity,
+        stageConversion,
+        timeInStage,
+      });
+    } catch (error) {
+      console.error('Analytics error:', error);
+
+      return res.status(500).json({
+        error: 'Failed to load analytics',
+      });
+    }
+  }
 }
 
 export { VALID_STAGES };

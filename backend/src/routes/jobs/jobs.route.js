@@ -11,6 +11,8 @@ router
   .post(JobsController.apiCreateJob)
   .get(JobsController.apiGetJobs);
 
+router.get('/analytics', JobsController.apiGetAnalytics); // S3-014
+
 router
   .route('/:id')
   .get(JobsController.apiGetJobById)
@@ -27,7 +29,10 @@ router
   .route('/:id/documents')
   .post(JobsController.apiSaveDraftDocument)
   .get(JobsController.apiGetJobDocuments);
-router.get('/:id/documents/:documentId/export', JobsController.apiExportJobDocument); // S3-005
+router.get(
+  '/:id/documents/:documentId/export',
+  JobsController.apiExportJobDocument
+); // S3-005
 router.post('/:id/interviews', JobsController.apiAddInterview); // S2-011
 router.put('/:id/interviews/:interviewId', JobsController.apiUpdateInterview); // S2-011
 router.post('/:id/followups', JobsController.apiAddFollowUp); // S2-012
@@ -38,9 +43,3 @@ router.post('/:id/linked-documents', JobsController.apiLinkDocument); // S3-009
 router.delete('/:id/linked-documents/:type', JobsController.apiUnlinkDocument); // S3-009
 
 export default router;
-
-
-
-
-
-

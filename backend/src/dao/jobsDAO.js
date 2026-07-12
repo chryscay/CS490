@@ -169,10 +169,17 @@ export default class JobsDAO {
   // S3-009: link a library document to this job (S3-BR-010, S3-BR-012).
   static async setLinkedDocument(jobId, uid, type, documentId) {
     if (!ObjectId.isValid(jobId)) return null;
-    const docOid = ObjectId.isValid(documentId) ? new ObjectId(documentId) : documentId;
+    const docOid = ObjectId.isValid(documentId)
+      ? new ObjectId(documentId)
+      : documentId;
     const result = await jobs.findOneAndUpdate(
       { _id: new ObjectId(jobId), firebaseUid: uid },
-      { $set: { [`linkedDocuments.${type}`]: docOid, lastActivityAt: new Date() } },
+      {
+        $set: {
+          [`linkedDocuments.${type}`]: docOid,
+          lastActivityAt: new Date(),
+        },
+      },
       { returnDocument: 'after' }
     );
     return result?.value ?? result ?? null;
@@ -183,7 +190,9 @@ export default class JobsDAO {
     if (!ObjectId.isValid(jobId)) return null;
     const result = await jobs.findOneAndUpdate(
       { _id: new ObjectId(jobId), firebaseUid: uid },
-      { $set: { [`linkedDocuments.${type}`]: null, lastActivityAt: new Date() } },
+      {
+        $set: { [`linkedDocuments.${type}`]: null, lastActivityAt: new Date() },
+      },
       { returnDocument: 'after' }
     );
     return result?.value ?? result ?? null;
@@ -216,5 +225,126 @@ export default class JobsDAO {
     } catch (e) {
       console.error(`Unable to update research notes: ${e}`);
     }
+  }
+
+  static async getVelocity(uid) {
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+    const result = await jobs
+      .aggregate([
+        {
+          $match: {
+            firebaseUid: uid,
+          },
+        },
+        {
+          $unwind: '$stageHistory',
+        },
+        {
+          $match: {
+            'stageHistory.fromStage': 'Interested',
+            'stageHistory.toStage': 'Applied',
+            'stageHistory.changedAt': {
+              $gte: sevenDaysAgo.toISOString(),
+            },
+          },
+        },
+        {
+          $count: 'velocity',
+        },
+      ])
+      .toArray();
+
+    return result[0]?.velocity || 0;
+  }
+
+  static async getStageConversion(uid) {
+    const fourteenDays = 14 * 24 * 60 * 60 * 1000;
+
+    const userJobs = await jobs
+      .find({
+        firebaseUid: uid,
+      })
+      .toArray();
+
+    let appliedCount = 0;
+    let convertedCount = 0;
+
+    userJobs.forEach((job) => {
+      const history = job.stageHistory || [];
+
+      const applied = history.find(
+        (entry) =>
+          entry.fromStage === 'Interested' && entry.toStage === 'Applied'
+      );
+
+      if (!applied) {
+        return;
+      }
+
+      appliedCount++;
+
+      const interview = history.find(
+        (entry) =>
+          entry.fromStage === 'Applied' && entry.toStage === 'Interview'
+      );
+
+      if (!interview) {
+        return;
+      }
+
+      const difference =
+        new Date(interview.changedAt) - new Date(applied.changedAt);
+
+      if (difference <= fourteenDays) {
+        convertedCount++;
+      }
+    });
+
+    if (appliedCount === 0) {
+      return 0;
+    }
+
+    return convertedCount / appliedCount;
+  }
+
+  static async getTimeInStage(uid) {
+    const userJobs = await jobs
+      .find({
+        firebaseUid: uid,
+      })
+      .toArray();
+
+    const totals = {};
+
+    userJobs.forEach((job) => {
+      const history = job.stageHistory || [];
+
+      for (let i = 0; i < history.length - 1; i++) {
+        const current = history[i];
+        const next = history[i + 1];
+
+        const days =
+          (new Date(next.changedAt) - new Date(current.changedAt)) /
+          (1000 * 60 * 60 * 24);
+
+        if (!totals[current.toStage]) {
+          totals[current.toStage] = [];
+        }
+
+        totals[current.toStage].push(days);
+      }
+    });
+
+    const averages = {};
+
+    Object.keys(totals).forEach((stage) => {
+      const values = totals[stage];
+
+      averages[stage] = values.reduce((a, b) => a + b, 0) / values.length;
+    });
+
+    return averages;
   }
 }

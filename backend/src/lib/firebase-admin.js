@@ -1,6 +1,6 @@
-import { initializeApp, cert } from "firebase-admin/app";
-import { readFileSync, existsSync } from "fs";
-import { fileURLToPath } from "url";
+import { initializeApp, cert } from 'firebase-admin/app';
+import { readFileSync, existsSync } from 'fs';
+import { fileURLToPath } from 'url';
 
 function loadServiceAccount() {
   // Cloud path: full JSON in an env var (Render).
@@ -8,7 +8,9 @@ function loadServiceAccount() {
     return JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
   }
   // Local dev path: gitignored key file next to backend/.
-  const keyPath = fileURLToPath(new URL("../../serviceAccountKey.json", import.meta.url));
+  const keyPath = fileURLToPath(
+    new URL('../../serviceAccountKey.json', import.meta.url)
+  );
   if (existsSync(keyPath)) {
     return JSON.parse(readFileSync(keyPath));
   }
