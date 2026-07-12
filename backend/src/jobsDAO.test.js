@@ -682,10 +682,12 @@ describe('JobsDAO.updateInterviewPrepNotes', () => {
       'Review system design prompts, STAR stories, and measurable outcomes.';
 
     mockFindOneAndUpdate.mockResolvedValue({
-      _id: '507f1f77bcf86cd799439011',
-      firebaseUid: 'user-a',
-      interviewPrepNotes: notes,
-      interviewPrepUpdatedAt: new Date(),
+      value: {
+        _id: '507f1f77bcf86cd799439011',
+        firebaseUid: 'user-a',
+        interviewPrepNotes: notes,
+        interviewPrepUpdatedAt: new Date(),
+      },
     });
 
     const result = await JobsDAO.updateInterviewPrepNotes(
@@ -726,7 +728,7 @@ describe('JobsDAO.updateInterviewPrepNotes', () => {
   });
 
   it('returns null when the job is not owned by the user', async () => {
-    mockFindOneAndUpdate.mockResolvedValue(null);
+    mockFindOneAndUpdate.mockResolvedValue({ value: null });
 
     const result = await JobsDAO.updateInterviewPrepNotes(
       '507f1f77bcf86cd799439011',
@@ -734,7 +736,7 @@ describe('JobsDAO.updateInterviewPrepNotes', () => {
       'Some interview prep notes'
     );
 
-    expect(result).toBeNull();
+    expect(result?.value).toBeNull();
 
     expect(mockFindOneAndUpdate).toHaveBeenCalledWith(
       {

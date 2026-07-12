@@ -250,9 +250,10 @@ export default class JobsDAO {
         }
       );
 
-      return result;
+      return result?.value ?? result ?? null;
     } catch (e) {
       console.error(`Unable to update interview prep notes: ${e}`);
+      throw e;
     }
   }
 
