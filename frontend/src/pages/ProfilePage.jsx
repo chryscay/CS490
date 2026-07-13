@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '../features/auth/useAuth.js';
 import ProfileCompletion from './ProfileCompletion.jsx';
 import IdentitySection from '../features/profile/sections/IdentitySection.jsx';

@@ -21,6 +21,7 @@ dotenv.config();
 
 const MONGO_URI = process.env.MONGO_URI;
 const FIREBASE_UID = process.env.FIREBASE_UID;
+const FIREBASE_UID_2 = process.env.FIREBASE_UID_2; // optional — enables ownership-demo data (C04)
 
 if (!MONGO_URI) {
   console.error('MONGO_URI not set. Make sure .env is at the project root.');
@@ -292,6 +293,92 @@ const jobs = [
   },
 ];
 
+// --- Sprint 3 demo data: documents, links, research/prep notes, second user ---
+
+// Give each job a stable _id so documents can reference them and jobs can link back.
+jobs.forEach((job) => { job._id = new mongodb.ObjectId(); });
+const [stripeJob, vercelJob, linearJob, anthropicJob, , figmaJob] = jobs;
+
+const dVer = (n, text, jobId, type) => ({
+  version: n,
+  label: `Version ${n}`,
+  text,
+  createdAt: NOW,
+  firebaseUid: FIREBASE_UID,
+  jobId,
+  type,
+});
+
+const documents = [
+  { // Linear resume — active, tagged, TWO versions (version history → C08)
+    _id: new mongodb.ObjectId(), firebaseUid: FIREBASE_UID, jobId: linearJob._id,
+    type: 'resume', title: 'Full Stack Resume — Linear', status: 'active',
+    tags: ['software', 'fullstack'], currentVersion: 2,
+    versions: [
+      dVer(1, 'Alex Rivera — Full Stack Engineer (v1 draft)…', linearJob._id, 'resume'),
+      dVer(2, 'Alex Rivera — Full Stack Engineer (v2 tailored for Linear)…', linearJob._id, 'resume'),
+    ],
+    createdAt: NOW, updatedAt: NOW,
+  },
+  { // Linear cover letter — active
+    _id: new mongodb.ObjectId(), firebaseUid: FIREBASE_UID, jobId: linearJob._id,
+    type: 'coverLetter', title: 'Cover Letter — Linear', status: 'active',
+    tags: ['fullstack'], currentVersion: 1,
+    versions: [dVer(1, 'Dear Linear team, I admire your craft-focused culture…', linearJob._id, 'coverLetter')],
+    createdAt: NOW, updatedAt: NOW,
+  },
+  { // Anthropic resume — active
+    _id: new mongodb.ObjectId(), firebaseUid: FIREBASE_UID, jobId: anthropicJob._id,
+    type: 'resume', title: 'Product Resume — Anthropic', status: 'active',
+    tags: ['ai', 'product'], currentVersion: 1,
+    versions: [dVer(1, 'Alex Rivera — Software Engineer, Product…', anthropicJob._id, 'resume')],
+    createdAt: NOW, updatedAt: NOW,
+  },
+  { // Figma resume — ARCHIVED (archive/restore demo → C09/C10)
+    _id: new mongodb.ObjectId(), firebaseUid: FIREBASE_UID, jobId: figmaJob._id,
+    type: 'resume', title: 'Editor Resume — Figma', status: 'archived',
+    tags: ['design'], currentVersion: 1,
+    versions: [dVer(1, 'Alex Rivera — Editor…', figmaJob._id, 'resume')],
+    createdAt: NOW, updatedAt: NOW,
+  },
+  { // Stripe cover letter — active, different tags (filter/sort variety → C05/C06)
+    _id: new mongodb.ObjectId(), firebaseUid: FIREBASE_UID, jobId: stripeJob._id,
+    type: 'coverLetter', title: 'Cover Letter — Stripe', status: 'active',
+    tags: ['backend', 'payments'], currentVersion: 1,
+    versions: [dVer(1, 'Dear Stripe hiring team…', stripeJob._id, 'coverLetter')],
+    createdAt: NOW, updatedAt: NOW,
+  },
+];
+
+// Link two jobs to library documents (C11, C12). Stored as the document _id.
+linearJob.linkedDocuments = { resume: documents[0]._id, coverLetter: documents[1]._id };
+anthropicJob.linkedDocuments = { resume: documents[2]._id };
+
+// Company research + interview prep notes (C13/C14, C15).
+anthropicJob.researchNotes =
+  'Anthropic — AI safety company building reliable, interpretable systems. ' +
+  'Recent: Claude model family. Interviewer likely values safety mindset and clear reasoning.';
+anthropicJob.interviewPrepNotes =
+  'Prep checklist: review RLHF + Constitutional AI at a high level; prepare 2 STAR stories on ' +
+  'ambiguous problems; questions to ask: team structure, on-call, how safety trades against velocity.';
+
+// Optional second user for live ownership checks (C04). Set FIREBASE_UID_2 to enable.
+const secondUserJobs = FIREBASE_UID_2 ? [{
+  _id: new mongodb.ObjectId(), firebaseUid: FIREBASE_UID_2,
+  company: 'Datadog', title: 'Backend Engineer', stage: 'Applied',
+  jobPostingBody: 'Datadog observability platform…', location: 'Remote',
+  deadline: null, recruiterName: null, contactNotes: null,
+  stageHistory: [{ id: randomUUID(), fromStage: 'Interested', toStage: 'Applied', changedAt: daysAgo(5), changedBy: FIREBASE_UID_2, isOverride: false, note: '' }],
+  interviews: [], followUps: [], createdAt: daysAgo(7), lastActivityAt: daysAgo(5),
+}] : [];
+
+const secondUserDocs = FIREBASE_UID_2 ? [{
+  _id: new mongodb.ObjectId(), firebaseUid: FIREBASE_UID_2, jobId: secondUserJobs[0]._id,
+  type: 'resume', title: 'Resume — User B', status: 'active', tags: ['backend'], currentVersion: 1,
+  versions: [{ version: 1, label: 'Version 1', text: 'User B resume…', createdAt: NOW, firebaseUid: FIREBASE_UID_2, jobId: secondUserJobs[0]._id, type: 'resume' }],
+  createdAt: NOW, updatedAt: NOW,
+}] : [];
+
 const profile = {
   firebaseUid: FIREBASE_UID,
   // Identity (Sprint 1 baseline — C04)
@@ -374,23 +461,37 @@ async function seed() {
     await client.connect();
     const db = client.db('ats');
 
-    // Clear existing data for this user
-    const deletedJobs = await db.collection('jobs').deleteMany({ firebaseUid: FIREBASE_UID });
-    console.log(`Cleared ${deletedJobs.deletedCount} existing jobs.`);
+    // Clear + reseed primary user (idempotent).
+    const delJobs = await db.collection('jobs').deleteMany({ firebaseUid: FIREBASE_UID });
+    const delDocs = await db.collection('documents').deleteMany({ firebaseUid: FIREBASE_UID });
+    console.log(`Cleared ${delJobs.deletedCount} jobs, ${delDocs.deletedCount} documents (primary).`);
 
-    // Insert jobs
-    const result = await db.collection('jobs').insertMany(jobs);
-    console.log(`Inserted ${result.insertedCount} demo jobs.`);
+    const jobsRes = await db.collection('jobs').insertMany(jobs);
+    console.log(`Inserted ${jobsRes.insertedCount} jobs.`);
+    const docsRes = await db.collection('documents').insertMany(documents);
+    console.log(`Inserted ${docsRes.insertedCount} documents.`);
 
-    // Upsert profile
     await db.collection('users').updateOne(
-      { firebaseUid: FIREBASE_UID },
-      { $set: profile },
-      { upsert: true }
+      { firebaseUid: FIREBASE_UID }, { $set: profile }, { upsert: true }
     );
-    console.log('Profile upserted.');
+    console.log('Primary profile upserted.');
 
-    console.log('\nSeed complete. Jobs inserted:');
+    if (FIREBASE_UID_2) {
+      await db.collection('jobs').deleteMany({ firebaseUid: FIREBASE_UID_2 });
+      await db.collection('documents').deleteMany({ firebaseUid: FIREBASE_UID_2 });
+      if (secondUserJobs.length) await db.collection('jobs').insertMany(secondUserJobs);
+      if (secondUserDocs.length) await db.collection('documents').insertMany(secondUserDocs);
+      await db.collection('users').updateOne(
+        { firebaseUid: FIREBASE_UID_2 },
+        { $set: { firebaseUid: FIREBASE_UID_2, firstName: 'Sam', lastName: 'Chen', email: 'sam.chen@example.com', profileUpdatedAt: NOW } },
+        { upsert: true }
+      );
+      console.log(`Second user seeded (${secondUserJobs.length} jobs, ${secondUserDocs.length} docs).`);
+    } else {
+      console.log('FIREBASE_UID_2 not set — skipping second user (set it to enable ownership demo data).');
+    }
+
+    console.log('\nSeed complete.');
     jobs.forEach((j) => console.log(`  [${j.stage.padEnd(10)}] ${j.company} — ${j.title}`));
   } finally {
     await client.close();

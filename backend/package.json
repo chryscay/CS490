@@ -17,7 +17,8 @@
     "migrate:up": "node migrate.js up",
     "migrate:down": "node migrate.js down",
     "migrate:create": "node migrate.js create",
-    "migrate:verify": "node migrate.js verify"
+    "migrate:verify": "node migrate.js verify",
+    "smoke": "node smoke.js"
   },
   "dependencies": {
     "cors": "^2.8.6",

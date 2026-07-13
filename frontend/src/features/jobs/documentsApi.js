@@ -1,4 +1,4 @@
-﻿const API_URL = import.meta.env.VITE_API_URL ?? '';
+const API_URL = import.meta.env.VITE_API_URL ?? '';
 
 // S3-005: export a saved document version as a downloadable file (txt or pdf).
 // Unlike the JSON API calls, this returns a file blob and triggers a browser

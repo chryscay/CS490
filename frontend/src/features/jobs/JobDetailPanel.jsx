@@ -46,9 +46,9 @@ function buildTimeline(job) {
 
   const stageHistory = job.stageHistory ?? [];
   if (stageHistory.length > 0) {
-    stageHistory.forEach((entry) => {
+    stageHistory.forEach((entry, index) => {
       events.push({
-        id: `stage-${entry.id}`,
+        id: `stage-${entry.id ?? index}`,
         label: `Moved to ${entry.toStage}`,
         date: entry.changedAt,
       });

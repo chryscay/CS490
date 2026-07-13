@@ -1,4 +1,4 @@
-﻿import OpenAI from 'openai';
+import OpenAI from 'openai';
 import { buildAiProfileJobContext } from '../lib/aiContextAssembler.js';
 
 function truncateText(value, maxLength) {
