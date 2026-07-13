@@ -23,6 +23,7 @@ vi.mock('../features/jobs/jobsApi.js', () => ({
   unlinkDocumentFromJob: vi.fn(),
   generateCompanyResearch: vi.fn(),
   updateResearchNotes: vi.fn(),
+  updateInterviewPrepNotes: vi.fn(),
 }));
 
 vi.mock('../features/jobs/documentsApi.js', () => ({
@@ -78,6 +79,9 @@ describe('JobDetailPanel', () => {
     JobsApi.getDocument.mockResolvedValue({ document: { text: 'Document body text', version: 1 } });
     JobsApi.linkDocumentToJob.mockResolvedValue({ job: { _id: 'abc123' } });
     JobsApi.unlinkDocumentFromJob.mockResolvedValue({ job: { _id: 'abc123' } });
+    JobsApi.updateInterviewPrepNotes.mockResolvedValue({
+      job: { ...mockJob, interviewPrepNotes: 'Practice STAR stories.' },
+    });
     DocumentsApi.exportJobDocument.mockResolvedValue({ filename: 'Saved_Resume_v2.pdf' });
   });
   it('renders the job title', () => {
@@ -1422,6 +1426,13 @@ describe('JobDetailPanel — Archive and Restore (S2-014)', () => {
   });
 });
 describe('Company Research (S3-011)', () => {
+    it('renders Company Research exactly once (regression)', () => {
+      render(<JobDetailPanel {...defaultProps} />);
+      expect(
+        screen.getAllByRole('heading', { name: /company research/i })
+      ).toHaveLength(1);
+    });
+
     it('generates and displays company research from user context', async () => {
       JobsApi.generateCompanyResearch.mockResolvedValue({
         research: 'Acme builds developer tools. They value speed and ownership.',
@@ -1471,4 +1482,35 @@ describe('Company Research (S3-011)', () => {
       expect(await screen.findByText(/could not generate company research/i)).toBeInTheDocument();
     });
   });
+
+describe('Interview Prep Notes (S3-013)', () => {
+  it('renders Interview Prep Notes exactly once', () => {
+    render(<JobDetailPanel {...defaultProps} />);
+    expect(
+      screen.getAllByRole('heading', { name: /interview prep notes/i })
+    ).toHaveLength(1);
+  });
+
+  it('saves interview prep notes successfully', async () => {
+    const user = userEvent.setup();
+    render(<JobDetailPanel {...defaultProps} />);
+
+    const textarea = screen.getByRole('textbox', {
+      name: /^interview prep notes$/i,
+    });
+    await user.type(textarea, 'Review architecture tradeoffs and metrics.');
+    await user.click(
+      screen.getByRole('button', { name: /save interview prep notes/i })
+    );
+
+    expect(JobsApi.updateInterviewPrepNotes).toHaveBeenCalledWith(
+      'abc123',
+      'faketoken',
+      'Review architecture tradeoffs and metrics.'
+    );
+    expect(
+      await screen.findByText(/interview prep notes saved/i)
+    ).toBeInTheDocument();
+  });
+});
 

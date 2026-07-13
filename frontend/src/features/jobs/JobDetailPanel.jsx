@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { useAuth } from '../auth/useAuth';
-import { generateJobDraft, rewriteJobDraft, saveJobDocument, getJobDocuments, getAllDocuments, getDocument, linkDocumentToJob, unlinkDocumentFromJob, generateCompanyResearch, updateResearchNotes } from './jobsApi';
+import { generateJobDraft, rewriteJobDraft, saveJobDocument, getJobDocuments, getAllDocuments, getDocument, linkDocumentToJob, unlinkDocumentFromJob, generateCompanyResearch, updateResearchNotes, updateInterviewPrepNotes } from './jobsApi';
 import { exportJobDocument } from './documentsApi';
 import { getStageStyles, isOutcomeStage } from './stageStyles';
 import DeleteJobDialog from './DeleteJobDialog';
@@ -131,6 +131,10 @@ export default function JobDetailPanel({
   const [researchSaving, setResearchSaving] = useState(false);
   const [researchError, setResearchError] = useState('');
   const [researchMessage, setResearchMessage] = useState('');
+  const [interviewPrepNotes, setInterviewPrepNotes] = useState(job.interviewPrepNotes ?? '');
+  const [interviewPrepSaving, setInterviewPrepSaving] = useState(false);
+  const [interviewPrepError, setInterviewPrepError] = useState('');
+  const [interviewPrepMessage, setInterviewPrepMessage] = useState('');
   const [rewriteLoading, setRewriteLoading] = useState(false);
   const [rewriteError, setRewriteError] = useState('');
   const [rewriteInstruction, setRewriteInstruction] = useState('');
@@ -205,6 +209,15 @@ export default function JobDetailPanel({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser?.uid]);
 
+  useEffect(() => {
+    setResearchText(job.researchNotes ?? '');
+    setResearchMessage('');
+    setResearchError('');
+    setInterviewPrepNotes(job.interviewPrepNotes ?? '');
+    setInterviewPrepMessage('');
+    setInterviewPrepError('');
+  }, [job._id, job.researchNotes, job.interviewPrepNotes]);
+
   const handleGenerateDraft = async (type) => {
     if (rewriteLoading) {
       return;
@@ -269,6 +282,24 @@ export default function JobDetailPanel({
       setResearchError(error.message || 'Could not save research notes');
     } finally {
       setResearchSaving(false);
+    }
+  };
+
+  const handleSaveInterviewPrepNotes = async () => {
+    if (!interviewPrepNotes.trim()) {
+      return;
+    }
+    setInterviewPrepError('');
+    setInterviewPrepMessage('');
+    setInterviewPrepSaving(true);
+    try {
+      const token = await currentUser.getIdToken();
+      await updateInterviewPrepNotes(job._id, token, interviewPrepNotes.trim());
+      setInterviewPrepMessage('Interview prep notes saved');
+    } catch (error) {
+      setInterviewPrepError(error.message || 'Could not save interview prep notes');
+    } finally {
+      setInterviewPrepSaving(false);
     }
   };
 
@@ -934,6 +965,43 @@ export default function JobDetailPanel({
           )}
         </div>
 
+        {/* Interview prep notes (S3-013) */}
+        <div className="px-6 py-5 border-b border-white/10">
+          <h3 className="text-sm font-medium text-white/50 uppercase tracking-wider mb-3">
+            Interview Prep Notes
+          </h3>
+
+          <textarea
+            value={interviewPrepNotes}
+            onChange={(e) => {
+              setInterviewPrepNotes(e.target.value);
+              setInterviewPrepMessage('');
+            }}
+            rows={8}
+            aria-label="Interview prep notes"
+            placeholder="Capture likely interview questions, stories, key metrics, and prep checklist."
+            className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none focus:ring-2 focus:ring-blue-500"
+          />
+
+          <div className="mt-3 flex items-center gap-3">
+            <button
+              onClick={handleSaveInterviewPrepNotes}
+              disabled={interviewPrepSaving || !interviewPrepNotes.trim()}
+              aria-label="Save interview prep notes"
+              className="rounded-lg border border-white/10 px-4 py-2 text-sm text-white/70 hover:text-white hover:border-white/20 hover:bg-white/5 transition disabled:cursor-not-allowed disabled:text-white/30"
+            >
+              {interviewPrepSaving ? 'Saving...' : 'Save interview prep notes'}
+            </button>
+            {interviewPrepMessage && (
+              <span className="text-xs text-white/40">{interviewPrepMessage}</span>
+            )}
+          </div>
+
+          {interviewPrepError && (
+            <p className="mt-3 text-xs text-red-400">{interviewPrepError}</p>
+          )}
+        </div>
+
         {/* Saved drafts (SCRUM-XX) — reload persisted document versions */}
         {savedDocs.length > 0 && (
           <div className="px-6 py-5 border-b border-white/10">
@@ -1335,6 +1403,7 @@ JobDetailPanel.propTypes = {
   job: PropTypes.shape({
     _id: PropTypes.string,
     researchNotes: PropTypes.string,
+    interviewPrepNotes: PropTypes.string,
     title: PropTypes.string.isRequired,
     company: PropTypes.string.isRequired,
     stage: PropTypes.string.isRequired,

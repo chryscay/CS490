@@ -227,6 +227,36 @@ export default class JobsDAO {
     }
   }
 
+  static async updateInterviewPrepNotes(id, uid, interviewPrepNotes) {
+    try {
+      if (!ObjectId.isValid(id)) {
+        return null;
+      }
+
+      const result = await jobs.findOneAndUpdate(
+        {
+          _id: new ObjectId(id),
+          firebaseUid: uid,
+        },
+        {
+          $set: {
+            interviewPrepNotes,
+            interviewPrepUpdatedAt: new Date(),
+            lastActivityAt: new Date(),
+          },
+        },
+        {
+          returnDocument: 'after',
+        }
+      );
+
+      return result?.value ?? result ?? null;
+    } catch (e) {
+      console.error(`Unable to update interview prep notes: ${e}`);
+      throw e;
+    }
+  }
+
   static async getVelocity(uid) {
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);

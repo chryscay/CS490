@@ -671,6 +671,92 @@ describe('JobsDAO.updateResearchNotes', () => {
   });
 });
 
+describe('JobsDAO.updateInterviewPrepNotes', () => {
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    await JobsDAO.injectDB(mockConn);
+  });
+
+  it('updates interview prep notes and sets timestamps', async () => {
+    const notes =
+      'Review system design prompts, STAR stories, and measurable outcomes.';
+
+    mockFindOneAndUpdate.mockResolvedValue({
+      value: {
+        _id: '507f1f77bcf86cd799439011',
+        firebaseUid: 'user-a',
+        interviewPrepNotes: notes,
+        interviewPrepUpdatedAt: new Date(),
+      },
+    });
+
+    const result = await JobsDAO.updateInterviewPrepNotes(
+      '507f1f77bcf86cd799439011',
+      'user-a',
+      notes
+    );
+
+    expect(mockFindOneAndUpdate).toHaveBeenCalledWith(
+      {
+        _id: expect.any(Object),
+        firebaseUid: 'user-a',
+      },
+      {
+        $set: {
+          interviewPrepNotes: notes,
+          interviewPrepUpdatedAt: expect.any(Date),
+          lastActivityAt: expect.any(Date),
+        },
+      },
+      {
+        returnDocument: 'after',
+      }
+    );
+
+    expect(result.interviewPrepNotes).toBe(notes);
+  });
+
+  it('returns null for an invalid job id', async () => {
+    const result = await JobsDAO.updateInterviewPrepNotes(
+      'bad-id',
+      'user-a',
+      'Some interview prep notes'
+    );
+
+    expect(result).toBeNull();
+    expect(mockFindOneAndUpdate).not.toHaveBeenCalled();
+  });
+
+  it('returns null when the job is not owned by the user', async () => {
+    mockFindOneAndUpdate.mockResolvedValue({ value: null });
+
+    const result = await JobsDAO.updateInterviewPrepNotes(
+      '507f1f77bcf86cd799439011',
+      'wrong-user',
+      'Some interview prep notes'
+    );
+
+    expect(result?.value).toBeNull();
+
+    expect(mockFindOneAndUpdate).toHaveBeenCalledWith(
+      {
+        _id: expect.any(Object),
+        firebaseUid: 'wrong-user',
+      },
+      {
+        $set: {
+          interviewPrepNotes: 'Some interview prep notes',
+          interviewPrepUpdatedAt: expect.any(Date),
+          lastActivityAt: expect.any(Date),
+        },
+      },
+      {
+        returnDocument: 'after',
+      }
+    );
+  });
+});
+
 describe('JobsDAO.getVelocity', () => {
   beforeEach(async () => {
     vi.clearAllMocks();

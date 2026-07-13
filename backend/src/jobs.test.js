@@ -27,6 +27,7 @@ vi.mock('./dao/jobsDAO.js', () => ({
     findByIdForOwner: vi.fn(),
     updateJob: vi.fn(),
     updateResearchNotes: vi.fn(),
+    updateInterviewPrepNotes: vi.fn(),
     deleteJob: vi.fn(),
     appendStageTransition: vi.fn(),
     addInterview: vi.fn(),
@@ -1936,6 +1937,100 @@ describe('PATCH /api/jobs/:id/research', () => {
     expect(res.status).toBe(500);
 
     expect(res.body.error).toBe('Failed to update research notes');
+  });
+});
+
+describe('PATCH /api/jobs/:id/interview-prep', () => {
+  const ID = '507f1f77bcf86cd799439011';
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockVerifyIdToken.mockResolvedValue({
+      uid: 'user-a',
+      email: 'a@test.com',
+    });
+  });
+
+  it('updates interview prep notes for an owned job (happy path)', async () => {
+    JobsDAO.updateInterviewPrepNotes.mockResolvedValue({
+      _id: ID,
+      firebaseUid: 'user-a',
+      interviewPrepNotes: 'Review system design tradeoffs and leadership examples.',
+      interviewPrepUpdatedAt: '2026-07-12T00:00:00.000Z',
+    });
+
+    const res = await request(app)
+      .patch(`/api/jobs/${ID}/interview-prep`)
+      .set('Authorization', 'Bearer faketoken')
+      .send({
+        interviewPrepNotes: 'Review system design tradeoffs and leadership examples.',
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.job.interviewPrepNotes).toBe(
+      'Review system design tradeoffs and leadership examples.'
+    );
+    expect(JobsDAO.updateInterviewPrepNotes).toHaveBeenCalledWith(
+      ID,
+      'user-a',
+      'Review system design tradeoffs and leadership examples.'
+    );
+  });
+
+  it('rejects empty interview prep notes (400)', async () => {
+    const res = await request(app)
+      .patch(`/api/jobs/${ID}/interview-prep`)
+      .set('Authorization', 'Bearer faketoken')
+      .send({
+        interviewPrepNotes: '',
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('Interview prep notes are required');
+    expect(JobsDAO.updateInterviewPrepNotes).not.toHaveBeenCalled();
+  });
+
+  it('returns 404 when job does not belong to user', async () => {
+    JobsDAO.updateInterviewPrepNotes.mockResolvedValue(null);
+
+    const res = await request(app)
+      .patch(`/api/jobs/${ID}/interview-prep`)
+      .set('Authorization', 'Bearer faketoken')
+      .send({
+        interviewPrepNotes: 'Cross-user update should be blocked',
+      });
+
+    expect(res.status).toBe(404);
+    expect(JobsDAO.updateInterviewPrepNotes).toHaveBeenCalledWith(
+      ID,
+      'user-a',
+      'Cross-user update should be blocked'
+    );
+  });
+
+  it('blocks unauthenticated requests (401)', async () => {
+    const res = await request(app).patch(`/api/jobs/${ID}/interview-prep`).send({
+      interviewPrepNotes: 'Unauthorized attempt',
+    });
+
+    expect(res.status).toBe(401);
+    expect(JobsDAO.updateInterviewPrepNotes).not.toHaveBeenCalled();
+  });
+
+  it('returns 500 when updating interview prep notes fails', async () => {
+    JobsDAO.updateInterviewPrepNotes.mockRejectedValue(
+      new Error('database failure')
+    );
+
+    const res = await request(app)
+      .patch(`/api/jobs/${ID}/interview-prep`)
+      .set('Authorization', 'Bearer faketoken')
+      .send({
+        interviewPrepNotes: 'Some interview prep notes',
+      });
+
+    expect(res.status).toBe(500);
+    expect(res.body.error).toBe('Failed to update interview prep notes');
   });
 });
 
