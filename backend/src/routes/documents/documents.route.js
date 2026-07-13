@@ -35,6 +35,7 @@ router.use(authMiddleware);
 router.get('/', DocumentsController.apiGetAllDocuments);
 router.post('/upload', uploadSingleFile, DocumentsController.apiUploadDocument);
 router.get('/:id', DocumentsController.apiGetDocument); // S3-010
+router.get('/:id/versions', DocumentsController.apiGetDocumentVersions); // S3-008
 router.patch('/:id', DocumentsController.apiRenameDocument);
 router.post('/:id/archive', DocumentsController.apiArchiveDocument);
 router.post('/:id/restore', DocumentsController.apiRestoreDocument);

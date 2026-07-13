@@ -297,7 +297,7 @@ const jobs = [
 
 // Give each job a stable _id so documents can reference them and jobs can link back.
 jobs.forEach((job) => { job._id = new mongodb.ObjectId(); });
-const [stripeJob, vercelJob, linearJob, anthropicJob, , figmaJob] = jobs;
+const [stripeJob, vercelJob, linearJob, anthropicJob, palantirJob, figmaJob] = jobs;
 
 const dVer = (n, text, jobId, type) => ({
   version: n,
@@ -346,6 +346,27 @@ const documents = [
     type: 'coverLetter', title: 'Cover Letter — Stripe', status: 'active',
     tags: ['backend', 'payments'], currentVersion: 1,
     versions: [dVer(1, 'Dear Stripe hiring team…', stripeJob._id, 'coverLetter')],
+    createdAt: NOW, updatedAt: NOW,
+  },
+  { // Stripe resume — active
+    _id: new mongodb.ObjectId(), firebaseUid: FIREBASE_UID, jobId: stripeJob._id,
+    type: 'resume', title: 'Backend Resume — Stripe', status: 'active',
+    tags: ['backend', 'payments'], currentVersion: 1,
+    versions: [dVer(1, 'Alex Rivera — Backend Engineer, Payments focus…', stripeJob._id, 'resume')],
+    createdAt: NOW, updatedAt: NOW,
+  },
+  { // Vercel resume — active
+    _id: new mongodb.ObjectId(), firebaseUid: FIREBASE_UID, jobId: vercelJob._id,
+    type: 'resume', title: 'Frontend Resume — Vercel', status: 'active',
+    tags: ['frontend', 'react'], currentVersion: 1,
+    versions: [dVer(1, 'Alex Rivera — Frontend Engineer, React/Next.js focus…', vercelJob._id, 'resume')],
+    createdAt: NOW, updatedAt: NOW,
+  },
+  { // Palantir cover letter — active
+    _id: new mongodb.ObjectId(), firebaseUid: FIREBASE_UID, jobId: palantirJob._id,
+    type: 'coverLetter', title: 'Cover Letter — Palantir', status: 'active',
+    tags: ['fde', 'customer-facing'], currentVersion: 1,
+    versions: [dVer(1, 'Dear Palantir team, I am excited about the FDE role…', palantirJob._id, 'coverLetter')],
     createdAt: NOW, updatedAt: NOW,
   },
 ];

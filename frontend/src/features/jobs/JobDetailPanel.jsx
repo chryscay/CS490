@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { useAuth } from '../auth/useAuth';
-import { generateJobDraft, rewriteJobDraft, saveJobDocument, getJobDocuments, getAllDocuments, getDocument, linkDocumentToJob, unlinkDocumentFromJob, generateCompanyResearch, updateResearchNotes, updateInterviewPrepNotes } from './jobsApi';
+import { generateJobDraft, rewriteJobDraft, saveJobDocument, getJobDocuments, getAllDocuments, getDocument, getDocumentVersions, linkDocumentToJob, unlinkDocumentFromJob, generateCompanyResearch, updateResearchNotes, updateInterviewPrepNotes } from './jobsApi';
 import { exportJobDocument } from './documentsApi';
 import { getStageStyles, isOutcomeStage } from './stageStyles';
 import DeleteJobDialog from './DeleteJobDialog';
@@ -155,7 +155,7 @@ export default function JobDetailPanel({
   const [pickerType, setPickerType] = useState(null);
   const [pendingReplace, setPendingReplace] = useState(null);
   const [linkError, setLinkError] = useState('');
-  const [docView, setDocView] = useState({ id: null, text: '', loading: false, error: '' });
+  const [docView, setDocView] = useState({ id: null, text: '', loading: false, error: '', versions: [], selectedVersion: null });
 
   useEffect(() => {
     let cancelled = false;
@@ -408,19 +408,34 @@ export default function JobDetailPanel({
     }
   };
 
-  // S3-010: toggle inline view of linked document's latest version text.
+  // S3-010/S3-008: toggle inline view of a linked document, defaulting to its latest version,
+  // and load its version history so a prior version can be picked and viewed.
   const handleViewDoc = async (docId) => {
     if (docView.id === docId) {
-      setDocView({ id: null, text: '', loading: false, error: '' });
+      setDocView({ id: null, text: '', loading: false, error: '', versions: [], selectedVersion: null });
       return;
     }
-    setDocView({ id: docId, text: '', loading: true, error: '' });
+    setDocView({ id: docId, text: '', loading: true, error: '', versions: [], selectedVersion: null });
     try {
       const token = await currentUser.getIdToken();
-      const { document: doc } = await getDocument(token, docId);
-      setDocView({ id: docId, text: doc.text ?? '', loading: false, error: '' });
+      const [{ document: doc }, { versions }] = await Promise.all([
+        getDocument(token, docId),
+        getDocumentVersions(token, docId),
+      ]);
+      setDocView({ id: docId, text: doc.text ?? '', loading: false, error: '', versions, selectedVersion: doc.version ?? null });
     } catch (err) {
-      setDocView({ id: docId, text: '', loading: false, error: err.message || 'Failed to load document' });
+      setDocView({ id: docId, text: '', loading: false, error: err.message || 'Failed to load document', versions: [], selectedVersion: null });
+    }
+  };
+
+  const handleSelectDocVersion = async (docId, version) => {
+    setDocView((prev) => ({ ...prev, loading: true, error: '' }));
+    try {
+      const token = await currentUser.getIdToken();
+      const { document: doc } = await getDocument(token, docId, version);
+      setDocView((prev) => ({ ...prev, text: doc.text ?? '', loading: false, error: '', selectedVersion: doc.version ?? version }));
+    } catch (err) {
+      setDocView((prev) => ({ ...prev, loading: false, error: err.message || 'Failed to load version' }));
     }
   };
 
@@ -793,11 +808,28 @@ export default function JobDetailPanel({
                     </div>
                     {docView.id === linkedId && (
                       <div className="border-t border-white/10 px-4 pb-3">
-                        {docView.loading && (
-                          <p className="text-xs text-white/40 pt-3">Loading…</p>
-                        )}
                         {docView.error && (
                           <p className="text-xs text-red-400 pt-3">{docView.error}</p>
+                        )}
+                        {docView.versions.length > 1 && (
+                          <label className="flex items-center gap-2 pt-3 text-xs text-white/40">
+                            Version
+                            <select
+                              aria-label={`${label} version`}
+                              value={docView.selectedVersion ?? ''}
+                              onChange={(e) => handleSelectDocVersion(linkedId, e.target.value)}
+                              className="rounded-md border border-white/10 bg-[#0e0e0e] px-2 py-1 text-xs text-white/70"
+                            >
+                              {docView.versions.map((v) => (
+                                <option key={v.version} value={v.version}>
+                                  {v.label ?? `Version ${v.version}`} · {formatDate(v.createdAt)}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                        )}
+                        {docView.loading && (
+                          <p className="text-xs text-white/40 pt-3">Loading…</p>
                         )}
                         {!docView.loading && !docView.error && (
                           <pre

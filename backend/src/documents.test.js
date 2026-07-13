@@ -22,6 +22,7 @@ vi.mock('./dao/documentsDAO.js', () => ({
     findByJobForOwner: vi.fn(),
     findAllForOwner: vi.fn(),
     findVersionForOwner: vi.fn(),
+    listVersionsForOwner: vi.fn(),
     archiveDocument: vi.fn(),
     restoreDocument: vi.fn(),
     renameDocument: vi.fn(),
@@ -512,5 +513,77 @@ describe('GET /api/documents/:id (S3-010)', () => {
 
     expect(res.status).toBe(401);
     expect(DocumentsDAO.findVersionForOwner).not.toHaveBeenCalled();
+  });
+
+  it('passes a requested ?version= through to the DAO to fetch a prior version (C08)', async () => {
+    DocumentsDAO.findVersionForOwner.mockResolvedValue({
+      _id: DOC_ID,
+      type: 'resume',
+      title: 'My Resume',
+      version: 1,
+      text: 'Draft version.',
+    });
+
+    const res = await request(app)
+      .get(`/api/documents/${DOC_ID}?version=1`)
+      .set('Authorization', 'Bearer faketoken');
+
+    expect(res.status).toBe(200);
+    expect(res.body.document.version).toBe(1);
+    expect(DocumentsDAO.findVersionForOwner).toHaveBeenCalledWith('user-a', DOC_ID, '1');
+  });
+
+  it('returns 404 when the requested version does not exist', async () => {
+    DocumentsDAO.findVersionForOwner.mockResolvedValue(null);
+
+    const res = await request(app)
+      .get(`/api/documents/${DOC_ID}?version=99`)
+      .set('Authorization', 'Bearer faketoken');
+
+    expect(res.status).toBe(404);
+  });
+});
+
+describe('GET /api/documents/:id/versions (C08)', () => {
+  const DOC_ID = '507f1f77bcf86cd799439012';
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockVerifyIdToken.mockResolvedValue({ uid: 'user-a', email: 'a@test.com' });
+  });
+
+  it('returns version metadata (no text) newest-first for the version picker', async () => {
+    DocumentsDAO.listVersionsForOwner.mockResolvedValue([
+      { version: 2, label: 'Version 2', createdAt: '2026-07-01T00:00:00.000Z' },
+      { version: 1, label: 'Version 1', createdAt: '2026-06-01T00:00:00.000Z' },
+    ]);
+
+    const res = await request(app)
+      .get(`/api/documents/${DOC_ID}/versions`)
+      .set('Authorization', 'Bearer faketoken');
+
+    expect(res.status).toBe(200);
+    expect(res.body.versions).toHaveLength(2);
+    expect(res.body.versions[0].version).toBe(2);
+    expect(res.body.versions.every((v) => v.text === undefined)).toBe(true);
+    expect(DocumentsDAO.listVersionsForOwner).toHaveBeenCalledWith('user-a', DOC_ID);
+  });
+
+  it('returns 404 when the document does not exist or belongs to another user', async () => {
+    DocumentsDAO.listVersionsForOwner.mockResolvedValue(null);
+
+    const res = await request(app)
+      .get(`/api/documents/${DOC_ID}/versions`)
+      .set('Authorization', 'Bearer faketoken');
+
+    expect(res.status).toBe(404);
+    expect(res.body.error).toBe('Document not found');
+  });
+
+  it('returns 401 when no authorization token is provided', async () => {
+    const res = await request(app).get(`/api/documents/${DOC_ID}/versions`);
+
+    expect(res.status).toBe(401);
+    expect(DocumentsDAO.listVersionsForOwner).not.toHaveBeenCalled();
   });
 });
