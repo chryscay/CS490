@@ -1,4 +1,4 @@
-﻿import PDFDocument from 'pdfkit';
+import PDFDocument from 'pdfkit';
 
 export const EXPORT_FORMATS = new Set(['txt', 'pdf']);
 
