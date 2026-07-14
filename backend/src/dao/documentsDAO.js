@@ -309,7 +309,7 @@ export default class DocumentsDAO {
 
     const versions = doc.versions ?? [];
     return versions
-      .map((v) => ({ version: v.version, label: v.label, createdAt: v.createdAt }))
+      .map((v) => ({ version: v.version, label: v.label, createdAt: v.createdAt, firebaseUid: v.firebaseUid }))
       .sort((a, b) => b.version - a.version);
   }
 
@@ -345,6 +345,7 @@ export default class DocumentsDAO {
       title: doc.title,
       version: selected.version,
       text: selected.text ?? '',
+      firebaseUid: selected.firebaseUid ?? doc.firebaseUid,
     };
 
 

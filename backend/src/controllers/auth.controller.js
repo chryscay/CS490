@@ -3,7 +3,7 @@ import { getAuth } from 'firebase-admin/auth';
 import '../lib/firebase-admin.js';
 
 export default class AuthController {
-  static async apiAddUser(req, res) {
+  static async apiAddUser(req, res, next) {
     try {
       const authHeader = req.headers.authorization;
 
@@ -62,12 +62,11 @@ export default class AuthController {
 
       return res.status(201).json({ message: 'User created' });
     } catch (error) {
-      console.error('apiAddUser error: ', error);
-      return res.status(500).json({ error: 'Failed to sync user' });
+      return next(error);
     }
   }
 
-  static async apiCheckUsername(req, res) {
+  static async apiCheckUsername(req, res, next) {
     try {
       const username = req.params.username?.trim().toLowerCase();
 
@@ -83,11 +82,7 @@ export default class AuthController {
         available: !existingUser,
       });
     } catch (error) {
-      console.error('apiCheckUsername error:', error);
-
-      return res.status(500).json({
-        error: 'Failed to check username',
-      });
+      return next(error);
     }
   }
 }

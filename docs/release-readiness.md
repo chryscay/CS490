@@ -31,8 +31,8 @@ Verification: the deploy-verify run for the demo commit is green.
 ## 3. Smoke-test verification (S3-BR-020)
 
 Demo-critical flows are covered by an automated smoke-test suite
-(`npm run smoke`, backend) that exercises each critical path at the API level
-and asserts the expected outcome. Suite maps to the demo checklist:
+(`npm run smoke`, backend) that exercises each critical path and asserts the
+expected outcome. Suite maps to the demo checklist:
 
 - Auth-scoped access and cross-user isolation (ownership 404s)
 - Document lifecycle: create, list/metadata, version history
@@ -42,6 +42,16 @@ and asserts the expected outcome. Suite maps to the demo checklist:
 - Company research persistence
 - Interview prep notes persistence
 - Dashboard analytics (velocity / conversion / time-in-stage)
+
+Two layers of checks:
+- **Data-layer checks** (always run) call the DAOs directly against seeded
+  demo data — fast, no auth setup required.
+- **Authenticated HTTP checks** (run when `FIREBASE_WEB_API_KEY` is set) hit
+  the real Express routes with a real Firebase ID token — upload
+  (accept/reject), rename, archive/restore, version history, the
+  one-resume-per-job 409 guard, and document export — so a broken route,
+  middleware, or auth wiring bug actually fails the suite instead of only a
+  DAO-level bug. See `.env.example` for how to enable this layer.
 
 Verification: `npm run smoke` is green on the demo commit.
 

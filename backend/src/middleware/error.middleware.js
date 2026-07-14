@@ -1,6 +1,6 @@
 export class ApiError extends Error {
-  constructor(statusCode, message) {
-    super(message);
+  constructor(statusCode, message, options) {
+    super(message, options);
     this.name = 'ApiError';
     this.statusCode = statusCode;
   }
@@ -29,6 +29,7 @@ export function errorHandler(error, req, res, next) {
       path: req.originalUrl,
       statusCode,
       message: error?.message,
+      cause: error?.cause?.message,
       stack: error?.stack,
       requestId: req.headers['x-request-id'],
       user: req.user?.uid,

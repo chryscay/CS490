@@ -129,7 +129,7 @@ const SECTION_VALIDATORS = {
 };
 
 export default class ProfileController {
-  static async apiGetProfile(req, res) {
+  static async apiGetProfile(req, res, next) {
     try {
       const profile = await UsersDAO.getProfile(req.user.uid);
 
@@ -139,14 +139,13 @@ export default class ProfileController {
 
       return res.status(200).json({ profile });
     } catch (error) {
-      console.error('apiGetProfile error:', error);
-      return res.status(500).json({ error: 'Failed to fetch profile' });
+      return next(error);
     }
   }
 
   // Legacy whole-profile save. Kept intact so S1 behavior and its tests
   // are untouched. The frontend no longer calls it after this ticket.
-  static async apiUpdateProfile(req, res) {
+  static async apiUpdateProfile(req, res, next) {
     try {
       const { firstName, lastName, phone, city, state, summary, education } = req.body;
 
@@ -215,13 +214,12 @@ export default class ProfileController {
 
       return res.status(200).json({ profile });
     } catch (error) {
-      console.error('apiUpdateProfile error:', error);
-      return res.status(500).json({ error: 'Failed to update profile' });
+      return next(error);
     }
   }
 
   // S2-020 — independent per-section save with field-level validation.
-  static async apiUpdateProfileSection(req, res) {
+  static async apiUpdateProfileSection(req, res, next) {
     try {
       const { section } = req.params;
 
@@ -296,8 +294,7 @@ export default class ProfileController {
 
       return res.status(200).json({ profile });
     } catch (error) {
-      console.error('apiUpdateProfileSection error:', error);
-      return res.status(500).json({ error: 'Failed to update profile section' });
+      return next(error);
     }
   }
 }

@@ -469,6 +469,12 @@ describe('DocumentsDAO.saveDocumentVersion', () => {
     expect(result.title).toBe('My Resume');
   });
 
+  it('includes ownership metadata on the returned version (S3-BR-008)', async () => {
+    const docId = await seedTwoVersions();
+    const result = await DocumentsDAO.findVersionForOwner('user-a', docId, 1);
+    expect(result.firebaseUid).toBe('user-a');
+  });
+
   it('defaults to the latest version when none is specified', async () => {
     const docId = await seedTwoVersions();
     const result = await DocumentsDAO.findVersionForOwner('user-a', docId);
@@ -499,12 +505,12 @@ describe('DocumentsDAO.saveDocumentVersion', () => {
     });
   });
 
-  it('listVersionsForOwner returns version metadata newest-first, without text (C08)', async () => {
+  it('listVersionsForOwner returns version metadata newest-first, without text (C08, S3-BR-008)', async () => {
     const docId = await seedTwoVersions();
     const result = await DocumentsDAO.listVersionsForOwner('user-a', docId);
     expect(result).toEqual([
-      { version: 2, label: 'Version 2', createdAt: expect.anything() },
-      { version: 1, label: 'Version 1', createdAt: expect.anything() },
+      { version: 2, label: 'Version 2', createdAt: expect.anything(), firebaseUid: 'user-a' },
+      { version: 1, label: 'Version 1', createdAt: expect.anything(), firebaseUid: 'user-a' },
     ]);
     expect(result.every((v) => v.text === undefined)).toBe(true);
   });

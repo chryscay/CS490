@@ -82,30 +82,28 @@ function toSafeDocument(document) {
 
 export default class DocumentsController {
   // S3-008: archive/restore — status only, versions untouched (S3-BR-009).
-  static async apiArchiveDocument(req, res) {
+  static async apiArchiveDocument(req, res, next) {
     try {
       const doc = await DocumentsDAO.archiveDocument(req.user.uid, req.params.id);
       if (!doc) return res.status(404).json({ error: 'Document not found' });
       return res.status(200).json({ document: doc });
     } catch (error) {
-      console.error('apiArchiveDocument error:', error);
-      return res.status(500).json({ error: 'Failed to archive document' });
+      return next(error);
     }
   }
 
-  static async apiRestoreDocument(req, res) {
+  static async apiRestoreDocument(req, res, next) {
     try {
       const doc = await DocumentsDAO.restoreDocument(req.user.uid, req.params.id);
       if (!doc) return res.status(404).json({ error: 'Document not found' });
       return res.status(200).json({ document: doc });
     } catch (error) {
-      console.error('apiRestoreDocument error:', error);
-      return res.status(500).json({ error: 'Failed to restore document' });
+      return next(error);
     }
   }
 
   // S3-007: rename document title only — no version created (S3-BR-007).
-  static async apiRenameDocument(req, res) {
+  static async apiRenameDocument(req, res, next) {
     try {
       const uid = req.user.uid;
       const { id } = req.params;
@@ -119,13 +117,12 @@ export default class DocumentsController {
       }
       return res.status(200).json({ document: doc });
     } catch (error) {
-      console.error('apiRenameDocument error:', error);
-      return res.status(500).json({ error: 'Failed to rename document' });
+      return next(error);
     }
   }
 
   // S3-007: duplicate document — new record at version 1 with latest text.
-  static async apiDuplicateDocument(req, res) {
+  static async apiDuplicateDocument(req, res, next) {
     try {
       const uid = req.user.uid;
       const { id } = req.params;
@@ -135,49 +132,45 @@ export default class DocumentsController {
       }
       return res.status(201).json({ document: doc });
     } catch (error) {
-      console.error('apiDuplicateDocument error:', error);
-      return res.status(500).json({ error: 'Failed to duplicate document' });
+      return next(error);
     }
   }
 
 
   // S3-010: fetch a single document's version text (latest by default, or ?version=N) for display in job detail.
-  static async apiGetDocument(req, res) {
+  static async apiGetDocument(req, res, next) {
     try {
       const doc = await DocumentsDAO.findVersionForOwner(req.user.uid, req.params.id, req.query.version);
       if (!doc) return res.status(404).json({ error: 'Document not found' });
       return res.status(200).json({ document: doc });
     } catch (error) {
-      console.error('apiGetDocument error:', error);
-      return res.status(500).json({ error: 'Failed to fetch document' });
+      return next(error);
     }
   }
 
   // S3-008: list version metadata (version number, label, date) for the version-history picker.
-  static async apiGetDocumentVersions(req, res) {
+  static async apiGetDocumentVersions(req, res, next) {
     try {
       const versions = await DocumentsDAO.listVersionsForOwner(req.user.uid, req.params.id);
       if (!versions) return res.status(404).json({ error: 'Document not found' });
       return res.status(200).json({ versions });
     } catch (error) {
-      console.error('apiGetDocumentVersions error:', error);
-      return res.status(500).json({ error: 'Failed to fetch document versions' });
+      return next(error);
     }
   }
 
   // S3-001: list all documents for the authenticated user.
-  static async apiGetAllDocuments(req, res) {
+  static async apiGetAllDocuments(req, res, next) {
     try {
       const uid = req.user.uid;
       const docs = await DocumentsDAO.findAllForOwner(uid);
       return res.status(200).json({ documents: docs });
     } catch (error) {
-      console.error('apiGetAllDocuments error:', error);
-      return res.status(500).json({ error: 'Failed to fetch documents' });
+      return next(error);
     }
   }
 
-  static async apiUploadDocument(req, res) {
+  static async apiUploadDocument(req, res, next) {
     try {
       const { type, title, jobId } = req.body;
       const file = req.file;
@@ -220,8 +213,7 @@ export default class DocumentsController {
 
       return res.status(201).json({ document: toSafeDocument(document) });
     } catch (error) {
-      console.error('apiUploadDocument error:', error);
-      return res.status(500).json({ error: 'Failed to upload document' });
+      return next(error);
     }
   }
 }
