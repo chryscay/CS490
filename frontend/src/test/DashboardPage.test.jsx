@@ -442,6 +442,7 @@ describe('DashboardPage', () => {
       vi.fn().mockImplementation((url) => {
         if (url.includes('/analytics')) {
           return Promise.resolve({
+            ok: true,
             json: vi.fn().mockResolvedValue({
               velocity: 5,
               stageConversion: 0.4,
@@ -454,6 +455,7 @@ describe('DashboardPage', () => {
         }
 
         return Promise.resolve({
+          ok: true,
           json: vi.fn().mockResolvedValue({
             jobs: [],
           }),
@@ -471,5 +473,33 @@ describe('DashboardPage', () => {
     expect(screen.getByText('Stage Conversion')).toBeInTheDocument();
     expect(screen.getByText('40%')).toBeInTheDocument();
     expect(screen.getByText(/time in stage/i)).toBeInTheDocument();
+  });
+
+  it('does not render analytics cards when the analytics request fails (e.g. 401)', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation((url) => {
+        if (url.includes('/analytics')) {
+          return Promise.resolve({
+            ok: false,
+            status: 401,
+            json: vi.fn().mockResolvedValue({ error: 'Invalid or expired token' }),
+          });
+        }
+
+        return Promise.resolve({
+          ok: true,
+          json: vi.fn().mockResolvedValue({ jobs: [] }),
+        });
+      })
+    );
+
+    render(<DashboardPage />);
+
+    await waitFor(() => {
+      expect(screen.queryByText(/loading/i)).not.toBeInTheDocument();
+    });
+
+    expect(screen.queryByText('Weekly Velocity')).not.toBeInTheDocument();
   });
 });
