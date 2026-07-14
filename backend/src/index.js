@@ -1,7 +1,12 @@
 import dotenv from 'dotenv';
 dotenv.config({ override: true });
 
-import app from './app.js';
+// Static `import` statements are hoisted and evaluated before any of this
+// file's own top-level code — including the dotenv.config() call above —
+// regardless of source order. app.js's module graph (firebase-admin.js in
+// particular) reads process.env.FIREBASE_* at module-evaluation time, so it
+// must be imported dynamically, after .env has actually been loaded.
+const { default: app } = await import('./app.js');
 import mongodb from 'mongodb';
 import UsersDAO from './dao/usersDAO.js';
 import JobsDAO from './dao/jobsDAO.js';

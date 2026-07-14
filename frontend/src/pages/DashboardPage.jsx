@@ -93,6 +93,11 @@ export default function DashboardPage() {
         }
       );
 
+      if (!response.ok) {
+        console.error('Failed to load analytics:', await response.json().catch(() => ({})));
+        return;
+      }
+
       const data = await response.json();
 
       setAnalytics(data);
