@@ -291,8 +291,13 @@ export async function saveJobDocument(jobId, token, { type, title, text }) {
 }
 
 // S3-010: fetch a single library document's latest version text for inline display.
-export async function getDocument(token, documentId) {
-  const res = await fetch(`${API_URL}/api/documents/${documentId}`, {
+export async function getDocument(token, documentId, version) {
+  const params = new URLSearchParams();
+  if (version !== undefined && version !== null && version !== '') {
+    params.set('version', String(version));
+  }
+  const query = params.toString();
+  const res = await fetch(`${API_URL}/api/documents/${documentId}${query ? `?${query}` : ''}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
   if (!res.ok) {
@@ -301,6 +306,19 @@ export async function getDocument(token, documentId) {
   }
   const data = await res.json();
   return { document: data.document };
+}
+
+// S3-008: list a document's version history (version number, label, date) for a version picker.
+export async function getDocumentVersions(token, documentId) {
+  const res = await fetch(`${API_URL}/api/documents/${documentId}/versions`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || 'Failed to fetch document versions');
+  }
+  const data = await res.json();
+  return { versions: data.versions };
 }
 
 // S3-009: link a library document to a job (S3-BR-010, S3-BR-011).

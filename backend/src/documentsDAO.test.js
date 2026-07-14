@@ -498,6 +498,22 @@ describe('DocumentsDAO.saveDocumentVersion', () => {
       firebaseUid: 'user-a',
     });
   });
+
+  it('listVersionsForOwner returns version metadata newest-first, without text (C08)', async () => {
+    const docId = await seedTwoVersions();
+    const result = await DocumentsDAO.listVersionsForOwner('user-a', docId);
+    expect(result).toEqual([
+      { version: 2, label: 'Version 2', createdAt: expect.anything() },
+      { version: 1, label: 'Version 1', createdAt: expect.anything() },
+    ]);
+    expect(result.every((v) => v.text === undefined)).toBe(true);
+  });
+
+  it("listVersionsForOwner returns null for another owner's document (ownership isolation)", async () => {
+    const docId = await seedTwoVersions('user-a');
+    const result = await DocumentsDAO.listVersionsForOwner('user-b', docId);
+    expect(result).toBeNull();
+  });
 });
 
 

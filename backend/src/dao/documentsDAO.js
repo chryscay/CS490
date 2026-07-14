@@ -299,6 +299,20 @@ export default class DocumentsDAO {
     };
   }
 
+  // S3-008: list version metadata (no text) so the frontend can render a version picker.
+  static async listVersionsForOwner(firebaseUid, documentId) {
+    const _id = ObjectId.isValid(documentId) ? new ObjectId(documentId) : documentId;
+    const doc = await documents.findOne({ _id, firebaseUid });
+    if (!doc) {
+      return null;
+    }
+
+    const versions = doc.versions ?? [];
+    return versions
+      .map((v) => ({ version: v.version, label: v.label, createdAt: v.createdAt }))
+      .sort((a, b) => b.version - a.version);
+  }
+
   static async findVersionForOwner(firebaseUid, documentId, version) {
     const _id = ObjectId.isValid(documentId)
       ? new ObjectId(documentId)

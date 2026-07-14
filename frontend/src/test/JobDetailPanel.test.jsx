@@ -19,6 +19,7 @@ vi.mock('../features/jobs/jobsApi.js', () => ({
   getJobDocuments: vi.fn(),
   getAllDocuments: vi.fn(),
   getDocument: vi.fn(),
+  getDocumentVersions: vi.fn(),
   linkDocumentToJob: vi.fn(),
   unlinkDocumentFromJob: vi.fn(),
   generateCompanyResearch: vi.fn(),
@@ -77,6 +78,7 @@ describe('JobDetailPanel', () => {
     JobsApi.getJobDocuments.mockResolvedValue({ documents: [] });
     JobsApi.getAllDocuments.mockResolvedValue({ documents: [] });
     JobsApi.getDocument.mockResolvedValue({ document: { text: 'Document body text', version: 1 } });
+    JobsApi.getDocumentVersions.mockResolvedValue({ versions: [{ version: 1, label: 'Version 1', createdAt: '2026-01-01T00:00:00.000Z' }] });
     JobsApi.linkDocumentToJob.mockResolvedValue({ job: { _id: 'abc123' } });
     JobsApi.unlinkDocumentFromJob.mockResolvedValue({ job: { _id: 'abc123' } });
     JobsApi.updateInterviewPrepNotes.mockResolvedValue({
