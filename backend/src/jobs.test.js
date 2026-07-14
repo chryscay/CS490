@@ -783,7 +783,7 @@ describe('POST /api/jobs/:id/documents', () => {
       .send({ type: 'resume', text: 'Edited resume draft' });
 
     expect(res.status).toBe(500);
-    expect(res.body.error).toBe('Failed to save document');
+    expect(res.body.error).toBe('An unexpected error occurred');
   });
 
   it('blocks unauthenticated document save requests (401)', async () => {
@@ -883,7 +883,7 @@ describe('GET /api/jobs/:id/documents', () => {
       .set('Authorization', 'Bearer faketoken');
 
     expect(res.status).toBe(500);
-    expect(res.body.error).toBe('Failed to fetch documents');
+    expect(res.body.error).toBe('An unexpected error occurred');
   });
 });
 
@@ -1936,7 +1936,7 @@ describe('PATCH /api/jobs/:id/research', () => {
 
     expect(res.status).toBe(500);
 
-    expect(res.body.error).toBe('Failed to update research notes');
+    expect(res.body.error).toBe('An unexpected error occurred');
   });
 });
 
@@ -2030,7 +2030,7 @@ describe('PATCH /api/jobs/:id/interview-prep', () => {
       });
 
     expect(res.status).toBe(500);
-    expect(res.body.error).toBe('Failed to update interview prep notes');
+    expect(res.body.error).toBe('An unexpected error occurred');
   });
 });
 

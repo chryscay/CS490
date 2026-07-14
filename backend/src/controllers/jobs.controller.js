@@ -10,6 +10,7 @@ import {
 import * as AiDraftService from '../services/aiDraft.service.js';
 import * as AiResearchService from '../services/aiResearch.service.js';
 import { buildExport, isValidExportFormat } from '../lib/documentExport.js';
+import { ApiError } from '../middleware/error.middleware.js';
 const VALID_STAGES = [
   'Interested',
   'Applied',
@@ -20,7 +21,7 @@ const VALID_STAGES = [
 ];
 
 export default class JobsController {
-  static async apiCreateJob(req, res) {
+  static async apiCreateJob(req, res, next) {
     try {
       const {
         company,
@@ -71,22 +72,20 @@ export default class JobsController {
         id: result.insertedId,
       });
     } catch (error) {
-      console.error('apiCreateJob error:', error);
-      return res.status(500).json({ error: 'Failed to create job' });
+      return next(error);
     }
   }
 
-  static async apiGetJobs(req, res) {
+  static async apiGetJobs(req, res, next) {
     try {
       const jobs = await JobsDAO.findByOwner(req.user.uid);
       return res.status(200).json({ jobs });
     } catch (error) {
-      console.error('apiGetJobs error:', error);
-      return res.status(500).json({ error: 'Failed to fetch jobs' });
+      return next(error);
     }
   }
 
-  static async apiGetJobById(req, res) {
+  static async apiGetJobById(req, res, next) {
     try {
       const job = await JobsDAO.findByIdForOwner(req.params.id, req.user.uid);
 
@@ -96,12 +95,11 @@ export default class JobsController {
 
       return res.status(200).json({ job });
     } catch (error) {
-      console.error('apiGetJobById error:', error);
-      return res.status(500).json({ error: 'Failed to fetch job' });
+      return next(error);
     }
   }
 
-  static async apiUpdateJob(req, res) {
+  static async apiUpdateJob(req, res, next) {
     try {
       const {
         company,
@@ -164,12 +162,11 @@ export default class JobsController {
 
       return res.status(200).json({ message: 'Job updated', job: updated });
     } catch (error) {
-      console.error('apiUpdateJob error:', error);
-      return res.status(500).json({ error: 'Failed to update job' });
+      return next(error);
     }
   }
 
-  static async apiTransitionStage(req, res) {
+  static async apiTransitionStage(req, res, next) {
     try {
       const { toStage, confirmOverride = false, note = '' } = req.body;
 
@@ -233,11 +230,10 @@ export default class JobsController {
 
       return res.status(200).json({ message: 'Stage updated', job: updated });
     } catch (error) {
-      console.error('apiTransitionStage error:', error);
-      return res.status(500).json({ error: 'Failed to update stage' });
+      return next(error);
     }
   }
-  static async apiAddInterview(req, res) {
+  static async apiAddInterview(req, res, next) {
     try {
       const { roundType, scheduledAt, notes } = req.body;
 
@@ -271,12 +267,11 @@ export default class JobsController {
 
       return res.status(201).json({ message: 'Interview added', job: updated });
     } catch (error) {
-      console.error('apiAddInterview error:', error);
-      return res.status(500).json({ error: 'Failed to add interview' });
+      return next(error);
     }
   }
 
-  static async apiUpdateInterview(req, res) {
+  static async apiUpdateInterview(req, res, next) {
     try {
       const { roundType, scheduledAt, notes } = req.body;
       const { id, interviewId } = req.params;
@@ -312,12 +307,11 @@ export default class JobsController {
         .status(200)
         .json({ message: 'Interview updated', job: updated });
     } catch (error) {
-      console.error('apiUpdateInterview error:', error);
-      return res.status(500).json({ error: 'Failed to update interview' });
+      return next(error);
     }
   }
 
-  static async apiArchiveJob(req, res) {
+  static async apiArchiveJob(req, res, next) {
     try {
       const { note = '' } = req.body ?? {};
       const job = await JobsDAO.findByIdForOwner(req.params.id, req.user.uid);
@@ -349,12 +343,11 @@ export default class JobsController {
 
       return res.status(200).json({ message: 'Job archived', job: updated });
     } catch (error) {
-      console.error('apiArchiveJob error:', error);
-      return res.status(500).json({ error: 'Failed to archive job' });
+      return next(error);
     }
   }
 
-  static async apiRestoreJob(req, res) {
+  static async apiRestoreJob(req, res, next) {
     try {
       const job = await JobsDAO.findByIdForOwner(req.params.id, req.user.uid);
       if (!job) return res.status(404).json({ error: 'Job not found' });
@@ -392,12 +385,11 @@ export default class JobsController {
         restoredTo: targetStage,
       });
     } catch (error) {
-      console.error('apiRestoreJob error:', error);
-      return res.status(500).json({ error: 'Failed to restore job' });
+      return next(error);
     }
   }
 
-  static async apiAddFollowUp(req, res) {
+  static async apiAddFollowUp(req, res, next) {
     try {
       const { title, dueAt } = req.body;
 
@@ -429,12 +421,11 @@ export default class JobsController {
 
       return res.status(201).json({ message: 'Follow-up added', job: updated });
     } catch (error) {
-      console.error('apiAddFollowUp error:', error);
-      return res.status(500).json({ error: 'Failed to add follow-up' });
+      return next(error);
     }
   }
 
-  static async apiUpdateFollowUp(req, res) {
+  static async apiUpdateFollowUp(req, res, next) {
     try {
       const { title, dueAt, completedAt } = req.body;
       const { id, followUpId } = req.params;
@@ -478,12 +469,11 @@ export default class JobsController {
         .status(200)
         .json({ message: 'Follow-up updated', job: updated });
     } catch (error) {
-      console.error('apiUpdateFollowUp error:', error);
-      return res.status(500).json({ error: 'Failed to update follow-up' });
+      return next(error);
     }
   }
 
-  static async apiDeleteJob(req, res) {
+  static async apiDeleteJob(req, res, next) {
     try {
       const deleted = await JobsDAO.deleteJob(req.params.id, req.user.uid);
 
@@ -495,12 +485,11 @@ export default class JobsController {
         .status(200)
         .json({ message: 'Job deleted', id: req.params.id });
     } catch (error) {
-      console.error('apiDeleteJob error:', error);
-      return res.status(500).json({ error: 'Failed to delete job' });
+      return next(error);
     }
   }
 
-  static async apiDraftJob(req, res) {
+  static async apiDraftJob(req, res, next) {
     try {
       const { type } = req.body;
 
@@ -522,13 +511,12 @@ export default class JobsController {
 
       return res.status(200).json({ draft: draftText });
     } catch (error) {
-      console.error('apiDraftJob error:', error);
-      return res.status(502).json({ error: 'Failed to generate draft' });
+      return next(new ApiError(502, 'Failed to generate draft', { cause: error }));
     }
   }
 
   // S3-011: generate AI-assisted company research using user-provided context.
-  static async apiResearchCompany(req, res) {
+  static async apiResearchCompany(req, res, next) {
     try {
       const { userContext } = req.body;
 
@@ -544,14 +532,11 @@ export default class JobsController {
 
       return res.status(200).json({ research });
     } catch (error) {
-      console.error('apiResearchCompany error:', error);
-      return res
-        .status(502)
-        .json({ error: 'Failed to generate company research' });
+      return next(new ApiError(502, 'Failed to generate company research', { cause: error }));
     }
   }
 
-  static async apiRewriteDraft(req, res) {
+  static async apiRewriteDraft(req, res, next) {
     try {
       const { type, text, instruction } = req.body;
 
@@ -579,12 +564,11 @@ export default class JobsController {
 
       return res.status(200).json({ draft: rewrittenText });
     } catch (error) {
-      console.error('apiRewriteDraft error:', error);
-      return res.status(502).json({ error: 'Failed to rewrite draft' });
+      return next(new ApiError(502, 'Failed to rewrite draft', { cause: error }));
     }
   }
 
-  static async apiSaveDraftDocument(req, res) {
+  static async apiSaveDraftDocument(req, res, next) {
     try {
       const { type, title, text } = req.body;
 
@@ -627,12 +611,11 @@ export default class JobsController {
 
       return res.status(201).json({ document: safeDocument });
     } catch (error) {
-      console.error('apiSaveDraftDocument error:', error);
-      return res.status(500).json({ error: 'Failed to save document' });
+      return next(error);
     }
   }
 
-  static async apiGetJobDocuments(req, res) {
+  static async apiGetJobDocuments(req, res, next) {
     try {
       const job = await JobsDAO.findByIdForOwner(req.params.id, req.user.uid);
       if (!job) {
@@ -646,12 +629,11 @@ export default class JobsController {
 
       return res.status(200).json({ documents });
     } catch (error) {
-      console.error('apiGetJobDocuments error:', error);
-      return res.status(500).json({ error: 'Failed to fetch documents' });
+      return next(error);
     }
   }
 
-  static async apiUpdateResearchNotes(req, res) {
+  static async apiUpdateResearchNotes(req, res, next) {
     try {
       const { researchNotes } = req.body;
 
@@ -678,15 +660,11 @@ export default class JobsController {
         job: updated,
       });
     } catch (error) {
-      console.error('apiUpdateResearchNotes error:', error);
-
-      return res.status(500).json({
-        error: 'Failed to update research notes',
-      });
+      return next(error);
     }
   }
 
-  static async apiUpdateInterviewPrepNotes(req, res) {
+  static async apiUpdateInterviewPrepNotes(req, res, next) {
     try {
       const { interviewPrepNotes } = req.body;
 
@@ -713,16 +691,12 @@ export default class JobsController {
         job: updated,
       });
     } catch (error) {
-      console.error('apiUpdateInterviewPrepNotes error:', error);
-
-      return res.status(500).json({
-        error: 'Failed to update interview prep notes',
-      });
+      return next(error);
     }
   }
 
   // S3-009: link a library document to a job (S3-BR-010, S3-BR-011, S3-BR-012).
-  static async apiLinkDocument(req, res) {
+  static async apiLinkDocument(req, res, next) {
     try {
       const { type, documentId, confirmReplace = false } = req.body;
 
@@ -783,13 +757,12 @@ export default class JobsController {
 
       return res.status(200).json({ message: 'Document linked', job: updated });
     } catch (error) {
-      console.error('apiLinkDocument error:', error);
-      return res.status(500).json({ error: 'Failed to link document' });
+      return next(error);
     }
   }
 
   // S3-009: remove a linked document from a job.
-  static async apiUnlinkDocument(req, res) {
+  static async apiUnlinkDocument(req, res, next) {
     try {
       const { type } = req.params;
 
@@ -812,13 +785,12 @@ export default class JobsController {
         .status(200)
         .json({ message: 'Document unlinked', job: updated });
     } catch (error) {
-      console.error('apiUnlinkDocument error:', error);
-      return res.status(500).json({ error: 'Failed to unlink document' });
+      return next(error);
     }
   }
 
   // S3-005: export a specific document version as txt or pdf, owner-scoped.
-  static async apiExportJobDocument(req, res) {
+  static async apiExportJobDocument(req, res, next) {
     try {
       const { id, documentId } = req.params;
       const { format = 'txt', version } = req.query;
@@ -857,12 +829,11 @@ export default class JobsController {
       res.setHeader('Content-Length', buffer.length);
       return res.status(200).send(buffer);
     } catch (error) {
-      console.error('apiExportJobDocument error:', error);
-      return res.status(500).json({ error: 'Failed to export document' });
+      return next(error);
     }
   }
 
-  static async apiGetAnalytics(req, res) {
+  static async apiGetAnalytics(req, res, next) {
     try {
       const velocity = await JobsDAO.getVelocity(req.user.uid);
 
@@ -876,11 +847,7 @@ export default class JobsController {
         timeInStage,
       });
     } catch (error) {
-      console.error('Analytics error:', error);
-
-      return res.status(500).json({
-        error: 'Failed to load analytics',
-      });
+      return next(error);
     }
   }
 }

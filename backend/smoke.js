@@ -1,19 +1,34 @@
 // Demo smoke test (S3-BR-020) — run before release/demo, AFTER seeding.
-//   MONGO_URI=... FIREBASE_UID=<uid> [FIREBASE_UID_2=<uid2>] [SMOKE_BASE_URL=http://localhost:3001] npm run smoke
-// Verifies demo-critical flows: backend up, auth enforced, and seeded data
-// round-trips through the real DAO layer. Exits non-zero if any check fails.
+//   MONGO_URI=... FIREBASE_UID=<uid> [FIREBASE_UID_2=<uid2>] [FIREBASE_WEB_API_KEY=<key>] [SMOKE_BASE_URL=http://localhost:3001] npm run smoke
+// Verifies demo-critical flows: backend up, auth enforced, seeded data
+// round-trips through the real DAO layer, AND (when FIREBASE_WEB_API_KEY is
+// set) the mutating document/job-link flows over real authenticated HTTP
+// requests — not just direct DAO calls. FIREBASE_WEB_API_KEY is the same
+// public value as frontend's VITE_FIREBASE_API_KEY; it's used to exchange an
+// Admin-SDK-minted custom token for a real ID token, so no demo-user
+// password is ever needed.
+// Exits non-zero if any check fails.
 
 import mongodb from 'mongodb';
 import dotenv from 'dotenv';
 import JobsDAO from './src/dao/jobsDAO.js';
 import DocumentsDAO from './src/dao/documentsDAO.js';
+import { getAuth } from 'firebase-admin/auth';
+import './src/lib/firebase-admin.js';
 
 dotenv.config();
 
 const MONGO_URI = process.env.MONGO_URI;
 const UID = process.env.FIREBASE_UID;
 const UID2 = process.env.FIREBASE_UID_2;
+const WEB_API_KEY = process.env.FIREBASE_WEB_API_KEY;
 const BASE = process.env.SMOKE_BASE_URL || 'http://localhost:3001';
+
+// Fixed synthetic jobId so repeated smoke runs reuse the same one document
+// (documents are keyed by {firebaseUid, jobId, type}) instead of piling up
+// fresh rows with no delete endpoint to clean them up.
+const SMOKE_JOB_ID = '000000000000000000000001';
+const SMOKE_DOC_TITLE = 'Smoke Test Document (safe to ignore)';
 
 if (!MONGO_URI || !UID) {
   console.error('Usage: MONGO_URI=... FIREBASE_UID=<uid> npm run smoke');
@@ -42,6 +57,157 @@ async function httpChecks() {
     } catch {
       check('AUTH', `Unauthenticated ${path} blocked (401)`, false, 'request failed');
     }
+  }
+}
+
+// Mint a real Firebase ID token for UID without needing a demo-user password:
+// Admin SDK creates a custom token, then the public Identity Toolkit REST API
+// exchanges it for an ID token the same way the client SDK would.
+async function mintIdToken(uid) {
+  const customToken = await getAuth().createCustomToken(uid);
+  const res = await fetch(
+    `https://identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken?key=${WEB_API_KEY}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: customToken, returnSecureToken: true }),
+    }
+  );
+  const body = await res.json();
+  if (!res.ok || !body.idToken) {
+    throw new Error(body.error?.message || 'Failed to mint ID token');
+  }
+  return body.idToken;
+}
+
+// S3-BR-020: exercise the mutating document/job-link flows over real
+// authenticated HTTP requests (not just direct DAO calls), so a broken route,
+// middleware wiring, or auth check would actually fail this suite.
+async function authHttpChecks() {
+  console.log('\nAuthenticated HTTP flow checks (S3-BR-020):');
+
+  if (!WEB_API_KEY) {
+    console.log('  [SKIP] FIREBASE_WEB_API_KEY not set — skipping authenticated HTTP flow checks.');
+    return;
+  }
+
+  let idToken;
+  try {
+    idToken = await mintIdToken(UID);
+  } catch (e) {
+    check('HTTP', 'Mint ID token for authenticated checks', false, e.message);
+    return;
+  }
+  const authed = (path, options = {}) =>
+    fetch(`${BASE}${path}`, {
+      ...options,
+      headers: { ...(options.headers ?? {}), Authorization: `Bearer ${idToken}` },
+    });
+
+  // Negative case (S3-BR-004/005): unsupported upload format rejected with 400.
+  try {
+    const form = new FormData();
+    form.append('type', 'resume');
+    form.append('jobId', SMOKE_JOB_ID);
+    form.append('file', new Blob(['not a real image'], { type: 'image/png' }), 'smoke.png');
+    const res = await authed('/api/documents/upload', { method: 'POST', body: form });
+    check('HTTP', 'Upload rejects unsupported format (400)', res.status === 400);
+  } catch (e) {
+    check('HTTP', 'Upload rejects unsupported format (400)', false, e.message);
+  }
+
+  // Happy path upload (S3-BR-004, S3-BR-007): creates/bumps the one smoke doc.
+  let smokeDocId;
+  try {
+    const form = new FormData();
+    form.append('type', 'resume');
+    form.append('title', SMOKE_DOC_TITLE);
+    form.append('jobId', SMOKE_JOB_ID);
+    form.append('file', new Blob(['Smoke test resume text.'], { type: 'text/plain' }), 'smoke.txt');
+    const res = await authed('/api/documents/upload', { method: 'POST', body: form });
+    const body = await res.json().catch(() => ({}));
+    smokeDocId = body.document?._id;
+    check('HTTP', 'Upload supported format succeeds (201)', res.status === 201 && !!smokeDocId);
+  } catch (e) {
+    check('HTTP', 'Upload supported format succeeds (201)', false, e.message);
+  }
+
+  if (smokeDocId) {
+    // Rename (S3-BR-007: metadata-only, no new version) — idempotent, renames to its own title.
+    try {
+      const res = await authed(`/api/documents/${smokeDocId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: SMOKE_DOC_TITLE }),
+      });
+      check('HTTP', 'Rename document (200)', res.status === 200);
+    } catch (e) {
+      check('HTTP', 'Rename document (200)', false, e.message);
+    }
+
+    // Archive then restore (S3-BR-009: reversible, version history preserved).
+    try {
+      const archiveRes = await authed(`/api/documents/${smokeDocId}/archive`, { method: 'POST' });
+      const restoreRes = await authed(`/api/documents/${smokeDocId}/restore`, { method: 'POST' });
+      check('HTTP', 'Archive then restore document (200/200)', archiveRes.status === 200 && restoreRes.status === 200);
+    } catch (e) {
+      check('HTTP', 'Archive then restore document (200/200)', false, e.message);
+    }
+
+    // Version history accessor (S3-BR-008: version + timestamp + ownership metadata).
+    try {
+      const res = await authed(`/api/documents/${smokeDocId}/versions`);
+      const body = await res.json().catch(() => ({}));
+      const versions = body.versions ?? [];
+      const hasOwnership = versions.every((v) => v.version && v.createdAt && v.firebaseUid === UID);
+      check('HTTP', 'Version history exposes ownership metadata', res.status === 200 && versions.length > 0 && hasOwnership);
+    } catch (e) {
+      check('HTTP', 'Version history exposes ownership metadata', false, e.message);
+    }
+  }
+
+  // One-resume-per-job constraint (S3-BR-010/011): linking a second, different
+  // resume onto an already-linked seeded job must be blocked with 409, not
+  // silently overwritten. Read-only from the demo data's perspective.
+  try {
+    const jobsRes = await authed('/api/jobs');
+    const jobsBody = await jobsRes.json().catch(() => ({}));
+    const linkedJob = (jobsBody.jobs ?? []).find((j) => j.linkedDocuments?.resume);
+    const docsRes = await authed('/api/documents');
+    const docsBody = await docsRes.json().catch(() => ({}));
+    const otherResume = (docsBody.documents ?? []).find(
+      (d) => d.type === 'resume' && String(d._id) !== String(linkedJob?.linkedDocuments?.resume)
+    );
+    if (linkedJob && otherResume) {
+      const res = await authed(`/api/jobs/${linkedJob._id}/linked-documents`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'resume', documentId: otherResume._id }),
+      });
+      const body = await res.json().catch(() => ({}));
+      check('HTTP', 'Relinking a job\'s resume without confirmReplace is blocked (409)', res.status === 409 && body.requiresConfirmation === true);
+    } else {
+      check('HTTP', 'Relinking a job\'s resume without confirmReplace is blocked (409)', false, 'no seeded linked job + alternate resume found');
+    }
+  } catch (e) {
+    check('HTTP', 'Relinking a job\'s resume without confirmReplace is blocked (409)', false, e.message);
+  }
+
+  // Export (S3-BR-006): a linked document exports as a downloadable file.
+  try {
+    const jobsRes = await authed('/api/jobs');
+    const jobsBody = await jobsRes.json().catch(() => ({}));
+    const linkedJob = (jobsBody.jobs ?? []).find((j) => j.linkedDocuments?.resume);
+    if (linkedJob) {
+      const res = await authed(
+        `/api/jobs/${linkedJob._id}/documents/${linkedJob.linkedDocuments.resume}/export?format=txt`
+      );
+      check('HTTP', 'Export linked document as txt (200)', res.status === 200 && (res.headers.get('content-type') || '').includes('text/plain'));
+    } else {
+      check('HTTP', 'Export linked document as txt (200)', false, 'no seeded linked job found');
+    }
+  } catch (e) {
+    check('HTTP', 'Export linked document as txt (200)', false, e.message);
   }
 }
 
@@ -87,6 +253,7 @@ async function dataChecks(client) {
 
 async function main() {
   await httpChecks();
+  await authHttpChecks();
   const client = new mongodb.MongoClient(MONGO_URI);
   try {
     await client.connect();
