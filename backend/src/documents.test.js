@@ -2,6 +2,7 @@ import request from 'supertest';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import app from './app.js';
 import DocumentsDAO from './dao/documentsDAO.js';
+import JobsDAO from './dao/jobsDAO.js';
 
 const mockVerifyIdToken = vi.fn();
 
@@ -27,6 +28,13 @@ vi.mock('./dao/documentsDAO.js', () => ({
     restoreDocument: vi.fn(),
     renameDocument: vi.fn(),
     duplicateDocument: vi.fn(),
+    deleteDocument: vi.fn(),
+  },
+}));
+
+vi.mock('./dao/jobsDAO.js', () => ({
+  default: {
+    clearLinkedDocumentReferences: vi.fn(),
   },
 }));
 
@@ -306,6 +314,49 @@ describe('POST /api/documents/:id/duplicate', () => {
 
     expect(res.status).toBe(401);
     expect(DocumentsDAO.duplicateDocument).not.toHaveBeenCalled();
+  });
+});
+
+describe('DELETE /api/documents/:id', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockVerifyIdToken.mockResolvedValue({ uid: 'user-a', email: 'a@test.com' });
+  });
+
+  it('permanently deletes an owned document and clears any job links to it (happy path)', async () => {
+    DocumentsDAO.deleteDocument.mockResolvedValue({
+      _id: 'doc-1',
+      type: 'resume',
+      title: 'My Resume',
+    });
+
+    const res = await request(app)
+      .delete('/api/documents/doc-1')
+      .set('Authorization', 'Bearer faketoken');
+
+    expect(res.status).toBe(200);
+    expect(res.body.message).toBe('Document deleted');
+    expect(DocumentsDAO.deleteDocument).toHaveBeenCalledWith('user-a', 'doc-1');
+    expect(JobsDAO.clearLinkedDocumentReferences).toHaveBeenCalledWith('user-a', 'doc-1');
+  });
+
+  it('returns 404 and does not touch job links when the document does not exist or belongs to another user', async () => {
+    DocumentsDAO.deleteDocument.mockResolvedValue(null);
+
+    const res = await request(app)
+      .delete('/api/documents/nonexistent')
+      .set('Authorization', 'Bearer faketoken');
+
+    expect(res.status).toBe(404);
+    expect(res.body.error).toBe('Document not found');
+    expect(JobsDAO.clearLinkedDocumentReferences).not.toHaveBeenCalled();
+  });
+
+  it('returns 401 when no authorization token is provided', async () => {
+    const res = await request(app).delete('/api/documents/doc-1');
+
+    expect(res.status).toBe(401);
+    expect(DocumentsDAO.deleteDocument).not.toHaveBeenCalled();
   });
 });
 

@@ -283,6 +283,16 @@ export default class DocumentsDAO {
     };
   }
 
+  // Permanently remove a document. Distinct from archive/restore (S3-BR-009,
+  // which is reversible and preserves history) — this is irreversible.
+  static async deleteDocument(firebaseUid, documentId) {
+    const _id = ObjectId.isValid(documentId) ? new ObjectId(documentId) : documentId;
+    const result = await documents.findOneAndDelete({ _id, firebaseUid });
+    const doc = result?.value ?? result ?? null;
+    if (!doc?._id) return null;
+    return { _id: doc._id, type: doc.type, title: doc.title };
+  }
+
   // S3-009: fetch metadata for a single owned document for ownership validation.
   static async findOneForOwner(firebaseUid, documentId) {
     const _id = ObjectId.isValid(documentId) ? new ObjectId(documentId) : documentId;

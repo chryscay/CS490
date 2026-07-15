@@ -1,4 +1,5 @@
 import DocumentsDAO from '../dao/documentsDAO.js';
+import JobsDAO from '../dao/jobsDAO.js';
 import mammoth from 'mammoth';
 import pdfParse from 'pdf-parse';
 
@@ -131,6 +132,23 @@ export default class DocumentsController {
         return res.status(404).json({ error: 'Document not found' });
       }
       return res.status(201).json({ document: doc });
+    } catch (error) {
+      return next(error);
+    }
+  }
+
+  // Permanent removal — distinct from archive (S3-BR-009). Clears any job's
+  // link to this document so nothing is left pointing at a deleted document.
+  static async apiDeleteDocument(req, res, next) {
+    try {
+      const uid = req.user.uid;
+      const { id } = req.params;
+      const deleted = await DocumentsDAO.deleteDocument(uid, id);
+      if (!deleted) {
+        return res.status(404).json({ error: 'Document not found' });
+      }
+      await JobsDAO.clearLinkedDocumentReferences(uid, id);
+      return res.status(200).json({ message: 'Document deleted', id });
     } catch (error) {
       return next(error);
     }

@@ -85,6 +85,19 @@ export async function duplicateDocument(token, documentId) {
   return { document: data.document };
 }
 
+// Permanent removal — distinct from archive/restore, which is reversible.
+export async function deleteDocument(token, documentId) {
+  const res = await fetch(`${API_URL}/api/documents/${documentId}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || 'Failed to delete document');
+  }
+  return res.json();
+}
+
 // Resolves to { job } on success (200), or
 // { requiresConfirmation, fromStage, toStage } on a 409 non-forward block.
 // Throws on network/500 so the hook routes it to the error state.

@@ -14,10 +14,13 @@ vi.mock('../features/jobs/jobsApi', () => ({
   duplicateDocument: vi.fn(),
   archiveDocument: vi.fn(),
   restoreDocument: vi.fn(),
+  deleteDocument: vi.fn(),
+  getDocument: vi.fn(),
+  getDocumentVersions: vi.fn(),
 }));
 
 import { useAuth } from '../features/auth/useAuth';
-import { getAllDocuments, uploadDocument, renameDocument, duplicateDocument, archiveDocument, restoreDocument } from '../features/jobs/jobsApi';
+import { getAllDocuments, uploadDocument, renameDocument, duplicateDocument, archiveDocument, restoreDocument, deleteDocument, getDocument, getDocumentVersions } from '../features/jobs/jobsApi';
 
 const mockUser = {
   getIdToken: vi.fn().mockResolvedValue('fake-token'),
@@ -84,6 +87,16 @@ beforeEach(() => {
       currentVersion: 1,
       updatedAt: '2026-07-02T00:00:00.000Z',
     },
+  });
+  deleteDocument.mockResolvedValue({ message: 'Document deleted', id: 'doc-1' });
+  getDocument.mockResolvedValue({
+    document: { _id: 'doc-1', type: 'resume', title: 'Engineer Resume', version: 2, text: 'Resume body text' },
+  });
+  getDocumentVersions.mockResolvedValue({
+    versions: [
+      { version: 2, label: 'Version 2', createdAt: '2026-06-01T00:00:00.000Z' },
+      { version: 1, label: 'Version 1', createdAt: '2026-05-01T00:00:00.000Z' },
+    ],
   });
 });
 
@@ -391,5 +404,123 @@ describe('DocumentLibraryPage', () => {
       )
     ).toBeInTheDocument();
     expect(uploadDocument).not.toHaveBeenCalled();
+  });
+
+  it('clicking View fetches and shows the document text, and a version picker when multiple versions exist', async () => {
+    const user = userEvent.setup();
+    render(<DocumentLibraryPage />);
+    await waitFor(() => expect(screen.getByText('Engineer Resume')).toBeInTheDocument());
+
+    await user.click(screen.getByRole('button', { name: /view engineer resume text/i }));
+
+    await waitFor(() => {
+      expect(getDocument).toHaveBeenCalledWith('fake-token', 'doc-1');
+      expect(getDocumentVersions).toHaveBeenCalledWith('fake-token', 'doc-1');
+    });
+    expect(screen.getByText('Resume body text')).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: /engineer resume version/i })).toBeInTheDocument();
+  });
+
+  it('clicking View again (Hide) collapses the text', async () => {
+    const user = userEvent.setup();
+    render(<DocumentLibraryPage />);
+    await waitFor(() => expect(screen.getByText('Engineer Resume')).toBeInTheDocument());
+
+    await user.click(screen.getByRole('button', { name: /view engineer resume text/i }));
+    await waitFor(() => expect(screen.getByText('Resume body text')).toBeInTheDocument());
+
+    await user.click(screen.getByRole('button', { name: /hide engineer resume text/i }));
+    expect(screen.queryByText('Resume body text')).not.toBeInTheDocument();
+  });
+
+  it('switching the version picker fetches and shows that version\'s text', async () => {
+    const user = userEvent.setup();
+    getDocument.mockImplementation((token, id, version) =>
+      Promise.resolve({
+        document: {
+          _id: id,
+          type: 'resume',
+          title: 'Engineer Resume',
+          version: version ? Number(version) : 2,
+          text: version === '1' ? 'Older draft text' : 'Resume body text',
+        },
+      })
+    );
+
+    render(<DocumentLibraryPage />);
+    await waitFor(() => expect(screen.getByText('Engineer Resume')).toBeInTheDocument());
+    await user.click(screen.getByRole('button', { name: /view engineer resume text/i }));
+    await waitFor(() => expect(screen.getByText('Resume body text')).toBeInTheDocument());
+
+    await user.selectOptions(screen.getByRole('combobox', { name: /engineer resume version/i }), '1');
+
+    await waitFor(() => {
+      expect(getDocument).toHaveBeenCalledWith('fake-token', 'doc-1', '1');
+      expect(screen.getByText('Older draft text')).toBeInTheDocument();
+    });
+  });
+
+  it('shows an error message inline when the document fetch fails', async () => {
+    getDocument.mockRejectedValueOnce(new Error('Document not found'));
+    const user = userEvent.setup();
+    render(<DocumentLibraryPage />);
+    await waitFor(() => expect(screen.getByText('Engineer Resume')).toBeInTheDocument());
+
+    await user.click(screen.getByRole('button', { name: /view engineer resume text/i }));
+
+    expect(await screen.findByText('Document not found')).toBeInTheDocument();
+  });
+
+  it('clicking Delete opens a confirmation dialog and does not call deleteDocument until confirmed', async () => {
+    const user = userEvent.setup();
+    render(<DocumentLibraryPage />);
+    await waitFor(() => expect(screen.getByText('Engineer Resume')).toBeInTheDocument());
+
+    await user.click(screen.getByRole('button', { name: /delete engineer resume/i }));
+
+    expect(screen.getByRole('alertdialog', { name: /confirm delete document/i })).toBeInTheDocument();
+    expect(deleteDocument).not.toHaveBeenCalled();
+  });
+
+  it('canceling the delete dialog closes it without deleting', async () => {
+    const user = userEvent.setup();
+    render(<DocumentLibraryPage />);
+    await waitFor(() => expect(screen.getByText('Engineer Resume')).toBeInTheDocument());
+
+    await user.click(screen.getByRole('button', { name: /delete engineer resume/i }));
+    await user.click(screen.getByRole('button', { name: /cancel/i }));
+
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+    expect(deleteDocument).not.toHaveBeenCalled();
+    expect(screen.getByText('Engineer Resume')).toBeInTheDocument();
+  });
+
+  it('confirming delete calls deleteDocument and removes the document from the list', async () => {
+    const user = userEvent.setup();
+    render(<DocumentLibraryPage />);
+    await waitFor(() => expect(screen.getByText('Engineer Resume')).toBeInTheDocument());
+
+    await user.click(screen.getByRole('button', { name: /delete engineer resume/i }));
+    await user.click(screen.getByRole('button', { name: /^delete document$/i }));
+
+    await waitFor(() => {
+      expect(deleteDocument).toHaveBeenCalledWith('fake-token', 'doc-1');
+      expect(screen.queryByText('Engineer Resume')).not.toBeInTheDocument();
+    });
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+    expect(screen.getByText('Engineer Cover Letter')).toBeInTheDocument();
+  });
+
+  it('shows an error in the dialog and keeps the document listed when delete fails', async () => {
+    deleteDocument.mockRejectedValueOnce(new Error('Failed to delete document'));
+    const user = userEvent.setup();
+    render(<DocumentLibraryPage />);
+    await waitFor(() => expect(screen.getByText('Engineer Resume')).toBeInTheDocument());
+
+    await user.click(screen.getByRole('button', { name: /delete engineer resume/i }));
+    await user.click(screen.getByRole('button', { name: /^delete document$/i }));
+
+    expect(await screen.findByText('Failed to delete document')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /rename engineer resume/i })).toBeInTheDocument();
   });
 });

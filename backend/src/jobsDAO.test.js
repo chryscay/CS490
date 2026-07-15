@@ -9,6 +9,7 @@ const mockFindOne = vi.fn();
 const mockFindOneAndUpdate = vi.fn();
 const mockFindOneAndDelete = vi.fn();
 const mockAggregate = vi.fn();
+const mockUpdateMany = vi.fn();
 
 mockFind.mockImplementation(() => ({
   sort: mockSort,
@@ -27,6 +28,7 @@ const mockConn = {
       findOneAndUpdate: mockFindOneAndUpdate,
       findOneAndDelete: mockFindOneAndDelete,
       aggregate: mockAggregate,
+      updateMany: mockUpdateMany,
     }),
   }),
 };
@@ -584,6 +586,30 @@ describe('JobsDAO.clearLinkedDocument', () => {
     );
     expect(result).toBeNull();
     expect(mockFindOneAndUpdate).not.toHaveBeenCalled();
+  });
+});
+
+describe('JobsDAO.clearLinkedDocumentReferences', () => {
+  const DOC_ID = '507f1f77bcf86cd799439012';
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    await JobsDAO.injectDB(mockConn);
+  });
+
+  it('clears both resume and coverLetter links for the owner that reference the deleted document', async () => {
+    mockUpdateMany.mockResolvedValue({ modifiedCount: 1 });
+
+    await JobsDAO.clearLinkedDocumentReferences('user-a', DOC_ID);
+
+    expect(mockUpdateMany).toHaveBeenCalledWith(
+      { firebaseUid: 'user-a', 'linkedDocuments.resume': expect.any(Object) },
+      { $set: { 'linkedDocuments.resume': null } }
+    );
+    expect(mockUpdateMany).toHaveBeenCalledWith(
+      { firebaseUid: 'user-a', 'linkedDocuments.coverLetter': expect.any(Object) },
+      { $set: { 'linkedDocuments.coverLetter': null } }
+    );
   });
 });
 

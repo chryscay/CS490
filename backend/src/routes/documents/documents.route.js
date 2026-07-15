@@ -40,5 +40,6 @@ router.patch('/:id', DocumentsController.apiRenameDocument);
 router.post('/:id/archive', DocumentsController.apiArchiveDocument);
 router.post('/:id/restore', DocumentsController.apiRestoreDocument);
 router.post('/:id/duplicate', DocumentsController.apiDuplicateDocument);
+router.delete('/:id', DocumentsController.apiDeleteDocument);
 
 export default router;
