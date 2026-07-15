@@ -198,6 +198,20 @@ export default class JobsDAO {
     return result?.value ?? result ?? null;
   }
 
+  // Clear any job's link to a document that's being permanently deleted, so no
+  // job is left pointing at a document that no longer exists.
+  static async clearLinkedDocumentReferences(uid, documentId) {
+    const docOid = ObjectId.isValid(documentId)
+      ? new ObjectId(documentId)
+      : documentId;
+    for (const type of ['resume', 'coverLetter']) {
+      await jobs.updateMany(
+        { firebaseUid: uid, [`linkedDocuments.${type}`]: docOid },
+        { $set: { [`linkedDocuments.${type}`]: null } }
+      );
+    }
+  }
+
   static async updateResearchNotes(id, uid, researchNotes) {
     try {
       if (!ObjectId.isValid(id)) {

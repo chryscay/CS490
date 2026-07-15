@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../features/auth/useAuth';
-import { getAllDocuments, uploadDocument, renameDocument, duplicateDocument, archiveDocument, restoreDocument } from '../features/jobs/jobsApi';
+import { getAllDocuments, uploadDocument, renameDocument, duplicateDocument, archiveDocument, restoreDocument, deleteDocument, getDocument, getDocumentVersions } from '../features/jobs/jobsApi';
+import DeleteDocumentDialog from '../features/jobs/DeleteDocumentDialog';
 
 const TYPE_LABEL = {
   resume: 'Resume',
@@ -44,6 +45,10 @@ export default function DocumentLibraryPage() {
   const [editingTitle, setEditingTitle] = useState('');
   const [actionMsg, setActionMsg] = useState('');
   const [actionError, setActionError] = useState('');
+  const [docView, setDocView] = useState({ id: null, text: '', loading: false, error: '', versions: [], selectedVersion: null });
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleteSubmitting, setDeleteSubmitting] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
 
   async function loadDocuments(token) {
     const { documents: docs } = await getAllDocuments(token);
@@ -179,6 +184,54 @@ export default function DocumentLibraryPage() {
     } catch {
       setActionError('Failed to duplicate document');
       setTimeout(() => setActionError(''), 4000);
+    }
+  }
+
+  async function handleViewDoc(documentId) {
+    if (docView.id === documentId) {
+      setDocView({ id: null, text: '', loading: false, error: '', versions: [], selectedVersion: null });
+      return;
+    }
+    setDocView({ id: documentId, text: '', loading: true, error: '', versions: [], selectedVersion: null });
+    try {
+      const token = await currentUser.getIdToken();
+      const [{ document: doc }, { versions }] = await Promise.all([
+        getDocument(token, documentId),
+        getDocumentVersions(token, documentId),
+      ]);
+      setDocView({ id: documentId, text: doc.text ?? '', loading: false, error: '', versions, selectedVersion: doc.version ?? null });
+    } catch (err) {
+      setDocView({ id: documentId, text: '', loading: false, error: err.message || 'Failed to load document', versions: [], selectedVersion: null });
+    }
+  }
+
+  async function handleSelectDocVersion(documentId, version) {
+    setDocView((prev) => ({ ...prev, loading: true, error: '' }));
+    try {
+      const token = await currentUser.getIdToken();
+      const { document: doc } = await getDocument(token, documentId, version);
+      setDocView((prev) => ({ ...prev, text: doc.text ?? '', loading: false, error: '', selectedVersion: doc.version ?? version }));
+    } catch (err) {
+      setDocView((prev) => ({ ...prev, loading: false, error: err.message || 'Failed to load version' }));
+    }
+  }
+
+  async function handleConfirmDelete() {
+    if (!deleteTarget) return;
+    setDeleteSubmitting(true);
+    setDeleteError('');
+    try {
+      const token = await currentUser.getIdToken();
+      await deleteDocument(token, deleteTarget._id);
+      setDocuments((prev) => prev.filter((d) => String(d._id) !== String(deleteTarget._id)));
+      if (docView.id === deleteTarget._id) {
+        setDocView({ id: null, text: '', loading: false, error: '', versions: [], selectedVersion: null });
+      }
+      setDeleteTarget(null);
+    } catch (err) {
+      setDeleteError(err.message || 'Failed to delete document');
+    } finally {
+      setDeleteSubmitting(false);
     }
   }
 
@@ -373,8 +426,9 @@ export default function DocumentLibraryPage() {
             {visible.map((doc) => (
               <li
                 key={doc._id}
-                className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.03] px-5 py-4"
+                className="rounded-2xl border border-white/10 bg-white/[0.03]"
               >
+              <div className="flex items-center justify-between px-5 py-4">
                 <div className="flex items-center gap-3 min-w-0 flex-wrap">
                   <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium ${TYPE_STYLE[doc.type] ?? ''}`}>
                     {TYPE_LABEL[doc.type] ?? doc.type}
@@ -437,14 +491,75 @@ export default function DocumentLibraryPage() {
                   >
                     Copy
                   </button>
+                  <button
+                    onClick={() => handleViewDoc(doc._id)}
+                    aria-label={docView.id === doc._id ? `Hide ${doc.title} text` : `View ${doc.title} text`}
+                    className="text-xs text-white/40 hover:text-blue-300 transition"
+                  >
+                    {docView.id === doc._id ? 'Hide' : 'View'}
+                  </button>
+                  <button
+                    onClick={() => { setDeleteTarget(doc); setDeleteError(''); }}
+                    aria-label={`Delete ${doc.title}`}
+                    className="text-xs text-white/40 hover:text-red-400 transition"
+                  >
+                    Delete
+                  </button>
                   <span className="text-xs text-white/40">v{doc.currentVersion}</span>
                   <span className="text-xs text-white/40">{formatDate(doc.updatedAt)}</span>
                 </div>
+              </div>
+
+              {docView.id === doc._id && (
+                <div className="border-t border-white/10 px-5 pb-4">
+                  {docView.error && (
+                    <p className="text-xs text-red-400 pt-3">{docView.error}</p>
+                  )}
+                  {docView.versions.length > 1 && (
+                    <label className="flex items-center gap-2 pt-3 text-xs text-white/40">
+                      Version
+                      <select
+                        aria-label={`${doc.title} version`}
+                        value={docView.selectedVersion ?? ''}
+                        onChange={(e) => handleSelectDocVersion(doc._id, e.target.value)}
+                        className="rounded-md border border-white/10 bg-[#0e0e0e] px-2 py-1 text-xs text-white/70"
+                      >
+                        {docView.versions.map((v) => (
+                          <option key={v.version} value={v.version}>
+                            {v.label ?? `Version ${v.version}`} · {formatDate(v.createdAt)}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  )}
+                  {docView.loading && (
+                    <p className="text-xs text-white/40 pt-3">Loading…</p>
+                  )}
+                  {!docView.loading && !docView.error && (
+                    <pre
+                      aria-label={`${doc.title} document text`}
+                      className="mt-3 max-h-64 overflow-y-auto whitespace-pre-wrap text-sm text-white/70"
+                    >
+                      {docView.text}
+                    </pre>
+                  )}
+                </div>
+              )}
               </li>
             ))}
           </ul>
         )}
       </section>
+
+      {deleteTarget && (
+        <DeleteDocumentDialog
+          documentTitle={deleteTarget.title}
+          onConfirm={handleConfirmDelete}
+          onCancel={() => { setDeleteTarget(null); setDeleteError(''); }}
+          isSubmitting={deleteSubmitting}
+          error={deleteError}
+        />
+      )}
     </div>
   );
 }

@@ -126,6 +126,14 @@ const mockCollection = {
 
     return { value: current };
   },
+  findOneAndDelete: async (filter) => {
+    const index = storedDocuments.findIndex((document) => matchesQuery(document, filter));
+    if (index === -1) {
+      return { value: null };
+    }
+    const [removed] = storedDocuments.splice(index, 1);
+    return { value: removed };
+  },
 };
 
 const mockConn = {
@@ -812,6 +820,48 @@ describe('DocumentsDAO.duplicateDocument', () => {
 
     expect(duped.status).toBe('archived');
     expect(duped.tags).toEqual(['senior', 'remote']);
+  });
+});
+
+describe('DocumentsDAO.deleteDocument', () => {
+  beforeEach(async () => {
+    storedDocuments.length = 0;
+    await DocumentsDAO.injectDB(mockConn);
+  });
+
+  it('permanently removes an owned document (happy path)', async () => {
+    const doc = await DocumentsDAO.saveDocumentVersion({
+      firebaseUid: 'user-a',
+      jobId: '507f1f77bcf86cd799439011',
+      type: 'resume',
+      title: 'My Resume',
+      text: 'v1 text',
+    });
+
+    const result = await DocumentsDAO.deleteDocument('user-a', doc._id);
+
+    expect(result.title).toBe('My Resume');
+    expect(storedDocuments).toHaveLength(0);
+  });
+
+  it('returns null and deletes nothing for a document that does not exist', async () => {
+    const result = await DocumentsDAO.deleteDocument('user-a', new ObjectId());
+    expect(result).toBeNull();
+  });
+
+  it("returns null and does not delete another owner's document (ownership isolation)", async () => {
+    const doc = await DocumentsDAO.saveDocumentVersion({
+      firebaseUid: 'user-a',
+      jobId: '507f1f77bcf86cd799439011',
+      type: 'resume',
+      title: 'My Resume',
+      text: 'v1 text',
+    });
+
+    const result = await DocumentsDAO.deleteDocument('user-b', doc._id);
+
+    expect(result).toBeNull();
+    expect(storedDocuments).toHaveLength(1);
   });
 });
 
